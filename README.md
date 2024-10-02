@@ -27,8 +27,8 @@ Goals of ai.nvim:
 
 (Planned) features:
 
-- [ ] Ghost text autocompletion
-- [ ] Edit highlighted sections or whole filse with custom prompts and commands
+- [x] Ghost text autocompletion
+- [ ] Edit highlighted sections or whole files with custom prompts and commands
 - [ ] Intelligent & customizable context
 - [ ] Efficient modification of big or multiple files (For example by using a search & replace strategy, similar to [Aider](https://aider.chat))
 - [ ] Automated refactorings (Allow the LLM to create files)

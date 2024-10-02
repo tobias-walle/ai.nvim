@@ -1,1 +1,0 @@
-print('ai.nvim loaded')

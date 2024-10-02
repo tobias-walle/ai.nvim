@@ -1,20 +1,16 @@
 local M = {}
 
----@class AiNvimOptions
----@field name? string
+M.did_setup = false
 
----@param opts AiNvimOptions
-function M.setup(opts)
-  opts = opts or {}
+---@param config AiConfig?
+function M.setup(config)
+  require('ai.config').setup(config)
 
-  vim.keymap.set('n', '<leader>h', function()
-    if opts.name then
-      print('Hello ' .. opts.name)
-    else
-      print('Hello')
-    end
-  end)
-  print('new setup ai.nvim')
+  M.trigger_completion = require('ai.completion').trigger_completion
+
+  M.did_setup = true
 end
+
+M.set_provider = require('ai.config').set_provider
 
 return M

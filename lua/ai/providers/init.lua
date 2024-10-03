@@ -14,7 +14,7 @@ local M = {}
 ---@class LLMProvider
 ---@field name string
 ---@field model string
----@field stream fun(self, options: LLMStreamOptions): nil
+---@field stream fun(self, options: LLMStreamOptions): vim.SystemObj
 M.LLMProvider = {}
 M.LLMProvider.__Index = M.LLMProvider
 

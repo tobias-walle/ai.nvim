@@ -7,7 +7,7 @@ local M = {}
 --- @field on_data fun(data: table): nil
 
 --- @param options RequestOptions
---- @return integer job_id
+--- @return vim.SystemObj
 function M.stream(options)
   local cmd = {
     'curl',
@@ -60,7 +60,7 @@ function M.stream(options)
     vim.schedule_wrap(function(_)
       -- Do nothing on exit
     end)
-  ).pid
+  )
 end
 
 return M

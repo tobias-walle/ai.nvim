@@ -35,17 +35,24 @@ function M.trigger_completion()
   -- Get the cursor position
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
 
+  -- Get language
+  local lang = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
+
   -- Insert the cursor marker at the current position
   local cursor_line = lines[row]
   local before = cursor_line:sub(1, col)
   local after = cursor_line:sub(col + 1)
   lines[row] = before .. '<|cursor|>' .. after
 
+  table.insert(lines, 1, '```' .. lang)
+  table.insert(lines, '```')
+
   local content = table.concat(lines, '\n')
 
+  local cancelled = false
   local suggestion = ''
 
-  local job_id = config.provider:stream({
+  local job = config.provider:stream({
     system_prompt = system_prompt,
     messages = {
       { role = 'user', content = content },
@@ -53,6 +60,9 @@ function M.trigger_completion()
     temperature = 0,
     max_tokens = 128,
     on_data = function(delta)
+      if cancelled then
+        return
+      end
       suggestion = suggestion .. delta
       require('ai.render').render_ghost_text({
         text = suggestion,
@@ -68,7 +78,8 @@ function M.trigger_completion()
   local autocmd_id
 
   local function cleanup()
-    vim.fn.jobstop(job_id)
+    cancelled = true
+    job:kill('SIGTERM')
     vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
     vim.keymap.del(
       'i',

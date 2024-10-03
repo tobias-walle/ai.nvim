@@ -46,6 +46,7 @@ function M:stream(options)
         options.on_data(text)
       end
     end,
+    on_exit = options.on_exit,
   })
 end
 

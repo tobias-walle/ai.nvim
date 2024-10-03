@@ -1,11 +1,11 @@
 -- Define a module
 local M = {}
 
-local system_prompt = [[
+local system_prompt = vim.trim([[
 You are acting as a autocompletion engine.
 You are getting some code as input with the cursor position marked as <|cursor|> and ONLY answer with the autocompletion suggestion without repeating the input or the cursor position.
 DO NOT wrap your response in a code block.
-]]
+]])
 
 local ns_id = vim.api.nvim_create_namespace('ai_completion')
 
@@ -18,15 +18,6 @@ function M.trigger_completion()
       .. config.provider.model,
     vim.log.levels.INFO
   )
-  -- Get the API key from environment variable
-  local api_key = os.getenv('OPENAI_API_KEY')
-  if not api_key then
-    vim.notify(
-      '[ai] OpenAI API key not found in environment variable OPENAI_API_KEY',
-      vim.log.levels.ERROR
-    )
-    return
-  end
 
   -- Get the buffer content
   local bufnr = vim.api.nvim_get_current_buf()
@@ -68,7 +59,7 @@ function M.trigger_completion()
         text = suggestion,
         buffer = bufnr,
         ns_id = ns_id,
-        row = row,
+        row = row - 1,
         col = col,
       })
     end,

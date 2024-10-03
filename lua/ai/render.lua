@@ -8,7 +8,7 @@ function M.render_ghost_text(opts)
   vim.api.nvim_buf_set_extmark(
     opts.buffer,
     opts.ns_id,
-    opts.row - 1,
+    opts.row,
     opts.col,
     {
       virt_text = { { lines[1], 'comment' } },

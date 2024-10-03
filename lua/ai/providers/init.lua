@@ -10,6 +10,7 @@ local M = {}
 ---@field max_tokens integer?
 ---@field temperature float?
 ---@field on_data fun(delta:string): nil
+---@field on_exit (fun(): nil)?
 
 ---@class LLMProvider
 ---@field name string

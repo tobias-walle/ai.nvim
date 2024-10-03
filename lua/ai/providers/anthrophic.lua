@@ -24,7 +24,7 @@ function M:new(options)
 end
 
 ---@param options LLMStreamOptions
----@return integer job_id
+---@return vim.SystemObj
 function M:stream(options)
   return requests.stream({
     url = self.endpoint .. '/v1/messages',

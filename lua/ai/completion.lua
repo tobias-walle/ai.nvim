@@ -2,9 +2,22 @@
 local M = {}
 
 local system_prompt = vim.trim([[
-You are acting as a autocompletion engine.
-You are getting some code as input with the cursor position marked as <|cursor|> and ONLY answer with the autocompletion suggestion without repeating the input or the cursor position.
-DO NOT wrap your response in a code block.
+- You are an amazing autocompletion engine.
+- You are getting some code as input with the cursor position marked as <|cursor|> and ONLY answer with the autocompletion suggestion without repeating the input or the cursor position.
+- For the autocompletion you are taking the context as a reference and predecting the most likely code that an outstanding programmer would be typing.
+- DO NOT wrap your response in a code block.
+
+# Example
+<input>
+```javascript
+function helloWorld {
+<|cursor|>
+}
+```
+</input>
+<output>
+  console.log('Hello World')
+</output>
 ]])
 
 local ns_id = vim.api.nvim_create_namespace('ai_completion')

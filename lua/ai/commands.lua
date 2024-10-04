@@ -2,6 +2,7 @@
 local M = {}
 
 local string_utils = require('ai.utils.string')
+local ui = require('ai.ui')
 
 local system_prompt = vim.trim([[
 Follow the instructions and respond exclusively with the code snippet that should replace the code in the context!
@@ -26,7 +27,7 @@ Respond exclusively with the code snippet! Do not wrap the response in a code bl
 
 local ns_id = vim.api.nvim_create_namespace('ai_command')
 
-local function rewrite(opts)
+local function rewrite_with_instructions(opts, instructions)
   local config = require('ai.config').config
   vim.notify(
     '[ai] Trigger command with '
@@ -58,7 +59,7 @@ local function rewrite(opts)
     filename = filename,
     content = content,
     language = language,
-    intructions = opts.args,
+    intructions = instructions,
   })
 
   local cancelled = false
@@ -119,11 +120,21 @@ local function rewrite(opts)
   })
 end
 
+local function rewrite(opts)
+  if opts.args and opts.args ~= '' then
+    return rewrite_with_instructions(opts, opts.args)
+  else
+    ui.input({ prompt = 'Instructions' }, function(instructions)
+      return rewrite_with_instructions(opts, instructions)
+    end)
+  end
+end
+
 function M.setup()
   vim.api.nvim_create_user_command(
     'AiRewrite',
     rewrite,
-    { range = true, nargs = '+' }
+    { range = true, nargs = '*' }
   )
 end
 

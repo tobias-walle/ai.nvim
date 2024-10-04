@@ -21,7 +21,8 @@ File {{filename}}. CONTENT:
 {{intructions}}
 </intructions>
 
-Respond exclusively with the code replacing the CONTENT above! Do not wrap the response in a code block.
+- Respond exclusively with the code replacing the CONTENT above!
+- Do not wrap the response in a code block.
 ]])
 
 local prompt_template_selection = vim.trim([[

@@ -4,9 +4,9 @@ local M = {}
 local string_utils = require('ai.utils.string')
 local ui = require('ai.ui')
 
-local system_prompt = vim.trim([[
-Follow the instructions and respond exclusively with the code snippet that should replace the code in the context!
-Do not wrap the response in a code block!
+local system_prompt_template_file = vim.trim([[
+- Respond exclusively with the code replacing the CONTENT!
+- Do not wrap the response in a code block.
 ]])
 
 local prompt_template_file = vim.trim([[
@@ -25,28 +25,29 @@ File {{filename}}. CONTENT:
 - Do not wrap the response in a code block.
 ]])
 
+local system_prompt_template_selection = vim.trim([[
+- The SELECTION is marked with {{selection_start_token}} and {{selection_end_token}}.
+- Respond exclusively with the code replacing the SELECTION!
+- Do not wrap the response in a code block.
+- Preserve leading whitespace and indent.
+- DO NOT include the selection tokens in your response.
+]])
+
 local prompt_template_selection = vim.trim([[
 <context>
 File {{filename}}. CONTENT:
 ```{{language}}
 {{content}}
 ```
-
-The SELECTION is marked with {{selection_start_token}} and {{selection_end_token}}.
 </context>
 
 <instructions>
 {{intructions}}
 </intructions>
-
-- Respond exclusively with the code replacing the SELECTION above!
-- Do not wrap the response in a code block!
-- Preserve leading whitespace and indent.
-- Never output the selection tokens directly!
 ]])
 
-local selection_start_token = '<|START|>'
-local selection_end_token = '<|END|>'
+local selection_start_token = '<|selection-start|>'
+local selection_end_token = '<|selection-end|>'
 
 local ns_id = vim.api.nvim_create_namespace('ai_command')
 
@@ -78,27 +79,39 @@ local function rewrite_with_instructions(opts, instructions)
   end
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-  local prompt
+  local prompt, system_prompt
   if is_selection then
     table.insert(lines, end_line + 1, selection_end_token)
     table.insert(lines, start_line, selection_start_token)
     local content = table.concat(lines, '\n')
-    prompt = string_utils.replace_placeholders(prompt_template_selection, {
+    local placeholders = {
       filename = filename,
       content = content,
       language = language,
       intructions = instructions,
       selection_start_token = selection_start_token,
       selection_end_token = selection_end_token,
-    })
+    }
+    prompt =
+      string_utils.replace_placeholders(prompt_template_selection, placeholders)
+    system_prompt = string_utils.replace_placeholders(
+      system_prompt_template_selection,
+      placeholders
+    )
   else
     local content = table.concat(lines, '\n')
-    prompt = string_utils.replace_placeholders(prompt_template_file, {
+    local placeholders = {
       filename = filename,
       content = content,
       language = language,
       intructions = instructions,
-    })
+    }
+    prompt =
+      string_utils.replace_placeholders(prompt_template_file, placeholders)
+    system_prompt = string_utils.replace_placeholders(
+      system_prompt_template_file,
+      placeholders
+    )
   end
 
   local cancelled = false

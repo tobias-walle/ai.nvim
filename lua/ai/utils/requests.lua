@@ -5,7 +5,7 @@ local M = {}
 --- @field headers table
 --- @field json_body table
 --- @field on_data fun(data: table): nil
---- @field on_exit fun(): nil
+--- @field on_exit (fun(): nil)?
 
 --- @param options RequestOptions
 --- @return vim.SystemObj
@@ -59,7 +59,9 @@ function M.stream(options)
       end),
     },
     vim.schedule_wrap(function(_)
-      options.on_exit()
+      if options.on_exit then
+        options.on_exit()
+      end
     end)
   )
 end

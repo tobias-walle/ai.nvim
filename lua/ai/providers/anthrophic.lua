@@ -36,7 +36,7 @@ function M:stream(options)
       model = self.model,
       system = options.system_prompt,
       messages = options.messages,
-      max_tokens = options.max_tokens or 1000,
+      max_tokens = options.max_tokens or 4000,
       temperature = options.temperature,
       stream = true,
     },

@@ -23,12 +23,9 @@ function helloWorld {
 local ns_id = vim.api.nvim_create_namespace('ai_completion')
 
 function M.trigger_completion()
-  local config = require('ai.config').config
+  local adapter = require('ai.config').adapter
   vim.notify(
-    '[ai] Trigger completion with '
-      .. config.provider.name
-      .. ':'
-      .. config.provider.model,
+    '[ai] Trigger completion with ' .. adapter.name .. ':' .. adapter.model,
     vim.log.levels.INFO
   )
 
@@ -56,20 +53,20 @@ function M.trigger_completion()
   local cancelled = false
   local suggestion = ''
 
-  local job = config.provider:stream({
+  local job = adapter:chat_stream({
     system_prompt = system_prompt,
     messages = {
       { role = 'user', content = content },
     },
     temperature = 0,
     max_tokens = 128,
-    on_data = function(delta)
+    on_update = function(update)
       if cancelled then
         return
       end
-      suggestion = suggestion .. delta
+      suggestion = update.response
       require('ai.render').render_ghost_text({
-        text = suggestion,
+        text = update.response,
         buffer = bufnr,
         ns_id = ns_id,
         row = row - 1,
@@ -83,7 +80,7 @@ function M.trigger_completion()
 
   local function cleanup()
     cancelled = true
-    job:kill('SIGTERM')
+    job:stop()
     vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
     vim.keymap.del(
       'i',

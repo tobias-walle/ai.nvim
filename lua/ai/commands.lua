@@ -1,7 +1,7 @@
 -- Define a module
 local M = {}
 
-local string_utils = require('ai.utils.string')
+local string_utils = require('ai.utils.strings')
 local ui = require('ai.ui')
 
 local system_prompt_template_file = vim.trim([[
@@ -52,12 +52,9 @@ local selection_end_token = '<|selection-end|>'
 local ns_id = vim.api.nvim_create_namespace('ai_command')
 
 local function rewrite_with_instructions(opts, instructions)
-  local config = require('ai.config').config
+  local adapter = require('ai.config').adapter
   vim.notify(
-    '[ai] Trigger command with '
-      .. config.provider.name
-      .. ':'
-      .. config.provider.model,
+    '[ai] Trigger command with ' .. adapter.name .. ':' .. adapter.model,
     vim.log.levels.INFO
   )
 
@@ -115,7 +112,6 @@ local function rewrite_with_instructions(opts, instructions)
   end
 
   local cancelled = false
-  local response = ''
 
   -- Clear area
   vim.api.nvim_buf_set_lines(bufnr, start_line - 1, end_line, true, { '' })
@@ -125,7 +121,7 @@ local function rewrite_with_instructions(opts, instructions)
 
   local function cleanup()
     cancelled = true
-    job:kill('SIGTERM')
+    job:stop()
     vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
     vim.keymap.del({ 'i', 'n' }, '<C-c>', { buffer = bufnr })
   end
@@ -136,7 +132,7 @@ local function rewrite_with_instructions(opts, instructions)
     vim.cmd.undo()
   end, { buffer = bufnr, noremap = true })
 
-  job = config.provider:stream({
+  job = adapter:chat_stream({
     system_prompt = system_prompt,
     messages = {
       {
@@ -145,27 +141,33 @@ local function rewrite_with_instructions(opts, instructions)
       },
     },
     temperature = 0.3,
-    on_data = function(delta)
+    on_update = function(update)
       if cancelled then
         return
       end
-      response = response .. delta
       require('ai.render').render_ghost_text({
-        text = response,
+        text = update.response,
         buffer = bufnr,
         row = start_line - 1,
         col = 0,
         ns_id = ns_id,
       })
     end,
-    on_exit = function()
+    on_exit = function(data)
       vim.cmd.undojoin()
+      vim.notify(
+        '[ai] Input Tokens: '
+          .. data.input_tokens
+          .. '; Output Tokens: '
+          .. data.output_tokens,
+        vim.log.levels.INFO
+      )
       vim.api.nvim_buf_set_lines(
         bufnr,
         start_line - 1,
         start_line,
         false,
-        vim.split(response, '\n')
+        vim.split(data.response, '\n')
       )
       cleanup()
     end,

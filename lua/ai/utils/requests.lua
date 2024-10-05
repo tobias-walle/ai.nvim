@@ -1,17 +1,20 @@
 local M = {}
 
---- @class RequestOptions
+local Job = require('ai.utils.jobs').Job
+
+--- @class StreamRequestOptions
 --- @field url string
 --- @field headers table
 --- @field json_body table
---- @field on_data fun(data: table): nil
+--- @field on_data fun(data: string): nil
 --- @field on_exit (fun(): nil)?
 
---- @param options RequestOptions
---- @return vim.SystemObj
+--- @param options StreamRequestOptions
+--- @return Job
 function M.stream(options)
   local cmd = {
     'curl',
+    '-i',
     '--silent',
     '--no-buffer',
     '-X',
@@ -28,42 +31,50 @@ function M.stream(options)
   table.insert(cmd, '-d')
   table.insert(cmd, vim.fn.json_encode(options.json_body))
 
-  local function on_output(err, data)
+  local function on_output(_, data)
     if data == nil then
       return
     end
-    if err then
-      vim.notify('[ai] ' .. err, vim.log.levels.ERROR)
-      return
-    end
     for _, line in ipairs(vim.split(data, '\n')) do
-      if line ~= '' and line:sub(1, 5) == 'data:' then
-        local payload = line:sub(6)
-        if payload ~= '[DONE]' then
-          local decoded = vim.fn.json_decode(payload)
-          options.on_data(decoded)
-        end
-      end
+      options.on_data(line)
     end
   end
 
-  return vim.system(
+  local process = vim.system(
     cmd,
     {
       text = true,
       stdout = vim.schedule_wrap(on_output),
-      stderr = vim.schedule_wrap(function(err, stderr)
-        if err or stderr then
-          vim.notify('[ai] ' .. (err or stderr), vim.log.levels.ERROR)
-        end
-      end),
     },
-    vim.schedule_wrap(function(_)
+    vim.schedule_wrap(function(obj)
+      if obj.code ~= 0 then
+        vim.notify(
+          '[ai] curl failed.'
+            .. ' error code: '
+            .. obj.code
+            .. ', stderr: '
+            .. obj.stderr,
+          vim.log.levels.ERROR
+        )
+      end
       if options.on_exit then
         options.on_exit()
       end
     end)
   )
+  return Job:new({
+    stop = function()
+      process:kill('SIGTERM')
+    end,
+  })
+end
+
+---Parse an sse data chunk
+---See also: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent%5Fevents/Using%5Fserver-sent%5Fevents
+---@param chunk string
+---@return string|nil data The data or nil
+function M.parse_sse_data(chunk)
+  return chunk:match('^data: (.+)')
 end
 
 return M

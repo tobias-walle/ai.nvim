@@ -12,6 +12,4 @@ function M.setup(config)
   M.did_setup = true
 end
 
-M.set_provider = require('ai.config').set_provider
-
 return M

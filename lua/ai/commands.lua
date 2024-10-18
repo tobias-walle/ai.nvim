@@ -4,14 +4,11 @@ local M = {}
 local string_utils = require('ai.utils.strings')
 local ui = require('ai.ui')
 
-local system_prompt_template_file = vim.trim([[
-- Respond exclusively with the code replacing the CONTENT!
-- Do not wrap the response in a code block.
-]])
+local system_prompt_template_file = vim.trim([[]])
 
 local prompt_template_file = vim.trim([[
 <context>
-File {{filename}}. CONTENT:
+{{filename}}
 ```{{language}}
 {{content}}
 ```
@@ -21,33 +18,35 @@ File {{filename}}. CONTENT:
 {{intructions}}
 </intructions>
 
-- Respond exclusively with the code replacing the CONTENT above!
+- Respond exclusively with the code replacing the file content in the code block!
 - Do not wrap the response in a code block.
 ]])
 
-local system_prompt_template_selection = vim.trim([[
-- The SELECTION is marked with {{selection_start_token}} and {{selection_end_token}}.
-- Respond exclusively with the code replacing the SELECTION!
-- Do not wrap the response in a code block.
-- Preserve leading whitespace and indent.
-- DO NOT include the selection tokens in your response.
-]])
+local system_prompt_template_selection = vim.trim([[]])
 
 local prompt_template_selection = vim.trim([[
 <context>
-File {{filename}}. CONTENT:
+{{filename}}
 ```{{language}}
 {{content}}
 ```
 </context>
 
+<selection>
+{{filename}}[{{start_line}}-{{end_line}}]
+```{{language}}
+{{selection_content}}
+```
+</selection>
+
 <instructions>
 {{intructions}}
 </intructions>
-]])
 
-local selection_start_token = '<|selection-start|>'
-local selection_end_token = '<|selection-end|>'
+- Respond exclusively with the code replacing the <selection>!
+- Do not wrap the response in a code block or with a <selection> tag.
+- Preserve leading whitespace and indent.
+]])
 
 local ns_id = vim.api.nvim_create_namespace('ai_command')
 
@@ -62,41 +61,16 @@ local function rewrite_with_instructions(opts, instructions)
   local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
   local filename = vim.fn.expand('%')
 
-  local is_selection = false
-  local start_line, end_line
-  if opts.range == 0 then
-    -- Whole file
-    start_line = 1
-    end_line = vim.fn.line('$')
-  else
-    -- Visual selection
-    is_selection = true
-    start_line = opts.line1
-    end_line = opts.line2
-  end
+  local first_line = 1
+  local last_line = vim.fn.line('$')
+  local start_line = opts.line1 or first_line
+  local end_line = opts.line2 or last_line
+  local is_whole_file = start_line == start_line and end_line == last_line
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local content = table.concat(lines, '\n')
 
   local prompt, system_prompt
-  if is_selection then
-    table.insert(lines, end_line + 1, selection_end_token)
-    table.insert(lines, start_line, selection_start_token)
-    local content = table.concat(lines, '\n')
-    local placeholders = {
-      filename = filename,
-      content = content,
-      language = language,
-      intructions = instructions,
-      selection_start_token = selection_start_token,
-      selection_end_token = selection_end_token,
-    }
-    prompt =
-      string_utils.replace_placeholders(prompt_template_selection, placeholders)
-    system_prompt = string_utils.replace_placeholders(
-      system_prompt_template_selection,
-      placeholders
-    )
-  else
-    local content = table.concat(lines, '\n')
+  if is_whole_file then
     local placeholders = {
       filename = filename,
       content = content,
@@ -107,6 +81,24 @@ local function rewrite_with_instructions(opts, instructions)
       string_utils.replace_placeholders(prompt_template_file, placeholders)
     system_prompt = string_utils.replace_placeholders(
       system_prompt_template_file,
+      placeholders
+    )
+  else
+    local selection_content =
+      table.concat(vim.list_slice(lines, start_line, end_line), '\n')
+    local placeholders = {
+      filename = filename,
+      content = content,
+      selection_content = selection_content,
+      language = language,
+      intructions = instructions,
+      start_line = start_line,
+      end_line = end_line,
+    }
+    prompt =
+      string_utils.replace_placeholders(prompt_template_selection, placeholders)
+    system_prompt = string_utils.replace_placeholders(
+      system_prompt_template_selection,
       placeholders
     )
   end

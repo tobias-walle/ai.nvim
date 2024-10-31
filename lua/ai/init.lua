@@ -6,6 +6,7 @@ M.did_setup = false
 function M.setup(config)
   require('ai.config').setup(config)
   require('ai.commands').setup()
+  require('ai.chat').setup()
 
   M.trigger_completion = require('ai.completion').trigger_completion
 

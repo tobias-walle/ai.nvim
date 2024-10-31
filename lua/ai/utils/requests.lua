@@ -8,6 +8,7 @@ local Job = require('ai.utils.jobs').Job
 --- @field json_body table
 --- @field on_data fun(data: string): nil
 --- @field on_exit (fun(): nil)?
+--- @field on_error (fun(error: string): nil)?
 
 --- @param options StreamRequestOptions
 --- @return Job
@@ -56,6 +57,9 @@ function M.stream(options)
             .. obj.stderr,
           vim.log.levels.ERROR
         )
+        if options.on_error then
+          options.on_error(obj.stderr)
+        end
       end
       if options.on_exit then
         options.on_exit()

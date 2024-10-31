@@ -59,6 +59,7 @@ end
 ---@field temperature? float
 ---@field on_update fun(update: AdapterStreamUpdate): nil
 ---@field on_exit? fun(data: AdapterStreamExitData): nil
+--- @field on_error (fun(error: string): nil)?
 
 ---@param options AdapterStreamOptions
 ---@return Job
@@ -112,6 +113,7 @@ function Adapter:chat_stream(options)
         output_tokens = output_tokens,
       })
     end,
+    on_error = options.on_error,
     on_exit = function()
       if options.on_exit then
         options.on_exit({

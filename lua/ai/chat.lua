@@ -42,7 +42,7 @@ local function parse_messages(bufnr)
     local content = vim.treesitter.get_node_text(match[2], bufnr)
 
     -- Clean up the role and content
-    role = role:gsub('^%s*(.-)%s*$', '%1'):lower()
+    role = role:gsub('^%s*(.-)[#%s]*$', '%1'):lower()
     content = content:gsub('^%s*(.-)%s*$', '%1')
 
     if #content > 0 then
@@ -53,13 +53,14 @@ local function parse_messages(bufnr)
     end
   end
 
+  vim.notify('Messages: ' .. vim.inspect(messages), vim.log.levels.DEBUG)
   return messages
 end
 
 local function render_messages(bufnr, messages)
   local lines = {}
   for _, msg in ipairs(messages) do
-    table.insert(lines, '## ' .. msg.role:gsub('^%l', string.upper))
+    table.insert(lines, '## ' .. msg.role:gsub('^%l', string.upper) .. ' ##')
     for _, line in ipairs(vim.split(msg.content, '\n')) do
       table.insert(lines, line)
     end
@@ -72,12 +73,18 @@ local function render_messages(bufnr, messages)
     vim.b[bufnr].running_job
     and not (last_message.role == 'assistant' and #last_message.content > 0)
   then
-    table.insert(lines, '## Assistant')
+    table.insert(lines, '## Assistant ##')
     table.insert(lines, '⏳')
     table.insert(lines, '')
   end
 
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+
+  -- Move cursor to the end
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  local line =
+    vim.api.nvim_buf_get_lines(bufnr, line_count - 2, line_count - 1, false)[1]
+  vim.api.nvim_win_set_cursor(0, { line_count - 1, #line })
 end
 
 local function send_message(bufnr)
@@ -137,9 +144,6 @@ local function send_message(bufnr)
         )
       end
       render_messages(bufnr, all_messages)
-      -- Move cursor to the empty user message
-      local line_count = vim.api.nvim_buf_line_count(bufnr)
-      vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
     end,
   })
 
@@ -168,8 +172,6 @@ function M.open_chat()
   render_messages(bufnr, {
     { role = 'user', content = '' },
   })
-  local line_count = vim.api.nvim_buf_line_count(bufnr)
-  vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
 end
 
 function M.setup()

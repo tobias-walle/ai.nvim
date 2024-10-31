@@ -50,7 +50,6 @@ local function parse_messages(bufnr)
     })
   end
 
-  dbg(messages)
   return messages
 end
 
@@ -67,7 +66,7 @@ local function render_messages(bufnr, messages)
   -- Add loading indicator if needed
   local last_message = messages[#messages]
   if
-    vim.b[bufnr].is_loading
+    vim.b[bufnr].running_job
     and not (last_message.role == 'assistant' and #last_message.content > 0)
   then
     table.insert(lines, '## Assistant')
@@ -88,16 +87,8 @@ local function send_message(bufnr)
     return
   end
 
-  -- Prevent multiple requests
-  if vim.b[bufnr].is_loading then
-    vim.notify('A request is already in progress', vim.log.levels.WARN)
-    return
-  end
-  vim.b[bufnr].is_loading = true
-  render_messages(bufnr, messages)
-
   local current_response = {}
-  local job = adapter:chat_stream({
+  vim.b[bufnr].running_job = adapter:chat_stream({
     system_prompt = system_prompt_template,
     messages = messages,
     temperature = 0.3,
@@ -113,7 +104,6 @@ local function send_message(bufnr)
       end)
     end,
     on_error = function(err)
-      vim.b[bufnr].is_loading = false
       local all_messages = vim.deepcopy(messages)
       table.insert(
         all_messages,
@@ -123,19 +113,34 @@ local function send_message(bufnr)
       render_messages(bufnr, all_messages)
     end,
     on_exit = function(data)
-      vim.b[bufnr].is_loading = false
+      vim.b[bufnr].running_job = nil
       local all_messages = vim.deepcopy(messages)
-      table.insert(
-        all_messages,
-        { role = 'assistant', content = data.response }
-      )
-      table.insert(all_messages, { role = 'user', content = '' })
+      if not data.cancelled then
+        -- Add message only if the request was an success
+        table.insert(
+          all_messages,
+          { role = 'assistant', content = data.response }
+        )
+        table.insert(all_messages, { role = 'user', content = '' })
+        local tokens = data.input_tokens + data.output_tokens
+        vim.notify(
+          tokens
+            .. ' tokens used ('
+            .. data.input_tokens
+            .. ' input, '
+            .. data.output_tokens
+            .. ' output)',
+          vim.log.levels.INFO
+        )
+      end
       render_messages(bufnr, all_messages)
       -- Move cursor to the empty user message
       local line_count = vim.api.nvim_buf_line_count(bufnr)
       vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
     end,
   })
+
+  render_messages(bufnr, messages)
 end
 
 function M.open_chat()
@@ -143,7 +148,17 @@ function M.open_chat()
 
   -- Set up keymaps
   vim.keymap.set('n', '<CR>', function()
-    send_message(bufnr)
+    if not vim.b[bufnr].running_job then
+      send_message(bufnr)
+    end
+  end, { buffer = bufnr, noremap = true })
+
+  vim.keymap.set('n', 'q', function()
+    local job = vim.b[bufnr].running_job
+    if job then
+      job:stop()
+      vim.b[bufnr].running_job = nil
+    end
   end, { buffer = bufnr, noremap = true })
 
   -- Add initial message

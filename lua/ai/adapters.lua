@@ -51,6 +51,8 @@ end
 ---@field response string
 ---@field input_tokens integer
 ---@field output_tokens integer
+---@field exit_code integer
+---@field cancelled boolean
 
 ---@class AdapterStreamOptions
 ---@field messages AdapterMessage[]
@@ -114,12 +116,14 @@ function Adapter:chat_stream(options)
       })
     end,
     on_error = options.on_error,
-    on_exit = function()
+    on_exit = function(exit_code, cancelled)
       if options.on_exit then
         options.on_exit({
           response = response,
           input_tokens = input_tokens,
           output_tokens = output_tokens,
+          exit_code = exit_code,
+          cancelled = cancelled
         })
       end
     end,

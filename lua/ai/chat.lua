@@ -21,33 +21,36 @@ local function create_chat_buffer()
 end
 
 local function parse_messages(bufnr)
-  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  local current_role = nil
-  local current_content = {}
   local messages = {}
+  local parser = vim.treesitter.get_parser(bufnr, 'markdown')
+  local tree = parser:parse()[1]
+  local root = tree:root()
 
-  for _, line in ipairs(lines) do
-    if line:match('^## ') then
-      if current_role then
-        table.insert(messages, {
-          role = current_role:lower(),
-          content = table
-            .concat(current_content, '\n')
-            :gsub('^%s*(.-)%s*$', '%1'),
-        })
-      end
-      current_role = line:gsub('^## ', '')
-      current_content = {}
-    elseif current_role and #line > 0 then
-      table.insert(current_content, line)
+  local query = vim.treesitter.query.parse(
+    'markdown',
+    [[
+      (section
+        (atx_heading
+          (atx_h2_marker)
+          (inline) @role)
+        (paragraph) @content)
+    ]]
+  )
+
+  for _, match, _ in query:iter_matches(root, bufnr) do
+    local role = vim.treesitter.get_node_text(match[1], bufnr)
+    local content = vim.treesitter.get_node_text(match[2], bufnr)
+
+    -- Clean up the role and content
+    role = role:gsub('^%s*(.-)%s*$', '%1'):lower()
+    content = content:gsub('^%s*(.-)%s*$', '%1')
+
+    if #content > 0 then
+      table.insert(messages, {
+        role = role,
+        content = content,
+      })
     end
-  end
-
-  if current_role and #current_content > 0 then
-    table.insert(messages, {
-      role = current_role:lower(),
-      content = table.concat(current_content, '\n'):gsub('^%s*(.-)%s*$', '%1'),
-    })
   end
 
   return messages
@@ -70,7 +73,7 @@ local function render_messages(bufnr, messages)
     and not (last_message.role == 'assistant' and #last_message.content > 0)
   then
     table.insert(lines, '## Assistant')
-    table.insert(lines, '_Loading response..._')
+    table.insert(lines, '⏳')
     table.insert(lines, '')
   end
 

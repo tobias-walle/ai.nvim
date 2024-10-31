@@ -7,7 +7,7 @@ local Job = require('ai.utils.jobs').Job
 --- @field headers table
 --- @field json_body table
 --- @field on_data fun(data: string): nil
---- @field on_exit (fun(): nil)?
+--- @field on_exit (fun(code: integer, cancelled: boolean): nil)?
 --- @field on_error (fun(error: string): nil)?
 
 --- @param options StreamRequestOptions
@@ -31,6 +31,8 @@ function M.stream(options)
   -- Add body
   table.insert(cmd, '-d')
   table.insert(cmd, vim.fn.json_encode(options.json_body))
+
+  local cancelled = false
 
   local function on_output(_, data)
     if data == nil then
@@ -58,17 +60,19 @@ function M.stream(options)
           vim.log.levels.ERROR
         )
         if options.on_error then
-          options.on_error(obj.stderr)
+          options.on_error(obj.stdout)
         end
       end
       if options.on_exit then
-        options.on_exit()
+        options.on_exit(obj.code, cancelled)
       end
     end)
   )
   return Job:new({
     stop = function()
-      process:kill('SIGTERM')
+      cancelled = true
+      --- process:kill doesn't work correctly, so we do it like this
+      vim.system({ 'kill', '-INT', '' .. process.pid }):wait()
     end,
   })
 end

@@ -1,3 +1,5 @@
+local Tools = require('ai.tools')
+
 local M = {}
 
 local system_prompt_template = vim.trim([[
@@ -20,7 +22,7 @@ local function create_chat_buffer()
   return bufnr
 end
 
-local function parse_messages(bufnr)
+local function parse_chat_buffer(bufnr)
   local messages = {}
   local parser = vim.treesitter.get_parser(bufnr, 'markdown')
   local tree = parser:parse()[1]
@@ -37,6 +39,7 @@ local function parse_messages(bufnr)
     ]]
   )
 
+  local tools = {}
   for _, match, _ in query:iter_matches(root, bufnr) do
     local role = vim.treesitter.get_node_text(match[1], bufnr)
     local content = vim.treesitter.get_node_text(match[2], bufnr)
@@ -44,6 +47,15 @@ local function parse_messages(bufnr)
     -- Clean up the role and content
     role = role:gsub('^%s*(.-)[#%s]*$', '%1'):lower()
     content = content:gsub('^%s*(.-)%s*$', '%1')
+
+    if content:match('@editor') then
+      local tool = vim.iter(Tools.all):find(function(tool)
+        return tool.definition.name == 'editor'
+      end)
+      if tool then
+        table.insert(tools, tool)
+      end
+    end
 
     if #content > 0 then
       table.insert(messages, {
@@ -53,8 +65,9 @@ local function parse_messages(bufnr)
     end
   end
 
-  vim.notify('Messages: ' .. vim.inspect(messages), vim.log.levels.DEBUG)
-  return messages
+  -- vim.notify('Messages: ' .. vim.inspect(messages), vim.log.levels.DEBUG)
+  -- vim.notify('Tools: ' .. vim.inspect(tools), vim.log.levels.DEBUG)
+  return { messages = messages, tools = tools }
 end
 
 local function render_messages(bufnr, messages)
@@ -89,7 +102,9 @@ end
 
 local function send_message(bufnr)
   local adapter = require('ai.config').adapter
-  local messages = parse_messages(bufnr)
+  local parsed = parse_chat_buffer(bufnr)
+  local messages = parsed.messages
+  local tools = parsed.tools
   local last_message = messages[#messages]
 
   if not last_message or last_message.role ~= 'user' then
@@ -101,6 +116,12 @@ local function send_message(bufnr)
   vim.b[bufnr].running_job = adapter:chat_stream({
     system_prompt = system_prompt_template,
     messages = messages,
+    tools = vim
+      .iter(tools)
+      :map(function(tool)
+        return tool.definition
+      end)
+      :totable(),
     temperature = 0.3,
     on_update = function(update)
       current_response = vim.split(update.response, '\n')
@@ -142,8 +163,23 @@ local function send_message(bufnr)
             .. ' output)',
           vim.log.levels.INFO
         )
+
+        render_messages(bufnr, all_messages)
+
+        for _, tool_call in pairs(data.tool_calls) do
+          local tool = Tools.find_tool_by_name(tool_call.tool)
+          if tool then
+            tool.execute({}, tool_call.params)
+          else
+            vim.notify(
+              'Tool not found: ' .. tool_call.tool,
+              vim.log.levels.ERROR
+            )
+          end
+        end
+      else
+        render_messages(bufnr, all_messages)
       end
-      render_messages(bufnr, all_messages)
     end,
   })
 

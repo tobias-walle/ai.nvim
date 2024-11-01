@@ -17,6 +17,7 @@ function M.stream(options)
     'curl',
     '-i',
     '--silent',
+    '--fail',
     '--no-buffer',
     '-X',
     'POST',
@@ -33,14 +34,24 @@ function M.stream(options)
   table.insert(cmd, vim.fn.json_encode(options.json_body))
 
   local cancelled = false
+  local stdout = ''
+  local stderr = ''
 
   local function on_output(_, data)
     if data == nil then
       return
     end
+    stdout = stdout .. data
     for _, line in ipairs(vim.split(data, '\n')) do
       options.on_data(line)
     end
+  end
+
+  local function on_stderr(_, data)
+    if data == nil then
+      return
+    end
+    stderr = stderr .. data
   end
 
   local process = vim.system(
@@ -48,19 +59,22 @@ function M.stream(options)
     {
       text = true,
       stdout = vim.schedule_wrap(on_output),
+      stderr = vim.schedule_wrap(on_stderr),
     },
     vim.schedule_wrap(function(obj)
       if obj.code ~= 0 then
         vim.notify(
           '[ai] curl failed.'
-            .. ' error code: '
+            .. '\nerror code: '
             .. obj.code
-            .. ', stderr: '
-            .. obj.stderr,
+            .. 'stderr: '
+            .. stderr
+            .. '\nstdout: '
+            .. stdout,
           vim.log.levels.ERROR
         )
         if options.on_error then
-          options.on_error(obj.stdout)
+          options.on_error(stdout)
         end
       end
       if options.on_exit then

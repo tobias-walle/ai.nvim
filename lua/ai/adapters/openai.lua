@@ -1,3 +1,23 @@
+---@param tools Tool[]|nil
+---@return Tool[]|nil
+local function map_tools(tools)
+  if not tools then
+    return nil
+  end
+  local mapped_tools = {}
+  for _, tool in ipairs(tools) do
+    table.insert(mapped_tools, {
+      type = 'function',
+      ['function'] = {
+        name = tool.name,
+        description = tool.description,
+        parameters = tool.parameters,
+      },
+    })
+  end
+  return mapped_tools
+end
+
 ---@type AdapterOptions
 local options = {
   name = 'openai',
@@ -13,6 +33,7 @@ local options = {
         model = request.model,
         max_tokens = request.max_tokens,
         temperature = request.temperature,
+        tools = map_tools(request.tools),
         messages = {
           { role = 'system', content = request.system_prompt },
           unpack(request.messages),
@@ -41,7 +62,7 @@ local options = {
     end,
     get_delta = function(response)
       if response.choices and response.choices[1] then
-        return response.choices[1].delta.content
+        return { type = 'message', content = response.choices[1].delta.content }
       end
     end,
   },

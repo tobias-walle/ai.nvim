@@ -18,6 +18,9 @@ local function create_chat_buffer()
   -- Open buffer in a vertical split
   vim.cmd('vsplit')
   vim.api.nvim_win_set_buf(0, bufnr)
+  for _, tool in ipairs(Tools.all) do
+    vim.cmd.syntax('match Special "@' .. tool.definition.name .. '"')
+  end
 
   return bufnr
 end
@@ -35,7 +38,7 @@ local function parse_chat_buffer(bufnr)
         (atx_heading
           (atx_h2_marker)
           (inline) @role)
-        (paragraph) @content)
+        ((_) @content)+)
     ]]
   )
 

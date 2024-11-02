@@ -12,9 +12,20 @@ local requests = require('ai.utils.requests')
 ---@field description string A description of what the tool does
 ---@field parameters table The JSON schema for the tool's parameters
 
+---@class AdapterMessageToolCall
+---@field tool string
+---@field id string
+---@field params table
+
+---@class AdapterMessageToolCallResult
+---@field id string
+---@field result any
+
 ---@class AdapterMessage
 ---@field role "user" | "assistant"
 ---@field content string
+---@field tool_calls? AdapterMessageToolCall[]
+---@field tool_call_results? AdapterMessageToolCallResult[]
 
 ---@class AdapterRequestOptions
 ---@field model string

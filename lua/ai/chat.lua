@@ -215,7 +215,28 @@ local function send_message(bufnr)
     messages = vim
       .iter(messages)
       :map(function(m)
-        return { role = m.role, content = m.content }
+        local msg = {
+          role = m.role,
+          content = m.content,
+          tool_calls = {},
+          tool_call_results = {},
+        }
+        if m.tool_calls then
+          for _, tool_call in ipairs(m.tool_calls) do
+            table.insert(msg.tool_calls, {
+              tool = tool_call.tool,
+              id = tool_call.id,
+              params = tool_call.params,
+            })
+            if tool_call.result then
+              table.insert(
+                msg.tool_call_results,
+                { id = tool_call.id, result = tool_call.result }
+              )
+            end
+          end
+        end
+        return msg
       end)
       :totable(),
     tools = vim

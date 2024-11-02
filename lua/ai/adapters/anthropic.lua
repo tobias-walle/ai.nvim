@@ -26,14 +26,51 @@ local options = {
   default_model = 'claude-3-5-sonnet-20241022',
   handlers = {
     create_request_body = function(request)
+      local messages = {}
+      for _, msg in ipairs(request.messages) do
+        local content = {}
+        if msg.content then
+          table.insert(content, { type = 'text', text = msg.content })
+        end
+        if msg.tool_calls then
+          for _, tool_call in ipairs(msg.tool_calls) do
+            table.insert(content, {
+              type = 'tool_use',
+              id = tool_call.id,
+              name = tool_call.tool,
+              input = tool_call.params,
+            })
+          end
+        end
+        table.insert(messages, {
+          role = msg.role,
+          content = content,
+        })
+
+        if msg.tool_call_results and #msg.tool_call_results > 0 then
+          local tool_call_result_content = {}
+          for _, tool_call_result in ipairs(msg.tool_call_results) do
+            table.insert(tool_call_result_content, {
+              type = 'tool_result',
+              tool_use_id = tool_call_result.id,
+              content = vim.fn.json_encode(tool_call_result.result),
+            })
+          end
+          table.insert(messages, {
+            role = 'user',
+            content = tool_call_result_content,
+          })
+        end
+      end
+
       return {
         stream = true,
         model = request.model,
         system = request.system_prompt,
         max_tokens = request.max_tokens or 4000,
         temperature = request.temperature,
-        messages = request.messages,
         tools = map_tools(request.tools),
+        messages = messages,
       }
     end,
     parse_response = function(chunk)
@@ -49,7 +86,7 @@ local options = {
       end
     end,
     is_done = function(response)
-      -- return response.type == 'message_stop'
+      return response.type == 'message_stop'
     end,
     get_tokens = function(response)
       if response.type == 'message_start' then

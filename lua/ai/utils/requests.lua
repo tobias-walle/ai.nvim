@@ -17,7 +17,7 @@ function M.stream(options)
     'curl',
     '-i',
     '--silent',
-    '--fail',
+    '--fail-with-body',
     '--no-buffer',
     '-X',
     'POST',

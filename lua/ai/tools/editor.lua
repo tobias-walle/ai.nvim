@@ -68,13 +68,13 @@ Existing content in the lines will be overriden.
                   'replacement',
                 },
                 description = vim.trim([[
-Performs a search & replace operation on the given file.
+Performs a search & replace operation on the given file using lua patterns.
             ]]),
                 properties = {
                   type = {
                     type = 'string',
                     const = 'replacement',
-                    description = 'Replace text matching a pattern',
+                    description = 'Replace text matching a lua pattern.',
                   },
                   file = {
                     type = 'string',
@@ -82,13 +82,13 @@ Performs a search & replace operation on the given file.
                   },
                   pattern = {
                     type = 'string',
-                    description = 'The regex pattern to search for. USE THE VIM REGEX SYNTAX.',
-                    example = '\\(Hello\\) \\w\\+',
+                    description = 'The lua pattern to search for. Make sure to use escaping if necessary.',
+                    -- example = '\\(Hello\\) \\w\\+',
                   },
                   replacement = {
                     type = 'string',
-                    description = 'The text to replace the pattern with. USE THE VIM REGEX REPLACEMENT SYNTAX.',
-                    example = '\\1 World',
+                    description = 'The text to replace the pattern with. Can contain captures of the pattern before.',
+                    -- example = '\\1 World',
                   },
                 },
                 additionalProperties = false,
@@ -174,9 +174,16 @@ Performs a search & replace operation on the given file.
         )
       elseif op.type == 'replacement' then
         -- Handle replacement operation
-        vim.api.nvim_buf_call(temp_bufnr, function()
-          vim.cmd(string.format('%%s/%s/%s/g', op.pattern, op.replacement))
-        end)
+        local lines = vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
+        local buffer_text = vim.fn.join(lines, '\n')
+        local new_buffer_text = buffer_text:gsub(op.pattern, op.replacement)
+        vim.api.nvim_buf_set_lines(
+          temp_bufnr,
+          0,
+          -1,
+          false,
+          vim.split(new_buffer_text, '\n')
+        )
       end
 
       -- Create or switch to diff tab

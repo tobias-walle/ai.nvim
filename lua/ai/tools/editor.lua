@@ -99,7 +99,7 @@ Performs a search & replace operation on the given file.
       },
     },
   },
-  execute = function(ctx, params)
+  execute = function(ctx, params, callback)
     local results = {}
 
     local function ensure_parent_dirs(file_path)
@@ -141,6 +141,7 @@ Performs a search & replace operation on the given file.
     -- Process operations one by one
     local function process_operations(operations, index)
       if index > #operations then
+        callback(results)
         return
       end
 
@@ -198,7 +199,5 @@ Performs a search & replace operation on the given file.
 
     -- Start processing operations
     process_operations(params.operations, 1)
-
-    return results
   end,
 }

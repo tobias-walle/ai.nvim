@@ -2,7 +2,7 @@ local M = {}
 
 ---@class ToolDefinition
 ---@field definition Tool
----@field execute fun(ctx: any, params: table): any Run the tool and get a result
+---@field execute fun(ctx: any, params: table, callback: fun(result: any): nil): nil -- Run the tool and get a result
 
 ---@type ToolDefinition[]
 M.all = {

@@ -16,11 +16,13 @@ local function move_cursor_to_end(bufnr)
   vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
 end
 
-local function update_messages(bufnr, messages)
+local function update_messages(bufnr, messages, save)
   Buffer.render(bufnr, messages)
   local chat =
     vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
-  Cache.save_chat(chat)
+  if save then
+    Cache.save_chat(chat)
+  end
   move_cursor_to_end(bufnr)
 end
 
@@ -104,20 +106,21 @@ local function send_message(bufnr)
         content = table.concat(current_response, '\n'),
         tool_calls = update.tool_calls,
       })
-      update_messages(bufnr, all_messages)
+      update_messages(bufnr, all_messages, false)
     end,
     on_error = function(err)
-      local all_messages = vim.deepcopy(parsed.messages)
+      -- Remove ^M from err
+      err = err:gsub('\r', '')
       table.insert(
-        all_messages,
-        { role = 'assistant', content = '**Error:** ' .. err }
+        parsed.messages,
+        { role = 'assistant', content = '_Error_:\n```\n' .. err .. '\n```' }
       )
-      update_messages(bufnr, all_messages)
+      update_messages(bufnr, parsed.messages, true)
     end,
     on_exit = function(data)
       vim.b[bufnr].running_job = nil
       local all_messages = vim.deepcopy(parsed.messages)
-      if not data.cancelled then
+      if not data.cancelled and data.exit_code == 0 then
         -- Add message only if the request was an success
         local assistant_message = {
           role = 'assistant',
@@ -136,14 +139,14 @@ local function send_message(bufnr)
           vim.log.levels.INFO
         )
 
-        update_messages(bufnr, all_messages)
+        update_messages(bufnr, all_messages, true)
 
         vim.defer_fn(function()
           local function execute_next_tool(index)
             local tool_call = assistant_message.tool_calls[index]
             if not tool_call then
               table.insert(all_messages, { role = 'user', content = '' })
-              update_messages(bufnr, all_messages)
+              update_messages(bufnr, all_messages, true)
               return
             end
 
@@ -152,7 +155,7 @@ local function send_message(bufnr)
               tool.execute({}, tool_call.params, function(result)
                 ---@diagnostic disable-next-line: inject-field
                 tool_call.result = result
-                update_messages(bufnr, all_messages)
+                update_messages(bufnr, all_messages, true)
                 execute_next_tool(index + 1)
               end)
             else
@@ -166,13 +169,13 @@ local function send_message(bufnr)
 
           execute_next_tool(1)
         end, 300)
-      elseif data.exit_code == 0 then
-        update_messages(bufnr, all_messages)
+      else
+        update_messages(bufnr, all_messages, true)
       end
     end,
   })
 
-  update_messages(bufnr, parsed.messages)
+  update_messages(bufnr, parsed.messages, true)
 end
 
 --- Parse the messages of the current buffer (0) and render them again in a split

@@ -50,6 +50,10 @@ function M.render(bufnr, messages)
         for _, line in ipairs(vim.split(tool_call_yaml, '\n')) do
           table.insert(lines, line)
         end
+        if tool_call.is_loading and tool_call.content then
+          print(tool_call.content)
+          table.insert(lines, '⏳ ' .. tool_call.content)
+        end
         if tool_call.result then
           table.insert(lines, '# tool:call:result')
           local result_yaml = Yaml.encode(tool_call.result)

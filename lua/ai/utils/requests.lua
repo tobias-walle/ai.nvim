@@ -36,14 +36,32 @@ function M.stream(options)
   local cancelled = false
   local stdout = ''
   local stderr = ''
+  local buffer = '' -- Add a buffer for partial lines
+
+  local function process_line(line)
+    options.on_data(line)
+  end
 
   local function on_output(_, data)
     if data == nil then
       return
     end
     stdout = stdout .. data
-    for _, line in ipairs(vim.split(data, '\n')) do
-      vim.schedule_wrap(options.on_data)(line)
+
+    -- Handle buffered data
+    buffer = buffer .. data
+    local lines = vim.split(buffer, '\n')
+
+    -- Process complete lines
+    for i = 1, #lines - 1 do
+      process_line(lines[i])
+    end
+
+    -- Keep the last partial line in buffer
+    buffer = lines[#lines]
+    if buffer:match('[\r\n]$') then
+      process_line(buffer)
+      buffer = ''
     end
   end
 
@@ -58,16 +76,21 @@ function M.stream(options)
     cmd,
     {
       text = true,
-      stdout = on_output,
-      stderr = on_stderr,
+      stdout = vim.schedule_wrap(on_output),
+      stderr = vim.schedule_wrap(on_stderr),
     },
     vim.schedule_wrap(function(obj)
+      -- Process any remaining buffered data
+      if buffer ~= '' then
+        process_line(buffer)
+      end
+
       if obj.code ~= 0 then
         vim.notify(
           '[ai] curl failed.'
             .. '\nerror code: '
             .. obj.code
-            .. 'stderr: '
+            .. '\nstderr: '
             .. stderr
             .. '\nstdout: '
             .. stdout,

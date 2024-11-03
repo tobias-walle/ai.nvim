@@ -1,7 +1,35 @@
 local M = {}
 
-local Yaml = require('ai.utils.yaml')
 local Tools = require('ai.tools')
+local Variables = require('ai.variables')
+
+local Yaml = require('ai.utils.yaml')
+
+function M.create()
+  -- Create a new buffer
+  local bufnr = vim.api.nvim_create_buf(false, true)
+
+  -- Set buffer options
+  vim.api.nvim_buf_set_option(bufnr, 'buftype', 'nofile')
+  vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
+  vim.api.nvim_buf_set_option(bufnr, 'modifiable', true)
+
+  -- Open buffer in a vertical split
+  vim.cmd('vsplit')
+
+  -- Highlight
+  vim.api.nvim_win_set_buf(0, bufnr)
+  -- Configure tools highlight
+  for _, tool in ipairs(Tools.all) do
+    vim.cmd.syntax('match Special "@' .. tool.definition.name .. '"')
+  end
+  -- Configure variables highlight
+  for _, variable in ipairs(Variables.all) do
+    vim.cmd.syntax('match Identifier "#' .. variable.name .. '"')
+  end
+
+  return bufnr
+end
 
 function M.render(bufnr, messages)
   local lines = {}
@@ -15,7 +43,7 @@ function M.render(bufnr, messages)
         table.insert(lines, '')
         table.insert(lines, '```yaml')
         table.insert(lines, '# tool:call')
-        local tool_call_copy = vim.tbl_deep_extend('force', tool_call, {})
+        local tool_call_copy = vim.deepcopy(tool_call)
         tool_call_copy.result = nil
         tool_call_copy.content = nil
         local tool_call_yaml = Yaml.encode(tool_call_copy)
@@ -53,6 +81,13 @@ function M.render(bufnr, messages)
   vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
 end
 
+---@class ParsedChatBuffer
+---@field messages table[] The chat messages
+---@field tools ToolDefinition[] The tools used in the chat
+---@field variables VariableDefinition[] The variables used in the chat
+
+---@param bufnr integer
+---@return ParsedChatBuffer
 function M.parse(bufnr)
   local messages = {}
   local parser = vim.treesitter.get_parser(bufnr, 'markdown')
@@ -81,6 +116,7 @@ function M.parse(bufnr)
   )
 
   local tools = {}
+  local variables = {}
 
   local get_text = function(captures, source, delim)
     return vim
@@ -117,40 +153,49 @@ function M.parse(bufnr)
       if match then
         local tool_call_match_text =
           vim.treesitter.get_node_text(match[1], content_match_text)
-        local tool_call
+
         local lines = vim.split(tool_call_match_text, '\n')
         local yaml_content = {}
         local collecting_yaml = false
+        local tool_call = nil
+
+        local get_yaml_content = function()
+          if #yaml_content == 0 then
+            return nil
+          end
+          local yaml_str = table.concat(yaml_content, '\n')
+          local ok, parsed = pcall(Yaml.decode, yaml_str)
+          if ok then
+            return parsed
+          else
+            vim.notify(
+              'Failed to parse tool call yaml (' .. parsed .. '):\n' .. yaml_str,
+              vim.log.levels.ERROR
+            )
+          end
+          return nil
+        end
+
         for _, line in ipairs(lines) do
-          if line:match('# tool:call%s*$') then
-            collecting_yaml = true
-            yaml_content = {}
-          elseif line:match('# tool:call:result%s*$') and tool_call then
-            collecting_yaml = true
-            yaml_content = {}
-          elseif collecting_yaml and #line > 0 and not line:match('^#') then
-            table.insert(yaml_content, line)
-          elseif collecting_yaml and #yaml_content > 0 then
-            local yaml_str = table.concat(yaml_content, '\n')
-            local ok, parsed = pcall(Yaml.decode, yaml_str)
-            if ok then
-              if not tool_call then
-                tool_call = parsed
+          if line:match('^#') or line:match('^```') then
+            local yaml_parsed = get_yaml_content()
+            if yaml_parsed then
+              if tool_call == nil then
+                tool_call = yaml_parsed
                 table.insert(tool_calls, tool_call)
               else
-                tool_call.result = parsed
+                tool_call.result = yaml_parsed
               end
-            else
-              vim.notify(
-                'Failed to parse tool call result ('
-                  .. parsed
-                  .. '):\n'
-                  .. yaml_str,
-                vim.log.levels.ERROR
-              )
+              yaml_content = {}
             end
-            collecting_yaml = false
-            yaml_content = {}
+            if
+              line:match('^# tool:call%s*$')
+              or line:match('^# tool:call:result%s*$')
+            then
+              collecting_yaml = true
+            end
+          elseif collecting_yaml then
+            table.insert(yaml_content, line)
           end
         end
       end
@@ -172,6 +217,19 @@ function M.parse(bufnr)
       end
     end
 
+    -- Find variable uses
+    for _, variable in ipairs(Variables.all) do
+      if content:match('#' .. variable.name) then
+        if
+          not vim.iter(variables):find(function(existing_variable)
+            return existing_variable.name == variable.name
+          end)
+        then
+          table.insert(variables, variable)
+        end
+      end
+    end
+
     table.insert(messages, {
       role = role,
       content = content,
@@ -181,7 +239,8 @@ function M.parse(bufnr)
 
   -- vim.notify('Messages: ' .. vim.inspect(messages), vim.log.levels.DEBUG)
   -- vim.notify('Tools: ' .. vim.inspect(tools), vim.log.levels.DEBUG)
-  return { messages = messages, tools = tools }
+  -- vim.notify('Variables: ' .. vim.inspect(variables), vim.log.levels.DEBUG)
+  return { messages = messages, tools = tools, variables = variables }
 end
 
 return M

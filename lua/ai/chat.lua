@@ -2,6 +2,7 @@ local M = {}
 
 local Buffer = require('ai.chat.buffer')
 local Tools = require('ai.tools')
+local Cache = require('ai.utils.cache')
 
 ---@class ChatContext
 ---(Empty for now)
@@ -9,6 +10,19 @@ local Tools = require('ai.tools')
 local system_prompt_template = vim.trim([[
 You are a useful code assistant
 ]])
+
+local function move_cursor_to_end(bufnr)
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
+end
+
+local function update_messages(bufnr, messages)
+  Buffer.render(bufnr, messages)
+  local chat =
+    vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
+  Cache.save_chat(chat)
+  move_cursor_to_end(bufnr)
+end
 
 ---@param buffer ParsedChatBuffer
 ---@return AdapterMessage[]
@@ -58,7 +72,6 @@ local function create_messages(buffer)
   end
   vim.list_extend(result, variable_messages)
   table.insert(result, chat_messages[#chat_messages])
-  dbg(result)
   return result
 end
 
@@ -91,7 +104,7 @@ local function send_message(bufnr)
         content = table.concat(current_response, '\n'),
         tool_calls = update.tool_calls,
       })
-      Buffer.render(bufnr, all_messages)
+      update_messages(bufnr, all_messages)
     end,
     on_error = function(err)
       local all_messages = vim.deepcopy(parsed.messages)
@@ -99,7 +112,7 @@ local function send_message(bufnr)
         all_messages,
         { role = 'assistant', content = '**Error:** ' .. err }
       )
-      Buffer.render(bufnr, all_messages)
+      update_messages(bufnr, all_messages)
     end,
     on_exit = function(data)
       vim.b[bufnr].running_job = nil
@@ -123,14 +136,14 @@ local function send_message(bufnr)
           vim.log.levels.INFO
         )
 
-        Buffer.render(bufnr, all_messages)
+        update_messages(bufnr, all_messages)
 
         vim.defer_fn(function()
           local function execute_next_tool(index)
             local tool_call = assistant_message.tool_calls[index]
             if not tool_call then
               table.insert(all_messages, { role = 'user', content = '' })
-              Buffer.render(bufnr, all_messages)
+              update_messages(bufnr, all_messages)
               return
             end
 
@@ -139,7 +152,7 @@ local function send_message(bufnr)
               tool.execute({}, tool_call.params, function(result)
                 ---@diagnostic disable-next-line: inject-field
                 tool_call.result = result
-                Buffer.render(bufnr, all_messages)
+                update_messages(bufnr, all_messages)
                 execute_next_tool(index + 1)
               end)
             else
@@ -154,12 +167,12 @@ local function send_message(bufnr)
           execute_next_tool(1)
         end, 300)
       elseif data.exit_code == 0 then
-        Buffer.render(bufnr, all_messages)
+        update_messages(bufnr, all_messages)
       end
     end,
   })
 
-  Buffer.render(bufnr, parsed.messages)
+  update_messages(bufnr, parsed.messages)
 end
 
 --- Parse the messages of the current buffer (0) and render them again in a split
@@ -169,11 +182,21 @@ function M.debug_parsing()
   vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
   vim.cmd('vsplit')
   vim.api.nvim_win_set_buf(0, bufnr)
-  Buffer.render(bufnr, parsed.messages)
+  update_messages(bufnr, parsed.messages)
 end
 
 function M.open_chat()
   local bufnr = Buffer.create()
+
+  -- Save chat before buffer close
+  vim.api.nvim_create_autocmd('BufLeave', {
+    buffer = bufnr,
+    callback = function()
+      local chat =
+        vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
+      Cache.save_chat(chat)
+    end,
+  })
 
   -- Set up keymaps
   vim.keymap.set('n', '<CR>', function()
@@ -190,10 +213,29 @@ function M.open_chat()
     end
   end, { buffer = bufnr, noremap = true })
 
-  -- Add initial message
-  Buffer.render(bufnr, {
-    { role = 'user', content = '' },
-  })
+  vim.keymap.set('n', 'gx', function()
+    -- Clear buffer
+    update_messages(bufnr, {
+      { role = 'user', content = '' },
+    })
+  end, { buffer = bufnr, noremap = true })
+
+  local existing_chat = Cache.load_chat()
+  if existing_chat then
+    vim.api.nvim_buf_set_lines(
+      bufnr,
+      0,
+      -1,
+      false,
+      vim.split(existing_chat, '\n')
+    )
+    move_cursor_to_end(bufnr)
+  else
+    -- Add initial message
+    update_messages(bufnr, {
+      { role = 'user', content = '' },
+    })
+  end
 end
 
 function M.setup()

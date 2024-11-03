@@ -75,10 +75,6 @@ function M.render(bufnr, messages)
   end
 
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-
-  -- Move cursor to the end
-  local line_count = vim.api.nvim_buf_line_count(bufnr)
-  vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
 end
 
 ---@class ParsedChatBuffer

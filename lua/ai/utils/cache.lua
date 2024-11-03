@@ -1,9 +1,17 @@
 local M = {}
 
+---@return string
+local function get_project_id()
+  local cwd = vim.fn.getcwd()
+  local replaced = cwd:gsub('/', '__')
+  return replaced
+end
+
 ---@param subpath string
 ---@return string
 local function get_cache_path(subpath)
-  return vim.fn.stdpath('data') .. '/ai/' .. subpath
+  local project_id = get_project_id()
+  return vim.fn.stdpath('data') .. '/ai/' .. project_id .. '/' .. subpath
 end
 
 ---@param chat string

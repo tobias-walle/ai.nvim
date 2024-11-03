@@ -43,7 +43,7 @@ function M.stream(options)
     end
     stdout = stdout .. data
     for _, line in ipairs(vim.split(data, '\n')) do
-      options.on_data(line)
+      vim.schedule_wrap(options.on_data)(line)
     end
   end
 
@@ -58,8 +58,8 @@ function M.stream(options)
     cmd,
     {
       text = true,
-      stdout = vim.schedule_wrap(on_output),
-      stderr = vim.schedule_wrap(on_stderr),
+      stdout = on_output,
+      stderr = on_stderr,
     },
     vim.schedule_wrap(function(obj)
       if obj.code ~= 0 then

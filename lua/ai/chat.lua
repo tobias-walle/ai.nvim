@@ -1,4 +1,5 @@
 local Tools = require('ai.tools')
+local Yaml = require('ai.utils.yaml')
 
 local M = {}
 
@@ -47,7 +48,7 @@ function M.parse_chat_buffer(bufnr)
     [[
       (fenced_code_block
         (code_fence_content) @code_content
-        (#match? @code_content "// tool:call")
+        (#match? @code_content "# tool:call")
         )
     ]]
   )
@@ -91,33 +92,38 @@ function M.parse_chat_buffer(bufnr)
           vim.treesitter.get_node_text(match[1], content_match_text)
         local tool_call
         local lines = vim.split(tool_call_match_text, '\n')
+        local yaml_content = {}
+        local collecting_yaml = false
         for i, line in ipairs(lines) do
-          if line:match('// tool:call%s*$') and lines[i + 1] then
-            local ok, parsed = pcall(vim.json.decode, lines[i + 1])
+          if line:match('# tool:call%s*$') then
+            collecting_yaml = true
+            yaml_content = {}
+          elseif line:match('# tool:call:result%s*$') and tool_call then
+            collecting_yaml = true
+            yaml_content = {}
+          elseif collecting_yaml and #line > 0 and not line:match('^#') then
+            table.insert(yaml_content, line)
+          elseif collecting_yaml and #yaml_content > 0 then
+            local yaml_str = table.concat(yaml_content, '\n')
+            local ok, parsed = pcall(Yaml.decode, yaml_str)
             if ok then
-              tool_call = parsed
-              table.insert(tool_calls, tool_call)
+              if not tool_call then
+                tool_call = parsed
+                table.insert(tool_calls, tool_call)
+              else
+                tool_call.result = parsed
+              end
             else
               vim.notify(
-                'Failed to parse tool call: ' .. lines[i + 1],
+                'Failed to parse tool call result ('
+                  .. parsed
+                  .. '):\n'
+                  .. yaml_str,
                 vim.log.levels.ERROR
               )
             end
-          end
-          if
-            line:match('// tool:call:result%s*$')
-            and lines[i + 1]
-            and tool_call
-          then
-            local ok, parsed = pcall(vim.json.decode, lines[i + 1])
-            if ok then
-              tool_call.result = parsed
-            else
-              vim.notify(
-                'Failed to parse tool call result: ' .. lines[i + 1],
-                vim.log.levels.ERROR
-              )
-            end
+            collecting_yaml = false
+            yaml_content = {}
           end
         end
       end
@@ -163,15 +169,21 @@ local function render_messages(bufnr, messages)
     if msg.tool_calls then
       for _, tool_call in ipairs(msg.tool_calls) do
         table.insert(lines, '')
-        table.insert(lines, '```jsonc')
-        table.insert(lines, '// tool:call')
+        table.insert(lines, '```yaml')
+        table.insert(lines, '# tool:call')
         local tool_call_copy = vim.tbl_deep_extend('force', tool_call, {})
         tool_call_copy.result = nil
         tool_call_copy.content = nil
-        table.insert(lines, vim.json.encode(tool_call_copy))
+        local tool_call_yaml = Yaml.encode(tool_call_copy)
+        for _, line in ipairs(vim.split(tool_call_yaml, '\n')) do
+          table.insert(lines, line)
+        end
         if tool_call.result then
-          table.insert(lines, '// tool:call:result')
-          table.insert(lines, vim.json.encode(tool_call.result))
+          table.insert(lines, '# tool:call:result')
+          local result_yaml = Yaml.encode(tool_call.result)
+          for _, line in ipairs(vim.split(result_yaml, '\n')) do
+            table.insert(lines, line)
+          end
         end
         table.insert(lines, '```')
       end

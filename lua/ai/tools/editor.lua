@@ -4,94 +4,90 @@ return {
     name = 'editor',
     description = vim.trim([[
 Use this tool to edit one or multiple files or buffers.
-You can provide a list of edits.
+You can provide a list of files with their corresponding edit operations.
+Operations for each file will be executed in the order they are specified.
+Changes for each file can be accepted or rejected as a whole.
 Please choose the edit type that is most appropriate for the given task and can solve it using the least amount of tokens.
-  ]]),
+    ]]),
     parameters = {
       type = 'object',
       required = {
-        'operations',
+        'files',
       },
       properties = {
-        operations = {
+        files = {
           type = 'array',
-          description = 'List of edit operations to perform',
+          description = 'List of files to edit, each with their own operations',
           items = {
-            oneOf = {
-              {
-                type = 'object',
-                required = {
-                  'type',
-                  'file',
-                  'line_start_inclusive',
-                  'line_end_exclusive',
-                  'content',
-                },
-                description = vim.trim([[
-Standard edit operation that adds or replaces the given content on the given line numbers.
-Provide the content you want to add and the line numbers you want to add it to.
-Existing content in the lines will be overriden.
-            ]]),
-                properties = {
-                  type = {
-                    type = 'string',
-                    const = 'edit',
-                    description = 'Standard edit operation',
-                  },
-                  file = {
-                    type = 'string',
-                    description = 'The path to the file that should be edited or created.',
-                  },
-                  line_start_inclusive = {
-                    type = 'integer',
-                    description = 'The starting line number where the edit should begin (inclusive)',
-                    minimum = 1,
-                  },
-                  line_end_exclusive = {
-                    type = 'integer',
-                    description = 'The ending line number where the edit should end (exclusive)',
-                    minimum = 1,
-                  },
-                  content = {
-                    type = 'string',
-                    description = 'The new content to insert',
-                  },
-                },
-                additionalProperties = false,
+            type = 'object',
+            required = {
+              'file',
+              'operations',
+            },
+            properties = {
+              file = {
+                type = 'string',
+                description = 'The path to the file that should be edited or created.',
               },
-              {
-                type = 'object',
-                required = {
-                  'type',
-                  'file',
-                  'pattern',
-                  'replacement',
-                },
-                description = vim.trim([[
+              operations = {
+                type = 'array',
+                description = 'List of operations to perform on this file in order',
+                items = {
+                  oneOf = {
+                    {
+                      type = 'object',
+                      required = {
+                        'type',
+                        'content',
+                      },
+                      description = vim.trim([[
+Standard edit operation that adds or replaces the content of a whole file.
+                      ]]),
+                      properties = {
+                        type = {
+                          type = 'string',
+                          const = 'edit',
+                          description = 'Standard edit operation',
+                        },
+                        content = {
+                          type = 'string',
+                          description = 'The new content to insert',
+                        },
+                      },
+                      additionalProperties = false,
+                    },
+                    {
+                      type = 'object',
+                      required = {
+                        'type',
+                        'pattern',
+                        'replacement',
+                      },
+                      description = vim.trim([[
 Performs a search & replace operation on the given file using lua patterns.
-            ]]),
-                properties = {
-                  type = {
-                    type = 'string',
-                    const = 'replacement',
-                    description = 'Replace text matching a lua pattern.',
-                  },
-                  file = {
-                    type = 'string',
-                    description = 'The path to the file that should be edited',
-                  },
-                  pattern = {
-                    type = 'string',
-                    description = 'The lua pattern to search for. Make sure to use escaping if necessary.',
-                    -- example = '\\(Hello\\) \\w\\+',
-                  },
-                  replacement = {
-                    type = 'string',
-                    description = 'The text to replace the pattern with. Can contain captures of the pattern before.',
-                    -- example = '\\1 World',
+Please remember you can also do multiline replacements.
+Do the proper escaping if necessary.
+PLEASE PREFER THE USE OF THIS OPERATION IF FEASIBLE, AS IT REQUIRES LESS TOKENS.
+                      ]]),
+                      properties = {
+                        type = {
+                          type = 'string',
+                          const = 'replacement',
+                          description = 'Replace text matching a lua pattern.',
+                        },
+                        pattern = {
+                          type = 'string',
+                          description = 'The lua pattern to search for. Make sure to use escaping if necessary.',
+                        },
+                        replacement = {
+                          type = 'string',
+                          description = 'The text to replace the pattern with. Can contain captures of the pattern before.',
+                        },
+                      },
+                      additionalProperties = false,
+                    },
                   },
                 },
-                additionalProperties = false,
               },
             },
           },
@@ -138,15 +134,16 @@ Performs a search & replace operation on the given file using lua patterns.
       end, opts)
     end
 
-    -- Process operations one by one
-    local function process_operations(operations, index)
-      if index > #operations then
+    -- Process files one by one
+    local function process_files(files, index)
+      if index > #files then
         callback(results)
         return
       end
 
-      local op = operations[index]
-      local file = op.file
+      local file_entry = files[index]
+      local file = file_entry.file
+      local operations = file_entry.operations
 
       -- Find or create buffer
       local bufnr = vim.fn.bufadd(file)
@@ -158,32 +155,29 @@ Performs a search & replace operation on the given file using lua patterns.
       local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
       vim.api.nvim_buf_set_option(temp_bufnr, 'filetype', filetype)
       -- Copy content
-      local original_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-      vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, original_lines)
+      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+      vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, lines)
 
-      -- Apply changes based on operation type
-      if op.type == 'edit' then
-        -- Handle edit operation
-        local new_lines = vim.split(op.content, '\n')
-        vim.api.nvim_buf_set_lines(
-          temp_bufnr,
-          op.line_start_inclusive - 1,
-          op.line_end_exclusive - 1,
-          false,
-          new_lines
-        )
-      elseif op.type == 'replacement' then
-        -- Handle replacement operation
-        local lines = vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
-        local buffer_text = vim.fn.join(lines, '\n')
-        local new_buffer_text = buffer_text:gsub(op.pattern, op.replacement)
-        vim.api.nvim_buf_set_lines(
-          temp_bufnr,
-          0,
-          -1,
-          false,
-          vim.split(new_buffer_text, '\n')
-        )
+      -- Apply all operations in sequence
+      for _, op in ipairs(operations) do
+        if op.type == 'edit' then
+          -- Handle edit operation
+          local new_lines = vim.split(op.content, '\n')
+          vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, new_lines)
+        elseif op.type == 'replacement' then
+          -- Handle replacement operation
+          local current_lines =
+            vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
+          local buffer_text = vim.fn.join(current_lines, '\n')
+          local new_buffer_text = buffer_text:gsub(op.pattern, op.replacement)
+          vim.api.nvim_buf_set_lines(
+            temp_bufnr,
+            0,
+            -1,
+            false,
+            vim.split(new_buffer_text, '\n')
+          )
+        end
       end
 
       -- Create or switch to diff tab
@@ -198,13 +192,13 @@ Performs a search & replace operation on the given file using lua patterns.
       vim.api.nvim_win_set_buf(temp_win, temp_bufnr)
       vim.cmd('diffthis')
 
-      -- Setup keymaps for next operation
+      -- Setup keymaps for next file
       setup_keymaps(bufnr, temp_bufnr, function()
-        process_operations(operations, index + 1)
+        process_files(files, index + 1)
       end)
     end
 
-    -- Start processing operations
-    process_operations(params.operations, 1)
+    -- Start processing files
+    process_files(params.files, 1)
   end,
 }

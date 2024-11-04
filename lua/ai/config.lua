@@ -3,12 +3,14 @@ local M = {}
 ---@class AiConfig
 ---@field adapter? AdapterOptions
 ---@field mappings? { accept_suggestion: string }
+---@field context_file? string -- Name of an optional file relative to the opened projects to define custom context for the LLM.
 
 M.default_config = {
   adapter = require('ai.adapters.anthropic'),
   mappings = {
     accept_suggestion = '<Tab>',
   },
+  context_file = '.ai-context.md',
 }
 
 ---@param config? AiConfig

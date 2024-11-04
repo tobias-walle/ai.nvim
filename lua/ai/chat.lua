@@ -8,7 +8,11 @@ local Cache = require('ai.utils.cache')
 ---(Empty for now)
 
 local system_prompt_template = vim.trim([[
-You are a useful code assistant
+Act as an expert software developer.
+Always use best practices when coding.
+Respect and use existing conventions, libraries, etc that are already present in the code base.
+Take requests for changes to the supplied code.
+If the request is ambiguous, ask questions.
 ]])
 
 local function move_cursor_to_end(bufnr)
@@ -16,6 +20,9 @@ local function move_cursor_to_end(bufnr)
   vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
 end
 
+---@param bufnr number
+---@param messages AdapterMessage[]
+---@param save? boolean
 local function update_messages(bufnr, messages, save)
   Buffer.render(bufnr, messages)
   local chat =
@@ -29,6 +36,21 @@ end
 ---@param buffer ParsedChatBuffer
 ---@return AdapterMessage[]
 local function create_messages(buffer)
+  local config = require('ai.config').config
+
+  ---@type AdapterMessage[]
+  local context_messages = {}
+
+  if vim.fn.filereadable(config.context_file) == 1 then
+    local project_context_lines = vim.fn.readfile(config.context_file)
+    local project_context = table.concat(project_context_lines, '\n')
+    table.insert(context_messages, {
+      role = 'user',
+      content = 'Please consider the following project context instructions, defined by the developers:\n\n'
+        .. project_context,
+    })
+  end
+
   local chat_messages = vim
     .iter(buffer.messages)
     :map(function(m)
@@ -67,8 +89,8 @@ local function create_messages(buffer)
     table.insert(variable_messages, msg)
   end
 
-  -- Merge chat and variable messages. Include the variables before the last chat message.
-  local result = {}
+  -- Merge all messages.
+  local result = vim.fn.deepcopy(context_messages)
   for i = 1, #chat_messages - 1 do
     table.insert(result, chat_messages[i])
   end
@@ -178,16 +200,6 @@ local function send_message(bufnr)
   update_messages(bufnr, parsed.messages, true)
 end
 
---- Parse the messages of the current buffer (0) and render them again in a split
-function M.debug_parsing()
-  local parsed = Buffer.parse(0)
-  local bufnr = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
-  vim.cmd('vsplit')
-  vim.api.nvim_win_set_buf(0, bufnr)
-  update_messages(bufnr, parsed.messages)
-end
-
 function M.open_chat()
   local bufnr = Buffer.create()
 
@@ -243,6 +255,16 @@ end
 
 function M.setup()
   vim.api.nvim_create_user_command('AiChat', M.open_chat, {})
+end
+
+--- Parse the messages of the current buffer (0) and render them again in a split
+function M.debug_parsing()
+  local parsed = Buffer.parse(0)
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
+  vim.cmd('vsplit')
+  vim.api.nvim_win_set_buf(0, bufnr)
+  update_messages(bufnr, parsed.messages)
 end
 
 return M

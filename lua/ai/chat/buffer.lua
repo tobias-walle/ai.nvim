@@ -51,7 +51,6 @@ function M.render(bufnr, messages)
           table.insert(lines, line)
         end
         if tool_call.is_loading and tool_call.content then
-          print(tool_call.content)
           table.insert(lines, '⏳ ' .. tool_call.content)
         end
         if tool_call.result then

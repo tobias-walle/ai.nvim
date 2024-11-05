@@ -7,7 +7,8 @@ Use this tool to edit one or multiple files or buffers.
 You can provide a list of files with their corresponding edit operations.
 Operations for each file will be executed in the order they are specified.
 Changes for each file can be accepted or rejected as a whole.
-Please choose the edit type that is most appropriate for the given task and can solve it using the least amount of tokens.
+PLEASE CHOOSE THE EDIT TYPE THAT IS MOST APPROPRIATE FOR THE GIVEN TASK AND CAN SOLVE IT USING THE LEAST AMOUNT OF TOKENS.
+MOST OF THE TIME THIS IS THE REPLACEMENT TOOL (Except when creating new files or completly replacing the content of a file)
     ]]),
     parameters = {
       type = 'object',
@@ -66,8 +67,43 @@ Standard edit operation that adds or replaces the content of a whole file.
                       description = vim.trim([[
 Performs a search & replace operation on the given file using lua patterns.
 Please remember you can also do multiline replacements.
-Do the proper escaping if necessary.
-PLEASE PREFER THE USE OF THIS OPERATION IF FEASIBLE, AS IT REQUIRES LESS TOKENS.
+
+Only use the following tokens:
+.   all characters
+%a  letters
+%c  control characters
+%d  digits
+%l  lower case letters
+%p  punctuation characters
+%s  space characters
+%u  upper case letters
+%w  alphanumeric characters
+%x  hexadecimal digits
+%z  the character with representation 0
+
++	1 or more repetitions
+*	0 or more repetitions
+-	also 0 or more repetitions
+?	optional (0 or 1 occurrence)
+
+
+Remember to do the proper escaping for the following symbols:
+( = %(
+) = %)
+. = %.
+% = %%
++ = %+
+- = %-
+* = %*
+? = %?
+[ = %[
+^ = %^
+$ = %$
+
+You can use captures to reuse part of the pattern:
+string.gsub("hello Lua!", "(%a)", "%1-%1") => h-he-el-ll-lo-o L-Lu-ua-a!
+
+REMEMBER TO START CAPTURE GROUPS WITH %. $ OR / WON'T WORK.
                       ]]),
                       properties = {
                         type = {

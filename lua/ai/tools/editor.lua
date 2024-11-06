@@ -69,48 +69,12 @@ Performs a search & replace operation on the given file.
 Please remember you can also do multiline replacements.
 You can only replace with simple strings. Regex patterns are not possible. No escaping is needed.
                       ]]),
-                      -- FUTURE:
-                      -- We are using a customized version of lua patterns.
-                      --
-                      -- You can use on of the following tokens if appropriate:
-                      -- %.   all characters
-                      -- %a  letters
-                      -- %c  control characters
-                      -- %d  digits
-                      -- %l  lower case letters
-                      -- %p  punctuation characters
-                      -- %s  space characters
-                      -- %u  upper case letters
-                      -- %w  alphanumeric characters
-                      -- %x  hexadecimal digits
-                      -- %z  the character with representation 0
-                      --
-                      -- %+	1 or more repetitions
-                      -- %*	0 or more repetitions
-                      -- %-	also 0 or more repetitions
-                      -- %?	optional (0 or 1 occurrence)
-                      --
-                      -- %(  Capture start
-                      -- %)  Capture end
-                      -- %[  Character group start
-                      -- %]  Character group start
-                      -- %^  Start of text
-                      -- %$  End of text
-                      --
-                      -- In the replacement:
-                      -- %1  Reuse capture 1
-                      -- %2  Reuse capture 2
-                      -- .etc.
-                      --
-                      -- If you want to use % directly escape it as %%.
                       properties = {
-
                         type = {
                           type = 'string',
-                          const = 'replacement',
-                          description = 'Replace text matching a lua pattern.',
+                          description = 'Replace text using search & replace',
                         },
-                        pattern = {
+                        search = {
                           type = 'string',
                           description = 'The text to search for',
                         },
@@ -205,9 +169,9 @@ You can only replace with simple strings. Regex patterns are not possible. No es
             vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
           local buffer_text = vim.fn.join(current_lines, '\n')
           -- Escape everything
-          local pattern = op.pattern:gsub('%W', '%%%1')
+          local search = op.search:gsub('%W', '%%%1')
           local replacement = op.replacement:gsub('%%', '%%%%')
-          local new_buffer_text = buffer_text:gsub(pattern, replacement)
+          local new_buffer_text = buffer_text:gsub(search, replacement)
           vim.api.nvim_buf_set_lines(
             temp_bufnr,
             0,

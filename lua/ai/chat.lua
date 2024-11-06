@@ -13,6 +13,7 @@ Always use best practices when coding.
 Respect and use existing conventions, libraries, etc that are already present in the code base.
 Take requests for changes to the supplied code.
 If the request is ambiguous, ask questions.
+Before you are using tools list the steps you plan to do in a bullet point list (around one sentence each).
 ]])
 
 local function move_cursor_to_end(bufnr)

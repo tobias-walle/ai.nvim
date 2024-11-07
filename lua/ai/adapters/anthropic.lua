@@ -29,7 +29,7 @@ local options = {
       local messages = {}
       for _, msg in ipairs(request.messages) do
         local content = {}
-        if msg.content then
+        if msg.content and #msg.content > 0 then
           table.insert(content, { type = 'text', text = msg.content })
         end
         if msg.tool_calls then

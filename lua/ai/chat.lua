@@ -103,9 +103,13 @@ end
 local function send_message(bufnr)
   local adapter = require('ai.config').adapter
   local parsed = Buffer.parse(bufnr)
-  local last_message = parsed.messages[#parsed.messages]
+  local messages_before_send = parsed.messages
+  local last_message = messages_before_send[#messages_before_send]
 
-  if not last_message or last_message.role ~= 'user' then
+  if
+    not last_message
+    or (last_message.role ~= 'user' and last_message.tool_call_results == 0)
+  then
     vim.notify('No user message to send', vim.log.levels.ERROR)
     return
   end
@@ -123,7 +127,7 @@ local function send_message(bufnr)
     temperature = 0.3,
     on_update = function(update)
       current_response = vim.split(update.response, '\n')
-      local all_messages = vim.deepcopy(parsed.messages)
+      local all_messages = vim.deepcopy(messages_before_send)
       table.insert(all_messages, {
         role = 'assistant',
         content = table.concat(current_response, '\n'),
@@ -133,17 +137,24 @@ local function send_message(bufnr)
     end,
     on_error = function(err)
       -- Remove ^M from err
-      err = err:gsub('\r', '')
+      err = vim.trim(err:gsub('\r', ''))
+      local err_msg = 'Error'
+      if #err > 0 then
+        err_msg = err_msg .. ':\n' .. err
+      end
       table.insert(
-        parsed.messages,
-        { role = 'assistant', content = '_Error_:\n```\n' .. err .. '\n```' }
+        messages_before_send,
+        { role = 'assistant', content = err_msg }
       )
+      vim.b[bufnr].running_job = nil
       update_messages(bufnr, parsed.messages, true)
     end,
     on_exit = function(data)
       vim.b[bufnr].running_job = nil
-      local all_messages = vim.deepcopy(parsed.messages)
-      if not data.cancelled and data.exit_code == 0 then
+      local all_messages = vim.deepcopy(messages_before_send)
+      if data.cancelled then
+        update_messages(bufnr, all_messages, true)
+      elseif data.exit_code == 0 then
         -- Add message only if the request was an success
         local assistant_message = {
           role = 'assistant',
@@ -168,8 +179,9 @@ local function send_message(bufnr)
           local function execute_next_tool(index)
             local tool_call = assistant_message.tool_calls[index]
             if not tool_call then
-              table.insert(all_messages, { role = 'user', content = '' })
               update_messages(bufnr, all_messages, true)
+              -- Rerun to allow agentic workflows
+              send_message(bufnr)
               return
             end
 
@@ -190,10 +202,13 @@ local function send_message(bufnr)
             end
           end
 
-          execute_next_tool(1)
+          if #assistant_message.tool_calls > 0 then
+            execute_next_tool(1)
+          else
+            table.insert(all_messages, { role = 'user', content = '' })
+            update_messages(bufnr, all_messages, true)
+          end
         end, 300)
-      else
-        update_messages(bufnr, all_messages, true)
       end
     end,
   })

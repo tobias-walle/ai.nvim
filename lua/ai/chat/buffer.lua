@@ -32,26 +32,33 @@ function M.create()
 end
 
 function M.render(bufnr, messages)
+  local some_tool_call_is_loading = false
   local lines = {}
   for _, msg in ipairs(messages) do
+    local content = vim.trim(msg.content)
+    local has_tool_calls = msg.tool_calls and #msg.tool_calls > 0
     table.insert(lines, '## ' .. msg.role:gsub('^%l', string.upper) .. ' ##')
-    for _, line in ipairs(vim.split(msg.content, '\n')) do
-      table.insert(lines, line)
+    if #content > 0 then
+      for _, line in ipairs(vim.split(content, '\n')) do
+        table.insert(lines, line)
+      end
     end
-    if msg.tool_calls then
+    if has_tool_calls then
       for _, tool_call in ipairs(msg.tool_calls) do
         table.insert(lines, '')
-        table.insert(lines, '```yaml')
+        table.insert(lines, '`````yaml')
         table.insert(lines, '# tool:call')
         local tool_call_copy = vim.deepcopy(tool_call)
         tool_call_copy.result = nil
         tool_call_copy.content = nil
+        tool_call_copy.is_loading = nil
         local tool_call_yaml = Yaml.encode(tool_call_copy)
         for _, line in ipairs(vim.split(tool_call_yaml, '\n')) do
           table.insert(lines, line)
         end
-        if tool_call.is_loading and tool_call.content then
-          table.insert(lines, '⏳ ' .. tool_call.content)
+        if tool_call.is_loading then
+          some_tool_call_is_loading = true
+          table.insert(lines, '⏳ ' .. #(tool_call.content or ''))
         end
         if tool_call.result then
           table.insert(lines, '# tool:call:result')
@@ -60,20 +67,15 @@ function M.render(bufnr, messages)
             table.insert(lines, line)
           end
         end
-        table.insert(lines, '```')
+        table.insert(lines, '`````')
       end
     end
     table.insert(lines, '')
   end
 
   -- Add loading indicator if needed
-  local last_message = messages[#messages]
-  if
-    vim.b[bufnr].running_job
-    and not (last_message.role == 'assistant' and #last_message.content > 0)
-  then
-    table.insert(lines, '## Assistant ##')
-    table.insert(lines, '⏳')
+  if vim.b[bufnr].running_job and not some_tool_call_is_loading then
+    table.insert(lines, '...')
     table.insert(lines, '')
   end
 

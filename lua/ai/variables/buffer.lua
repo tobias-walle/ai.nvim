@@ -8,7 +8,8 @@ return {
     local leftmost_win = wins[1]
     local buf = vim.api.nvim_win_get_buf(leftmost_win)
     local text = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-    local path = vim.api.nvim_buf_get_name(buf)
+    -- Get relative paths
+    local path = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ':.')
     local ft = vim.api.nvim_buf_get_option(buf, 'filetype')
     return string.format(
       vim.trim([[

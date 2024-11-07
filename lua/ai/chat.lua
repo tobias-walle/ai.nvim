@@ -13,7 +13,11 @@ Always use best practices when coding.
 Respect and use existing conventions, libraries, etc that are already present in the code base.
 Take requests for changes to the supplied code.
 If the request is ambiguous, ask questions.
-Before you are using tools list the steps you plan to do in a bullet point list (around one sentence each).
+
+Tools:
+- Before you are plan to use tools list the steps you plan to do in a bullet point list (around one sentence each).
+- Before the call of each tools add one sentence what you are about to do.
+- After you are done with all tools calls avoid long summaries. Instead just add one or two words to indicate that you are done and a fitting emoji.
 ]])
 
 local function move_cursor_to_end(bufnr)

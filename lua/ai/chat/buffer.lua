@@ -82,10 +82,15 @@ function M.render(bufnr, messages)
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 end
 
+---@class ChatMessage
+---@field role string The role of the message (e.g., 'user', 'assistant')
+---@field content string The text content of the message
+---@field tool_calls? AdapterToolCall[] Optional list of tool calls associated with the message
+---@field variables? VariableDefinition[] Optional list of variables used in the message
+
 ---@class ParsedChatBuffer
----@field messages table[] The chat messages
+---@field messages ChatMessage[] The chat messages
 ---@field tools ToolDefinition[] The tools used in the chat
----@field variables VariableDefinition[] The variables used in the chat
 
 ---@param bufnr integer
 ---@return ParsedChatBuffer
@@ -117,8 +122,6 @@ function M.parse(bufnr)
   )
 
   local tools = {}
-  local variables = {}
-
   local get_text = function(captures, source, delim)
     return vim
       .iter(captures)
@@ -219,14 +222,17 @@ function M.parse(bufnr)
     end
 
     -- Find variable uses
+    local current_message_variables = {}
     for _, variable in ipairs(Variables.all) do
       if content:match('#' .. variable.name) then
         if
-          not vim.iter(variables):find(function(existing_variable)
-            return existing_variable.name == variable.name
-          end)
+          not vim
+            .iter(current_message_variables)
+            :find(function(existing_variable)
+              return existing_variable.name == variable.name
+            end)
         then
-          table.insert(variables, variable)
+          table.insert(current_message_variables, variable)
         end
       end
     end
@@ -235,13 +241,15 @@ function M.parse(bufnr)
       role = role,
       content = content,
       tool_calls = tool_calls,
+      variables = #current_message_variables > 0 and current_message_variables
+        or nil,
     })
   end
 
   -- vim.notify('Messages: ' .. vim.inspect(messages), vim.log.levels.DEBUG)
   -- vim.notify('Tools: ' .. vim.inspect(tools), vim.log.levels.DEBUG)
   -- vim.notify('Variables: ' .. vim.inspect(variables), vim.log.levels.DEBUG)
-  return { messages = messages, tools = tools, variables = variables }
+  return { messages = messages, tools = tools }
 end
 
 return M

@@ -13,7 +13,7 @@ return {
     local ft = vim.api.nvim_buf_get_option(buf, 'filetype')
     return string.format(
       vim.trim([[
-Variable: #buffer - Contains the latest information about the current buffer
+Variable: #buffer - Contains the current buffer. It is always updated and contains all the changes made before.
 File: %s
 ```%s
 %s

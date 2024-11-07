@@ -8,8 +8,7 @@ You can provide a list of operations to apply on one file.
 Operations for each file will be executed in the order they are specified.
 Changes for each file can be accepted or rejected as a whole by the user.
 As a result of this tool you get a list of logs.
-PLEASE CHOOSE THE EDIT TYPE THAT IS MOST APPROPRIATE FOR THE GIVEN TASK AND CAN SOLVE IT USING THE LEAST AMOUNT OF TOKENS.
-MOST OF THE TIME THIS IS THE REPLACEMENT TOOL (Except when creating new files or completly replacing the content of a file)
+Please choose the edit type that is most appropriate for the given task and can solve it using the least amount of tokens.
     ]]),
     parameters = {
       type = 'object',

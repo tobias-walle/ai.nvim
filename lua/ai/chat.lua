@@ -9,15 +9,28 @@ local Cache = require('ai.utils.cache')
 
 local system_prompt_template = vim.trim([[
 Act as an expert software developer.
-Always use best practices when coding.
-Respect and use existing conventions, libraries, etc that are already present in the code base.
-Take requests for changes to the supplied code.
-If the request is ambiguous, ask questions.
+
+Coding:
+- Always use best practices when coding.
+- Respect and use existing conventions, libraries, etc that are already present in the code base.
+- Take requests for changes to the supplied code.
+
+Requests:
+- If the request is ambiguous, ask questions.
+- IF YOU DON'T HAVE THE NECESSARY INFORMATION TO ANSWER A QUESTION ASK FOR IT! NEVER TRY TO GUESS AN ANSWER!
+
+Formatting:
+- Create a new line after each sentence.
+
+Variables:
+- Variables can be added to the text and start with # (e.g. #buffer)
+- Only variables of the last message are provided to you.
+- If you are missing information of a variable to answer the question ask for it.
 
 Tools:
 - Before you are plan to use tools list the steps you plan to do in a bullet point list (around one sentence each).
 - Before the call of each tools add one sentence what you are about to do.
-- After you are done with all tools calls avoid long summaries. Instead just add one or two words to indicate that you are done and a fitting emoji.
+- After you are done with all tools calls just add one or two words to indicate that you are done and a fitting emoji. DO NOT EXPLAIN THE CHANGES AGAIN!
 ]])
 
 local function move_cursor_to_end(bufnr)
@@ -86,7 +99,7 @@ local function create_messages(buffer)
 
   ---@type AdapterMessage[]
   local variable_messages = {}
-  for _, variable in ipairs(buffer.variables) do
+  for _, variable in ipairs(buffer.messages[#buffer.messages].variables or {}) do
     local msg = {
       role = 'user',
       content = variable.resolve({}, {}),
@@ -101,6 +114,7 @@ local function create_messages(buffer)
   end
   vim.list_extend(result, variable_messages)
   table.insert(result, chat_messages[#chat_messages])
+  dbg(result)
   return result
 end
 

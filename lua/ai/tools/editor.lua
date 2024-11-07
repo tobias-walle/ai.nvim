@@ -8,7 +8,10 @@ You can provide a list of operations to apply on one file.
 Operations for each file will be executed in the order they are specified.
 Changes for each file can be accepted or rejected as a whole by the user.
 As a result of this tool you get a list of logs.
-Please choose the edit type that is most appropriate for the given task and can solve it using the least amount of tokens.
+
+Please choose the edit type that is most appropriate for the given task and can solve it using the least amount of tokens. For example:
+- Use the "replacement" tool for most edits
+- Use the "override" tool for new files or if overriding the whole file is more efficient
     ]]),
     parameters = {
       type = 'object',
@@ -30,26 +33,6 @@ Please choose the edit type that is most appropriate for the given task and can 
                 type = 'object',
                 required = {
                   'type',
-                  'content',
-                },
-                description = 'Standard edit operation that adds or replaces the content of a whole file.',
-                properties = {
-                  type = {
-                    type = 'string',
-                    const = 'edit',
-                    description = 'Standard edit operation',
-                  },
-                  content = {
-                    type = 'string',
-                    description = 'The new content to insert',
-                  },
-                },
-                additionalProperties = false,
-              },
-              {
-                type = 'object',
-                required = {
-                  'type',
                   'search',
                   'replacement',
                 },
@@ -61,7 +44,8 @@ You can only replace with simple strings. Regex patterns are not possible. No es
                 properties = {
                   type = {
                     type = 'string',
-                    description = 'Replace text using search & replace',
+                    const = 'replacement',
+                    description = 'Has to be "replacement"',
                   },
                   search = {
                     type = 'string',
@@ -70,6 +54,26 @@ You can only replace with simple strings. Regex patterns are not possible. No es
                   replacement = {
                     type = 'string',
                     description = 'The text to replace the pattern with',
+                  },
+                },
+                additionalProperties = false,
+              },
+              {
+                type = 'object',
+                required = {
+                  'type',
+                  'content',
+                },
+                description = 'Standard edit operation that adds or replaces the content of a whole file.',
+                properties = {
+                  type = {
+                    type = 'string',
+                    const = 'override',
+                    description = 'Has to be "override"',
+                  },
+                  content = {
+                    type = 'string',
+                    description = 'The new content to insert',
                   },
                 },
                 additionalProperties = false,
@@ -102,7 +106,7 @@ You can only replace with simple strings. Regex patterns are not possible. No es
     -- Apply all operations in sequence
     local text_before_opts = vim.fn.join(lines, '\n')
     for i, op in ipairs(operations) do
-      if op.type == 'edit' then
+      if op.type == 'override' then
         -- Handle edit operation
         local new_lines = vim.split(op.content, '\n')
         vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, new_lines)

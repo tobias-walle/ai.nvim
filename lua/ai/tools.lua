@@ -6,6 +6,7 @@ local M = {}
 
 ---@type ToolDefinition[]
 M.all = {
+  require('ai.tools.web'),
   require('ai.tools.editor'),
 }
 

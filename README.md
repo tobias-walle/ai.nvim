@@ -50,3 +50,9 @@ Using [lazy.nvim](https://lazy.folke.io/):
   end,
 }
 ```
+
+Please setup the following environment variables, depending on which feature you want to use:
+
+- `OPENAI_API_KEY`: Api key for OpenAI if you want to use their models
+- `ANTHROPIC_API_KEY`: Api key for Anthropic if you want to use their models
+- `PERPLEXITY_API_KEY`: Api key for Perplexity if you want to the @web tool

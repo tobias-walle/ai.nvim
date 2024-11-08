@@ -7,6 +7,7 @@ local M = {}
 ---@type VariableDefinition[]
 M.all = {
   require('ai.variables.buffer'),
+  require('ai.variables.diagnostics'),
 }
 
 ---@param name string

@@ -30,12 +30,18 @@ Variables:
 Tools:
 - Before you are plan to use tools list the steps you plan to do in a bullet point list (around one sentence each).
 - Before the call of each tools add one sentence what you are about to do.
-- After you are done with all tools calls just add one or two words to indicate that you are done and a fitting emoji. DO NOT EXPLAIN THE CHANGES AGAIN!
+- After you are done with all tools calls add one word and a fitting emoji indicate that you are done. DO NOT ADD MORE TEXT TO SAVE TOKENS!
 ]])
 
 local function move_cursor_to_end(bufnr)
   local line_count = vim.api.nvim_buf_line_count(bufnr)
-  vim.api.nvim_win_set_cursor(0, { line_count - 1, 0 })
+  pcall(vim.api.nvim_win_set_cursor, 0, { line_count - 1, 0 })
+end
+
+local function save_current_chat(bufnr)
+  local chat =
+    vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
+  Cache.save_chat(chat)
 end
 
 ---@param bufnr number
@@ -43,10 +49,8 @@ end
 ---@param save? boolean
 local function update_messages(bufnr, messages, save)
   Buffer.render(bufnr, messages)
-  local chat =
-    vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
   if save then
-    Cache.save_chat(chat)
+    save_current_chat(bufnr)
   end
   move_cursor_to_end(bufnr)
 end
@@ -99,12 +103,17 @@ local function create_messages(buffer)
 
   ---@type AdapterMessage[]
   local variable_messages = {}
-  for _, variable in ipairs(buffer.messages[#buffer.messages].variables or {}) do
-    local msg = {
-      role = 'user',
-      content = variable.resolve({}, {}),
-    }
-    table.insert(variable_messages, msg)
+  for i = #buffer.messages, 1, -1 do
+    if buffer.messages[i].role == 'user' then
+      for _, variable in ipairs(buffer.messages[i].variables or {}) do
+        local msg = {
+          role = 'user',
+          content = variable.resolve({}, {}),
+        }
+        table.insert(variable_messages, msg)
+      end
+      break
+    end
   end
 
   -- Merge all messages.
@@ -263,7 +272,8 @@ function M.open_chat()
   end, { buffer = bufnr, noremap = true })
 
   vim.keymap.set('n', 'gx', function()
-    -- Clear buffer
+    save_current_chat(bufnr)
+    Cache.new_chat()
     update_messages(bufnr, {
       { role = 'user', content = '' },
     })

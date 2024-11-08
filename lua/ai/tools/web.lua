@@ -6,6 +6,10 @@ local tool = {
 Use this tool to search on the web.
 You can provide a search term or question to look for and will get as a result a string providing a summary of the findings.
 Perplexity will be used for the search.
+
+Always search the web if you relying on current information, like:
+- Documentation of libraries
+- Facts and News
     ]]),
     parameters = {
       type = 'object',

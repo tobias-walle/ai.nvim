@@ -10,8 +10,8 @@ Changes for each file can be accepted or rejected as a whole by the user.
 As a result of this tool you get a list of logs.
 
 Please choose the edit type that is most appropriate for the given task and can solve it using the least amount of tokens. For example:
-- Use the "replacement" tool for most edits
-- Use the "override" tool for new files or if overriding the whole file is more efficient
+- Use the "replacement" operation for most edits
+- Use the "override" operation for new files or if overriding the whole file is more efficient
     ]]),
     parameters = {
       type = 'object',

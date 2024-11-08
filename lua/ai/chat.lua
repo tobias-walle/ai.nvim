@@ -14,6 +14,8 @@ Coding:
 - Always use best practices when coding.
 - Respect and use existing conventions, libraries, etc that are already present in the code base.
 - Take requests for changes to the supplied code.
+- Try to stay DRY, but duplicate code if it makes sense.
+- If you are using languages with optional static typing, always define the types at least on function signatures.
 
 Requests:
 - If the request is ambiguous, ask questions.
@@ -52,6 +54,13 @@ local function update_messages(bufnr, messages, save)
   if save then
     save_current_chat(bufnr)
   end
+  move_cursor_to_end(bufnr)
+end
+
+---@param bufnr number
+---@param chat string
+local function set_chat_text(bufnr, chat)
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(chat, '\n'))
   move_cursor_to_end(bufnr)
 end
 
@@ -279,15 +288,25 @@ function M.open_chat()
     })
   end, { buffer = bufnr, noremap = true })
 
+  vim.keymap.set('n', 'gn', function()
+    save_current_chat(bufnr)
+    local chat = Cache.next_chat()
+    if chat then
+      set_chat_text(bufnr, chat)
+    end
+  end, { buffer = bufnr, noremap = true })
+
+  vim.keymap.set('n', 'gp', function()
+    save_current_chat(bufnr)
+    local chat = Cache.previous_chat()
+    if chat then
+      set_chat_text(bufnr, chat)
+    end
+  end, { buffer = bufnr, noremap = true })
+
   local existing_chat = Cache.load_chat()
   if existing_chat then
-    vim.api.nvim_buf_set_lines(
-      bufnr,
-      0,
-      -1,
-      false,
-      vim.split(existing_chat, '\n')
-    )
+    set_chat_text(bufnr, existing_chat)
     move_cursor_to_end(bufnr)
   else
     -- Add initial message

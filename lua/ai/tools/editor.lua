@@ -26,7 +26,7 @@ Please choose the edit type that is most appropriate for the given task and can 
         },
         operations = {
           type = 'array',
-          description = 'List of operations to perform on this file in order',
+          description = 'List of operations to perform on this file in order. Make sure to ALWAYS provide a valid json array.',
           items = {
             oneOf = {
               {
@@ -64,7 +64,7 @@ You can only replace with simple strings. Regex patterns are not possible. No es
                   'type',
                   'content',
                 },
-                description = 'Standard edit operation that adds or replaces the content of a whole file.',
+                description = 'Replace the content of a whole file.',
                 properties = {
                   type = {
                     type = 'string',
@@ -73,7 +73,7 @@ You can only replace with simple strings. Regex patterns are not possible. No es
                   },
                   content = {
                     type = 'string',
-                    description = 'The new content to insert',
+                    description = 'The new content to insert. Remember to do proper escaping.',
                   },
                 },
                 additionalProperties = false,

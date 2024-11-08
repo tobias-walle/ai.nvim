@@ -252,4 +252,10 @@ function M.parse(bufnr)
   return { messages = messages, tools = tools }
 end
 
+---@param bufnr integer
+---@return nil
+function M.rerender(bufnr)
+  M.render(bufnr, M.parse(bufnr))
+end
+
 return M

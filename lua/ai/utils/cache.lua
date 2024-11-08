@@ -176,4 +176,93 @@ function M.next_chat()
   return navigate_chat(1)
 end
 
+--- Search chats via Telescope
+function M.search_chats(opts, callback)
+  opts = opts or {}
+
+  local pickers = require('telescope.pickers')
+  local previewers = require('telescope.previewers')
+  local finders = require('telescope.finders')
+  local conf = require('telescope.config').values
+  local actions = require('telescope.actions')
+  local action_state = require('telescope.actions.state')
+
+  -- Get list of chat files
+  local chat_files = list_chat_files()
+
+  if not chat_files or #chat_files == 0 then
+    vim.notify('No chat files found', vim.log.levels.WARN)
+    return
+  end
+
+  -- Prepare chat files with full paths
+  local project_id = get_project_id()
+  local base_path = vim.fn.stdpath('data') .. '/ai/' .. project_id .. '/'
+
+  -- Prepare results with unique filenames and their full paths
+  local unique_files = {}
+  for _, file in ipairs(chat_files) do
+    local full_path = base_path .. file
+    unique_files[file] = full_path
+  end
+
+  -- Custom previewer to show full file content
+  local previewer = previewers.new_buffer_previewer({
+    title = 'Chat Preview',
+    get_buffer_by_name = function(_, entry)
+      return entry.filename
+    end,
+    define_preview = function(self, entry)
+      -- Read the full file content
+      local content = vim.fn.readfile(entry.value)
+
+      -- Set the preview buffer content
+      vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, content)
+
+      -- Set syntax highlighting
+      vim.api.nvim_buf_set_option(self.state.bufnr, 'filetype', 'markdown')
+    end,
+  })
+
+  pickers
+    .new(opts, {
+      prompt_title = 'Search Chat History',
+      finder = finders.new_table({
+        results = (function()
+          local results = {}
+          for filename, full_path in pairs(unique_files) do
+            -- Read the full file content
+            local content = table.concat(vim.fn.readfile(full_path), '\n')
+            table.insert(results, {
+              filename = filename,
+              value = full_path,
+              content = content,
+            })
+          end
+          return results
+        end)(),
+        entry_maker = function(entry)
+          return {
+            value = entry.value,
+            display = entry.filename,
+            ordinal = entry.filename .. ' ' .. entry.content,
+            filename = entry.filename,
+          }
+        end,
+      }),
+      sorter = conf.generic_sorter(opts),
+      previewer = previewer,
+      attach_mappings = function(prompt_bufnr, map)
+        actions.select_default:replace(function()
+          local selection = action_state.get_selected_entry()
+          M.save_state({ current_chat_file = selection.filename })
+          actions.close(prompt_bufnr)
+          callback()
+        end)
+        return true
+      end,
+    })
+    :find()
+end
+
 return M

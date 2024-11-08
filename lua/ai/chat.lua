@@ -304,6 +304,16 @@ function M.open_chat()
     end
   end, { buffer = bufnr, noremap = true })
 
+  vim.keymap.set('n', 'gs', function()
+    save_current_chat(bufnr)
+    Cache.search_chats({}, function()
+      local chat = Cache.load_chat()
+      if chat then
+        set_chat_text(bufnr, chat)
+      end
+    end)
+  end, { buffer = bufnr, noremap = true })
+
   local existing_chat = Cache.load_chat()
   if existing_chat then
     set_chat_text(bufnr, existing_chat)

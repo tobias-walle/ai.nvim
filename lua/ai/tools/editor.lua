@@ -12,15 +12,15 @@ You can provide changes in two formats:
 #### editor:override
 `path/to/file`
 
-```<lang>
+`````<lang>
 <content_to_override>
-```
+`````
 
 2. Replace specific parts with 1 or more replacements:
 #### editor:replacement
 `path/to/file`
 
-```<lang>
+`````<lang>
 <<<<<<< ORIGINAL
 <original_content>
 =======
@@ -31,9 +31,10 @@ You can provide changes in two formats:
 =======
 <new_content_2>
 >>>>>>> UPDATED
-```
+`````
 
-IMPORTANT RULES:
+EDITOR SYNTAX - IMPORTANT RULES:
+- Always use ````` for code blocks to prevent escaping issues
 - NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
 - For replacements: Show the EXACT content that should be replaced in the ORIGINAL section. Multiline replacements are possible.
 - File paths are always relative to the project root

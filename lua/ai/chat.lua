@@ -132,7 +132,6 @@ local function create_messages(buffer)
   end
   vim.list_extend(result, variable_messages)
   table.insert(result, chat_messages[#chat_messages])
-  dbg(result)
   return result
 end
 
@@ -151,8 +150,14 @@ local function send_message(bufnr)
   end
 
   local current_response = {}
+  local system_prompt_parts = { system_prompt_template }
+  for _, fake_tool in ipairs(parsed.fake_tools or {}) do
+    table.insert(system_prompt_parts, fake_tool)
+  end
+  local system_prompt = vim.fn.join(system_prompt_parts, '\n\n---\n\n')
+  print(system_prompt)
   vim.b[bufnr].running_job = adapter:chat_stream({
-    system_prompt = system_prompt_template,
+    system_prompt = system_prompt,
     messages = create_messages(parsed),
     tools = vim
       .iter(parsed.tools)
@@ -211,17 +216,32 @@ local function send_message(bufnr)
 
         update_messages(bufnr, all_messages, true)
 
-        vim.defer_fn(function()
-          local function execute_next_tool(index)
-            local tool_call = assistant_message.tool_calls[index]
-            if not tool_call then
-              update_messages(bufnr, all_messages, true)
-              -- Rerun to allow agentic workflows
-              send_message(bufnr)
-              return
-            end
+        local fake_tool_uses =
+          Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
+        local function execute_next_fake_tool(index, callback)
+          local tool_use = fake_tool_uses[index]
+          if not tool_use then
+            callback()
+            return
+          end
+          for _, call in ipairs(tool_use.calls) do
+            tool_use.tool.execute({}, call, function()
+              execute_next_fake_tool(index + 1, callback)
+            end)
+          end
+        end
 
-            local tool = Tools.find_tool_by_name(tool_call.tool)
+        local function execute_next_tool(index)
+          local tool_call = assistant_message.tool_calls[index]
+          if not tool_call then
+            update_messages(bufnr, all_messages, true)
+            -- Rerun to allow agentic workflows
+            send_message(bufnr)
+            return
+          end
+
+          if not tool_call.result then
+            local tool = Tools.find_real_tool_by_name(tool_call.tool)
             if tool then
               tool.execute({}, tool_call.params, function(result)
                 ---@diagnostic disable-next-line: inject-field
@@ -237,14 +257,16 @@ local function send_message(bufnr)
               execute_next_tool(index + 1)
             end
           end
+        end
 
+        execute_next_fake_tool(1, function()
           if #assistant_message.tool_calls > 0 then
             execute_next_tool(1)
           else
             table.insert(all_messages, { role = 'user', content = '' })
             update_messages(bufnr, all_messages, true)
           end
-        end, 300)
+        end)
       end
     end,
   })

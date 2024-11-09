@@ -23,8 +23,8 @@ local options = {
     ['x-api-key'] = os.getenv('ANTHROPIC_API_KEY'),
     ['anthropic-version'] = '2023-06-01',
   },
-  -- default_model = 'claude-3-5-sonnet-20241022',
-  default_model = 'claude-3-5-haiku-20241022',
+  default_model = 'claude-3-5-sonnet-20241022',
+  -- default_model = 'claude-3-5-haiku-20241022',
   handlers = {
     create_request_body = function(request)
       local messages = {}

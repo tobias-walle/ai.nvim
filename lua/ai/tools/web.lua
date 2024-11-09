@@ -1,4 +1,4 @@
----@type ToolDefinition
+---@type RealToolDefinition
 local tool = {
   definition = {
     name = 'web',

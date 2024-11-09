@@ -21,7 +21,9 @@ function M.create()
   vim.api.nvim_win_set_buf(0, bufnr)
   -- Configure tools highlight
   for _, tool in ipairs(Tools.all) do
-    vim.cmd.syntax('match Special "@' .. tool.definition.name .. '"')
+    vim.cmd.syntax(
+      'match Special "@' .. Tools.get_tool_definition_name(tool) .. '"'
+    )
   end
   -- Configure variables highlight
   for _, variable in ipairs(Variables.all) do
@@ -86,11 +88,14 @@ end
 ---@field role string The role of the message (e.g., 'user', 'assistant')
 ---@field content string The text content of the message
 ---@field tool_calls? AdapterToolCall[] Optional list of tool calls associated with the message
+---@field tool_call_results? AdapterMessageToolCallResult[] Optional list of tool calls associated with the message
+---@field fake_tool_uses? FakeToolUse[] The fake tools used in this message
 ---@field variables? VariableDefinition[] Optional list of variables used in the message
 
 ---@class ParsedChatBuffer
 ---@field messages ChatMessage[] The chat messages
----@field tools ToolDefinition[] The tools used in the chat
+---@field tools RealToolDefinition[] The tools used in the chat
+---@field fake_tools FakeToolDefinition[] The fake tools used in the chat
 
 ---@param bufnr integer
 ---@return ParsedChatBuffer
@@ -121,7 +126,10 @@ function M.parse(bufnr)
     ]]
   )
 
+  ---@type RealToolDefinition[]
   local tools = {}
+  ---@type FakeToolDefinition[]
+  local fake_tools = {}
   local get_text = function(captures, source, delim)
     return vim
       .iter(captures)
@@ -144,7 +152,10 @@ function M.parse(bufnr)
     role = role:gsub('^%s*(.-)[#%s]*$', '%1'):lower()
 
     -- Parse tool calls
+    ---@type AdapterToolCall[]
     local tool_calls = {}
+    ---@type FakeToolUse[]
+    local fake_tool_uses = {}
     content_matches = vim.iter(content_matches):filter(function(content_match)
       local content_match_text =
         vim.treesitter.get_node_text(content_match, bufnr)
@@ -208,16 +219,33 @@ function M.parse(bufnr)
 
     local content = get_text(content_matches, bufnr, '\n\n')
 
-    -- Find tool uses
+    -- Find tool activations
     for _, tool in ipairs(Tools.all) do
-      if content:match('@' .. tool.definition.name) then
+      if content:match('@' .. Tools.get_tool_definition_name(tool)) then
+        local tools_of_the_same_type
+        if tool.is_fake then
+          tools_of_the_same_type = fake_tools
+        else
+          tools_of_the_same_type = tools
+        end
         if
-          not vim.iter(tools):find(function(existing_tool)
-            return existing_tool.definition.name == tool.definition.name
+          not vim.iter(tools_of_the_same_type):find(function(existing_tool)
+            return Tools.is_tool_definition_matching_name(
+              existing_tool,
+              Tools.get_tool_definition_name(tool)
+            )
           end)
         then
-          table.insert(tools, tool)
+          table.insert(tools_of_the_same_type, tool)
         end
+      end
+    end
+
+    -- Find fake tool uses uses
+    if role == 'assistant' then
+      local fake_tool_use = Tools.find_fake_tool_uses(fake_tools, content)
+      if fake_tool_use then
+        table.insert(fake_tool_uses, fake_tool_use)
       end
     end
 
@@ -241,6 +269,7 @@ function M.parse(bufnr)
       role = role,
       content = content,
       tool_calls = tool_calls,
+      fake_tool_uses = fake_tool_uses,
       variables = #current_message_variables > 0 and current_message_variables
         or nil,
     })
@@ -248,8 +277,9 @@ function M.parse(bufnr)
 
   -- vim.notify('Messages: ' .. vim.inspect(messages), vim.log.levels.DEBUG)
   -- vim.notify('Tools: ' .. vim.inspect(tools), vim.log.levels.DEBUG)
+  -- vim.notify('Fake Tools: ' .. vim.inspect(fake_tools), vim.log.levels.DEBUG)
   -- vim.notify('Variables: ' .. vim.inspect(variables), vim.log.levels.DEBUG)
-  return { messages = messages, tools = tools }
+  return { messages = messages, tools = tools, fake_tools = fake_tools }
 end
 
 ---@param bufnr integer

@@ -3,13 +3,13 @@ local tool = {
   is_fake = true,
   name = 'editor',
   system_prompt = vim.trim([[
-You can use the `editor` tool to apply changes directly.
+You can use the `editor` special syntax to apply changes directly.
 The user has the opportunity to accept, reject or modify the changes.
 
 You can provide changes in two formats:
 
 1. Override the whole file:
-_tool-use:editor:override_
+#### editor:override
 `path/to/file`
 
 ```<lang>
@@ -17,7 +17,7 @@ _tool-use:editor:override_
 ```
 
 2. Replace specific parts with 1 or more replacements:
-_tool-use:editor:replacement_
+#### editor:replacement
 `path/to/file`
 
 ```<lang>
@@ -51,7 +51,7 @@ IMPORTANT RULES:
     local markdown_query = vim.treesitter.query.parse(
       'markdown',
       [[
-        (paragraph) @paragraph
+        (atx_heading) @tool_header
         (fenced_code_block
           (info_string
             (language) @lang)
@@ -62,7 +62,6 @@ IMPORTANT RULES:
     local inline_query = vim.treesitter.query.parse(
       'markdown_inline',
       [[
-        (emphasis) @tool_header
         (code_span) @file_path
       ]]
     )
@@ -76,37 +75,31 @@ IMPORTANT RULES:
     do
       local text = vim.treesitter.get_node_text(node, message_content)
 
-      if markdown_query.captures[id] == 'paragraph' then
-        -- Parse the paragraph with the inline parser
+      if markdown_query.captures[id] == 'tool_header' then
+        current_call = {}
+        -- Extract operation type from ATX heading (#### editor:type)
+        current_call.type = text:match('####%s+editor:(%w+)')
+        if current_call.type then
+          table.insert(calls, current_call)
+        else
+          current_call = nil
+        end
+      end
+
+      -- Parse the file path if it follows the heading
+      if current_call and node:next_sibling() then
+        local next_node = node:next_sibling()
+        local next_text =
+          vim.treesitter.get_node_text(next_node, message_content)
+
+        -- Parse with inline parser to find code_span (file path)
         local inline_parser =
-          vim.treesitter.get_string_parser(text, 'markdown_inline')
+          vim.treesitter.get_string_parser(next_text, 'markdown_inline')
         local inline_root = inline_parser:parse()[1]:root()
 
-        -- Process inline elements
-        for inline_id, inline_node in
-          inline_query:iter_captures(inline_root, text)
-        do
-          local inline_text = vim.treesitter.get_node_text(inline_node, text)
-
-          if inline_query.captures[inline_id] == 'tool_header' then
-            current_call = {}
-
-            -- Extract operation type
-            current_call.type = inline_text:match('^_tool%-use:editor:(%w+)_$')
-
-            if current_call.type then
-              table.insert(calls, current_call)
-            else
-              current_call = nil
-            end
-          end
-
-          if
-            inline_query.captures[inline_id] == 'file_path' and current_call
-          then
-            -- Remove the backticks
-            current_call.file = inline_text:match('`([^`]+)`')
-          end
+        for _, inline_node in inline_query:iter_captures(inline_root, next_text) do
+          local file_path = vim.treesitter.get_node_text(inline_node, next_text)
+          current_call.file = file_path:match('`([^`]+)`')
         end
       end
 

@@ -42,12 +42,15 @@ function M.save_chat(chat, timestamp)
   -- Ensure directory exists
   vim.system({ 'mkdir', '-p', vim.fs.dirname(path) })
 
-  local file = io.open(path, 'w')
+  local file, err = io.open(path, 'w')
   if file then
     file:write(chat)
     file:close()
   else
-    vim.notify('Failed to save chat: ' .. path, vim.log.levels.ERROR)
+    vim.notify(
+      'Failed to save chat (' .. err .. '): ' .. path,
+      vim.log.levels.ERROR
+    )
   end
 
   -- Update state with current chat timestamp

@@ -1,10 +1,13 @@
-local M = {}
+local M = {
+  current_bufnr = nil,
+}
 
 local Tools = require('ai.tools')
 local Variables = require('ai.variables')
 
 local Yaml = require('ai.utils.yaml')
 
+---@return integer|nil The buffer number of the created buffer
 function M.create()
   -- Create a new buffer
   local bufnr = vim.api.nvim_create_buf(false, true)
@@ -30,7 +33,44 @@ function M.create()
     vim.cmd.syntax('match Identifier "#' .. variable.name .. '"')
   end
 
+  M.current_bufnr = bufnr
   return bufnr
+end
+
+---@return boolean success Whether the buffer was successfully closed
+function M.close()
+  if not M.current_bufnr then
+    return false
+  end
+
+  -- Check if buffer exists
+  if not vim.api.nvim_buf_is_valid(M.current_bufnr) then
+    M.current_bufnr = nil
+    return false
+  end
+
+  -- Get windows displaying the buffer
+  local wins = vim.fn.win_findbuf(M.current_bufnr)
+
+  -- Close all windows displaying the buffer
+  for _, win in ipairs(wins) do
+    vim.api.nvim_win_close(win, true)
+  end
+
+  -- Delete the buffer
+  vim.api.nvim_buf_delete(M.current_bufnr, { force = true })
+  M.current_bufnr = nil
+  return true
+end
+
+---@return integer|nil bufnr The buffer number of the toggled buffer (if opened)
+function M.toggle()
+  if M.current_bufnr then
+    M.close()
+    return nil
+  else
+    return M.create()
+  end
 end
 
 function M.render(bufnr, messages)

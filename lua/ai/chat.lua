@@ -275,76 +275,78 @@ local function send_message(bufnr)
 end
 
 function M.open_chat()
-  local bufnr = Buffer.create()
+  local bufnr = Buffer.toggle()
 
-  -- Save chat before buffer close
-  vim.api.nvim_create_autocmd('BufLeave', {
-    buffer = bufnr,
-    callback = function()
-      local chat =
-        vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
-      Cache.save_chat(chat)
-    end,
-  })
-
-  -- Set up keymaps
-  vim.keymap.set('n', '<CR>', function()
-    if not vim.b[bufnr].running_job then
-      send_message(bufnr)
-    end
-  end, { buffer = bufnr, noremap = true })
-
-  vim.keymap.set('n', 'q', function()
-    local job = vim.b[bufnr].running_job
-    if job then
-      job:stop()
-      vim.b[bufnr].running_job = nil
-    end
-  end, { buffer = bufnr, noremap = true })
-
-  vim.keymap.set('n', 'gx', function()
-    save_current_chat(bufnr)
-    Cache.new_chat()
-    update_messages(bufnr, {
-      { role = 'user', content = '' },
+  if bufnr ~= nil then
+    -- Save chat before buffer close
+    vim.api.nvim_create_autocmd('BufLeave', {
+      buffer = bufnr,
+      callback = function()
+        local chat =
+          vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
+        Cache.save_chat(chat)
+      end,
     })
-  end, { buffer = bufnr, noremap = true })
 
-  vim.keymap.set('n', 'gn', function()
-    save_current_chat(bufnr)
-    local chat = Cache.next_chat()
-    if chat then
-      set_chat_text(bufnr, chat)
-    end
-  end, { buffer = bufnr, noremap = true })
+    -- Set up keymaps
+    vim.keymap.set('n', '<CR>', function()
+      if not vim.b[bufnr].running_job then
+        send_message(bufnr)
+      end
+    end, { buffer = bufnr, noremap = true })
 
-  vim.keymap.set('n', 'gp', function()
-    save_current_chat(bufnr)
-    local chat = Cache.previous_chat()
-    if chat then
-      set_chat_text(bufnr, chat)
-    end
-  end, { buffer = bufnr, noremap = true })
+    vim.keymap.set('n', 'q', function()
+      local job = vim.b[bufnr].running_job
+      if job then
+        job:stop()
+        vim.b[bufnr].running_job = nil
+      end
+    end, { buffer = bufnr, noremap = true })
 
-  vim.keymap.set('n', 'gs', function()
-    save_current_chat(bufnr)
-    Cache.search_chats({}, function()
-      local chat = Cache.load_chat()
+    vim.keymap.set('n', 'gx', function()
+      save_current_chat(bufnr)
+      Cache.new_chat()
+      update_messages(bufnr, {
+        { role = 'user', content = '' },
+      })
+    end, { buffer = bufnr, noremap = true })
+
+    vim.keymap.set('n', 'gn', function()
+      save_current_chat(bufnr)
+      local chat = Cache.next_chat()
       if chat then
         set_chat_text(bufnr, chat)
       end
-    end)
-  end, { buffer = bufnr, noremap = true })
+    end, { buffer = bufnr, noremap = true })
 
-  local existing_chat = Cache.load_chat()
-  if existing_chat then
-    set_chat_text(bufnr, existing_chat)
-    move_cursor_to_end(bufnr)
-  else
-    -- Add initial message
-    update_messages(bufnr, {
-      { role = 'user', content = '' },
-    })
+    vim.keymap.set('n', 'gp', function()
+      save_current_chat(bufnr)
+      local chat = Cache.previous_chat()
+      if chat then
+        set_chat_text(bufnr, chat)
+      end
+    end, { buffer = bufnr, noremap = true })
+
+    vim.keymap.set('n', 'gs', function()
+      save_current_chat(bufnr)
+      Cache.search_chats({}, function()
+        local chat = Cache.load_chat()
+        if chat then
+          set_chat_text(bufnr, chat)
+        end
+      end)
+    end, { buffer = bufnr, noremap = true })
+
+    local existing_chat = Cache.load_chat()
+    if existing_chat then
+      set_chat_text(bufnr, existing_chat)
+      move_cursor_to_end(bufnr)
+    else
+      -- Add initial message
+      update_messages(bufnr, {
+        { role = 'user', content = '' },
+      })
+    end
   end
 end
 

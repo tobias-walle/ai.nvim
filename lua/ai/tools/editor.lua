@@ -36,10 +36,13 @@ path/to/file
 EDITOR SYNTAX - IMPORTANT RULES:
 - Always use ````` for code blocks to prevent escaping issues
 - NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
-- For replacements: Show the EXACT content that should be replaced in the ORIGINAL section. Multiline replacements are possible.
 - File paths are always relative to the project root
 - The language tag <lang> should match the file extension (e.g. lua, typescript, etc.)
-- Prefer the use of replacement for most edits to save tokens. Exceptions are creating or overriding completly new files.
+- For replacements:
+  - Show the EXACT content that should be replaced in the ORIGINAL section.
+  - Make the ORIGINAL section unique enough to only match what you want to replace EXCEPT if you want to do more general replacements (like replacing function names)
+  - Multiline replacements are possible.
+- PREFER the use of REPLACEMENTS over oerrides for most edits to save tokens. Exceptions are creating or overriding completly new files.
 ]]),
 
   ---Parse editor tool calls from message content

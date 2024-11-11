@@ -10,7 +10,7 @@ You can provide changes in two formats:
 
 1. Override the whole file:
 #### editor:override
-`path/to/file`
+path/to/file
 
 `````<lang>
 <content_to_override>
@@ -18,7 +18,7 @@ You can provide changes in two formats:
 
 2. Replace specific parts with 1 or more replacements:
 #### editor:replacement
-`path/to/file`
+path/to/file
 
 `````<lang>
 <<<<<<< ORIGINAL
@@ -52,18 +52,14 @@ EDITOR SYNTAX - IMPORTANT RULES:
     local markdown_query = vim.treesitter.query.parse(
       'markdown',
       [[
+      (
         (atx_heading) @tool_header
+        (paragraph) @file_path
         (fenced_code_block
           (info_string
             (language) @lang)
           (code_fence_content) @code)
-      ]]
-    )
-
-    local inline_query = vim.treesitter.query.parse(
-      'markdown_inline',
-      [[
-        (code_span) @file_path
+      )
       ]]
     )
 
@@ -75,6 +71,7 @@ EDITOR SYNTAX - IMPORTANT RULES:
       markdown_query:iter_captures(parser:parse()[1]:root(), message_content)
     do
       local text = vim.treesitter.get_node_text(node, message_content)
+      print(markdown_query.captures[id])
 
       if markdown_query.captures[id] == 'tool_header' then
         current_call = {}
@@ -87,21 +84,8 @@ EDITOR SYNTAX - IMPORTANT RULES:
         end
       end
 
-      -- Parse the file path if it follows the heading
-      if current_call and node:next_sibling() then
-        local next_node = node:next_sibling()
-        local next_text =
-          vim.treesitter.get_node_text(next_node, message_content)
-
-        -- Parse with inline parser to find code_span (file path)
-        local inline_parser =
-          vim.treesitter.get_string_parser(next_text, 'markdown_inline')
-        local inline_root = inline_parser:parse()[1]:root()
-
-        for _, inline_node in inline_query:iter_captures(inline_root, next_text) do
-          local file_path = vim.treesitter.get_node_text(inline_node, next_text)
-          current_call.file = file_path:match('`([^`]+)`')
-        end
+      if markdown_query.captures[id] == 'file_path' then
+        current_call.file = vim.trim(text)
       end
 
       -- Parse the code content

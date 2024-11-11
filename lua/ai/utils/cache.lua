@@ -40,7 +40,7 @@ function M.save_chat(chat, timestamp)
   local path = get_cache_path(chat_file)
 
   -- Ensure directory exists
-  vim.system({ 'mkdir', '-p', vim.fs.dirname(path) })
+  vim.system({ 'mkdir', '-p', vim.fs.dirname(path) }):wait()
 
   local file, err = io.open(path, 'w')
   if file then

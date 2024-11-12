@@ -5,8 +5,6 @@ local M = {
 local Tools = require('ai.tools')
 local Variables = require('ai.variables')
 
-local Yaml = require('ai.utils.yaml')
-
 ---@return integer|nil The buffer number of the created buffer
 function M.create()
   -- Create a new buffer
@@ -73,6 +71,9 @@ function M.toggle()
   end
 end
 
+---Render the messages to the given buffer
+---@param bufnr integer
+---@param messages ChatMessage[]
 function M.render(bufnr, messages)
   local some_tool_call_is_loading = false
   local lines = {}
@@ -88,28 +89,16 @@ function M.render(bufnr, messages)
     if has_tool_calls then
       for _, tool_call in ipairs(msg.tool_calls) do
         table.insert(lines, '')
-        table.insert(lines, '`````yaml')
-        table.insert(lines, '# tool:call')
-        local tool_call_copy = vim.deepcopy(tool_call)
-        tool_call_copy.result = nil
-        tool_call_copy.content = nil
-        tool_call_copy.is_loading = nil
-        local tool_call_yaml = Yaml.encode(tool_call_copy)
-        for _, line in ipairs(vim.split(tool_call_yaml, '\n')) do
+
+        local rendered = require('ai.tools.utils.render').render(tool_call)
+          or ''
+        for _, line in ipairs(vim.split(rendered, '\n')) do
           table.insert(lines, line)
         end
+
         if tool_call.is_loading then
           some_tool_call_is_loading = true
-          table.insert(lines, '⏳ ' .. #(tool_call.content or ''))
         end
-        if tool_call.result then
-          table.insert(lines, '# tool:call:result')
-          local result_yaml = Yaml.encode(tool_call.result)
-          for _, line in ipairs(vim.split(result_yaml, '\n')) do
-            table.insert(lines, line)
-          end
-        end
-        table.insert(lines, '`````')
       end
     end
     table.insert(lines, '')
@@ -127,8 +116,7 @@ end
 ---@class ChatMessage
 ---@field role string The role of the message (e.g., 'user', 'assistant')
 ---@field content string The text content of the message
----@field tool_calls? AdapterToolCall[] Optional list of tool calls associated with the message
----@field tool_call_results? AdapterMessageToolCallResult[] Optional list of tool calls associated with the message
+---@field tool_calls? RealToolCall[] Optional list of tool calls associated with the message
 ---@field fake_tool_uses? FakeToolUse[] The fake tools used in this message
 ---@field variables? VariableDefinition[] Optional list of variables used in the message
 
@@ -148,21 +136,13 @@ function M.parse(bufnr)
   local section_query = vim.treesitter.query.parse(
     'markdown',
     [[
+    (
       (section
         (atx_heading
           (atx_h2_marker)
           (inline) @role)
         ((_) @content)*)
-    ]]
-  )
-
-  local tool_call_query = vim.treesitter.query.parse(
-    'markdown',
-    [[
-      (fenced_code_block
-        (code_fence_content) @code_content
-        (#match? @code_content "# tool:call")
-        )
+    )
     ]]
   )
 
@@ -187,77 +167,20 @@ function M.parse(bufnr)
   do
     local role_matches = matches[1]
     local content_matches = matches[2] or {}
+    local content = get_text(content_matches, bufnr, '\n\n')
 
     local role = get_text(role_matches, bufnr)
     role = role:gsub('^%s*(.-)[#%s]*$', '%1'):lower()
 
     -- Parse tool calls
-    ---@type AdapterToolCall[]
+    local parsed_tool_calls, content_without_tool_calls =
+      require('ai.tools.utils.render').parse(content)
+    ---@type RealToolCall[]
     local tool_calls = {}
-    ---@type FakeToolUse[]
-    local fake_tool_uses = {}
-    content_matches = vim.iter(content_matches):filter(function(content_match)
-      local content_match_text =
-        vim.treesitter.get_node_text(content_match, bufnr)
-      local content_match_root = vim.treesitter
-        .get_string_parser(content_match_text, 'markdown')
-        :parse()[1]
-        :root()
-      local _, match, _ =
-        tool_call_query:iter_matches(content_match_root, content_match_text)()
-      if match then
-        local tool_call_match_text =
-          vim.treesitter.get_node_text(match[1], content_match_text)
-
-        local lines = vim.split(tool_call_match_text, '\n')
-        local yaml_content = {}
-        local collecting_yaml = false
-        local tool_call = nil
-
-        local get_yaml_content = function()
-          if #yaml_content == 0 then
-            return nil
-          end
-          local yaml_str = table.concat(yaml_content, '\n')
-          local ok, parsed = pcall(Yaml.decode, yaml_str)
-          if ok then
-            return parsed
-          else
-            vim.notify(
-              'Failed to parse tool call yaml (' .. parsed .. '):\n' .. yaml_str,
-              vim.log.levels.ERROR
-            )
-          end
-          return nil
-        end
-
-        for _, line in ipairs(lines) do
-          if line:match('^#') or line:match('^```') then
-            local yaml_parsed = get_yaml_content()
-            if yaml_parsed then
-              if tool_call == nil then
-                tool_call = yaml_parsed
-                table.insert(tool_calls, tool_call)
-              else
-                tool_call.result = yaml_parsed
-              end
-              yaml_content = {}
-            end
-            if
-              line:match('^# tool:call%s*$')
-              or line:match('^# tool:call:result%s*$')
-            then
-              collecting_yaml = true
-            end
-          elseif collecting_yaml then
-            table.insert(yaml_content, line)
-          end
-        end
-      end
-      return not match
-    end)
-
-    local content = get_text(content_matches, bufnr, '\n\n')
+    if parsed_tool_calls and #parsed_tool_calls > 0 then
+      vim.list_extend(tool_calls, parsed_tool_calls)
+      content = content_without_tool_calls
+    end
 
     -- Find tool activations
     for _, tool in ipairs(Tools.all) do
@@ -282,6 +205,8 @@ function M.parse(bufnr)
     end
 
     -- Find fake tool uses uses
+    ---@type FakeToolUse[]
+    local fake_tool_uses = {}
     if role == 'assistant' then
       local fake_tool_use = Tools.find_fake_tool_uses(fake_tools, content)
       if fake_tool_use then
@@ -315,10 +240,9 @@ function M.parse(bufnr)
     })
   end
 
-  -- vim.notify('Messages: ' .. vim.inspect(messages), vim.log.levels.DEBUG)
-  -- vim.notify('Tools: ' .. vim.inspect(tools), vim.log.levels.DEBUG)
-  -- vim.notify('Fake Tools: ' .. vim.inspect(fake_tools), vim.log.levels.DEBUG)
-  -- vim.notify('Variables: ' .. vim.inspect(variables), vim.log.levels.DEBUG)
+  -- print('Messages: ' .. vim.inspect(messages))
+  -- print('Tools: ' .. vim.inspect(tools))
+  -- print('Fake Tools: ' .. vim.inspect(fake_tools))
   return { messages = messages, tools = tools, fake_tools = fake_tools }
 end
 

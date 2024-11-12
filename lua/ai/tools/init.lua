@@ -5,6 +5,13 @@ local M = {}
 ---@field definition Tool
 ---@field execute fun(ctx: ChatContext, params: table, callback: fun(result: any): nil): nil -- Run the tool and get a result
 
+---@class RealToolCall
+---@field tool string
+---@field id string
+---@field is_loading boolean
+---@field params table|nil
+---@field result string|nil
+
 ---@class FakeToolCall
 ---@field params table
 ---@field result any|nil

@@ -74,7 +74,6 @@ EDITOR SYNTAX - IMPORTANT RULES:
       markdown_query:iter_captures(parser:parse()[1]:root(), message_content)
     do
       local text = vim.treesitter.get_node_text(node, message_content)
-      print(markdown_query.captures[id])
 
       if markdown_query.captures[id] == 'tool_header' then
         current_call = {}

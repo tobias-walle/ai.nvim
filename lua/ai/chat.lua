@@ -155,7 +155,6 @@ local function send_message(bufnr)
     table.insert(system_prompt_parts, fake_tool)
   end
   local system_prompt = vim.fn.join(system_prompt_parts, '\n\n---\n\n')
-  print(system_prompt)
   vim.b[bufnr].running_job = adapter:chat_stream({
     system_prompt = system_prompt,
     messages = create_messages(parsed),

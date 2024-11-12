@@ -56,7 +56,11 @@ EDITOR SYNTAX - IMPORTANT RULES:
       'markdown',
       [[
       (
-        (atx_heading) @tool_header
+        (atx_heading
+          (atx_h4_marker)
+          (inline) @tool_header
+          (#match? @tool_header "^editor:.*")
+        )
         (paragraph) @file_path
         (fenced_code_block
           (info_string
@@ -78,7 +82,7 @@ EDITOR SYNTAX - IMPORTANT RULES:
       if markdown_query.captures[id] == 'tool_header' then
         current_call = {}
         -- Extract operation type from ATX heading (#### editor:type)
-        current_call.type = text:match('####%s+editor:(%w+)')
+        current_call.type = text:match('editor:(%w+)')
         if current_call.type then
           table.insert(calls, current_call)
         else

@@ -7,7 +7,7 @@ function M.render(tool)
   local lines = {}
 
   -- Render tool header
-  table.insert(lines, string.format('#### %s (%s)', tool.tool, tool.id))
+  table.insert(lines, string.format('#### Tool Call: %s (%s)', tool.tool, tool.id))
 
   -- Render params or loading state
   if tool.params and next(tool.params) ~= nil then
@@ -26,13 +26,13 @@ function M.render(tool)
 
   -- Render result or loading state
   if tool.result then
-    table.insert(lines, '```result')
+    table.insert(lines, '`````result')
     table.insert(lines, tool.result)
-    table.insert(lines, '```')
+    table.insert(lines, '`````')
   elseif tool.is_loading and tool.params then
-    table.insert(lines, '```result')
+    table.insert(lines, '`````result')
     table.insert(lines, '...')
-    table.insert(lines, '```')
+    table.insert(lines, '`````')
   end
 
   return table.concat(lines, '\n')
@@ -57,6 +57,7 @@ function M.parse(content)
       (atx_heading
         (atx_h4_marker)
         (inline) @tool_header
+        (#match? @tool_header "^Tool Call: .*")
       )
       (paragraph) @params
       (fenced_code_block
@@ -84,7 +85,7 @@ function M.parse(content)
 
       if capture_name == 'tool_header' then
         -- Extract tool name and id from header
-        local tool_name, tool_id = text:match('([^%(]+)%s*%(([^%)]+)%)')
+        local tool_name, tool_id = text:match('Tool Call: ([^%(]+)%s*%(([^%)]+)%)')
         if tool_name and tool_id then
           current_tool = {
             tool = vim.trim(tool_name),

@@ -9,6 +9,7 @@ The user has the opportunity to accept, reject or modify the changes.
 You can provide changes in two formats:
 
 1. Override the whole file:
+
 #### editor:override
 path/to/file
 
@@ -17,6 +18,7 @@ path/to/file
 `````
 
 2. Replace specific parts with 1 or more replacements:
+
 #### editor:replacement
 path/to/file
 
@@ -41,8 +43,9 @@ EDITOR SYNTAX - IMPORTANT RULES:
 - For replacements:
   - Show the EXACT content that should be replaced in the ORIGINAL section.
   - Make the ORIGINAL section unique enough to only match what you want to replace EXCEPT if you want to do more general replacements (like replacing function names)
+  - ALWAYS PUT ALL REPLACEMENTS IN A FILE INTO ONE CODE BLOCK (without duplicating the header)
   - Multiline replacements are possible.
-- PREFER the use of REPLACEMENTS over oerrides for most edits to save tokens. Exceptions are creating or overriding completly new files.
+- PREFER the use of REPLACEMENTS over oerrides for most edits to save tokens. Use overrides if more than 50% of the file is affected by the changes.
 ]]),
 
   ---Parse editor tool calls from message content

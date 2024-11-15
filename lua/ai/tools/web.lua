@@ -10,6 +10,12 @@ Perplexity will be used for the search.
 Always search the web if you relying on current information, like:
 - Documentation of libraries
 - Facts and News
+
+Try to formulate your queries generic enough to find common knowledge.
+Avoid searching for a very specific combination.
+For example let's take the task "Build a Google Search CLI tool in Rust". You could split the search into:
+- How to parse cli arguments in rust
+- Google Search API Documentation
     ]]),
     parameters = {
       type = 'object',
@@ -41,7 +47,7 @@ Always search the web if you relying on current information, like:
       messages = {
         {
           role = 'system',
-          content = 'Summarize the search results as keywords. Focus on the question. ALWAYS SEARCH ON THE WEB FOR AN ANSWER!',
+          content = 'ALWAYS SEARCH ON THE WEB FOR AN ANSWER! Cite the most important search results in your summary with reference to the source. Just focus on your sources and do not make up anything.',
         },
         {
           role = 'user',

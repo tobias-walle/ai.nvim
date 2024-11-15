@@ -277,13 +277,10 @@ function M.open_chat()
   local bufnr = Buffer.toggle()
 
   if bufnr ~= nil then
-    -- Save chat before buffer close
     vim.api.nvim_create_autocmd('BufLeave', {
       buffer = bufnr,
       callback = function()
-        local chat =
-          vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
-        Cache.save_chat(chat)
+        save_current_chat(bufnr)
       end,
     })
 

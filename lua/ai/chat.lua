@@ -143,7 +143,7 @@ local function send_message(bufnr)
 
   if
     not last_message
-    or (last_message.role ~= 'user' and last_message.tool_call_results == 0)
+    or (last_message.role ~= 'user' and #last_message.tool_calls == 0)
   then
     vim.notify('No user message to send', vim.log.levels.ERROR)
     return
@@ -245,9 +245,11 @@ local function send_message(bufnr)
           if not tool_call.result then
             local tool = Tools.find_real_tool_by_name(tool_call.tool)
             if tool then
+              tool_call.is_loading = true
               tool.execute({}, tool_call.params, function(result)
                 ---@diagnostic disable-next-line: inject-field
                 tool_call.result = result
+                tool_call.is_loading = false
                 update_messages(bufnr, all_messages, true)
                 execute_next_tool(index + 1)
               end)

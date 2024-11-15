@@ -29,6 +29,11 @@ For example let's take the task "Build a Google Search CLI tool in Rust". You co
     },
   },
   execute = function(ctx, params, callback)
+    if not params then
+      local error = 'Tool (web): Missing parameter'
+      vim.notify(error, vim.log.levels.ERROR)
+      return callback('Error: ' .. error)
+    end
     if not params.query then
       local error = 'Tool (web): Missing query parameter'
       vim.notify(error, vim.log.levels.ERROR)

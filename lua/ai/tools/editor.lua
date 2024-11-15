@@ -6,19 +6,44 @@ local tool = {
 You can use the `editor` special syntax to apply changes directly.
 The user has the opportunity to accept, reject or modify the changes.
 
-You can provide changes in two formats:
+EDITOR SYNTAX - IMPORTANT RULES:
+- Always use ````` for code blocks to prevent escaping issues
+- NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
+- File paths are always relative to the project root
+- The language tag <lang> should match the file extension (e.g. lua, typescript, etc.)
+- Follow the syntax in the examples closely. Derivating from it can cause errors.
 
-1. Override the whole file:
+You can do the following changes:
 
+## Override
+
+Completly override the content of a file, or create a new one.
+
+Rules:
+- Use overrides if more than 50% of the file is affected by the changes.
+
+-- EXAMPLE START
 #### editor:override
 path/to/file
 
 `````<lang>
 <content_to_override>
 `````
+-- EXAMPLE END
 
-2. Replace specific parts with 1 or more replacements:
+## Replacement
 
+Perform one or more replacements in the specified file.
+
+
+Rules:
+- ALWAYS USE THE REPLACEMENT MARKERS LIKE IN THE EXAMPLE
+- ALWAYS PUT ALL REPLACEMENTS IN A FILE INTO ONE CODE BLOCK (without duplicating the header)
+- Show the EXACT content that should be replaced in the ORIGINAL section.
+- Make the ORIGINAL section unique enough to only match what you want to replace EXCEPT if you want to do more general replacements (like replacing function names)
+- Multiline replacements are possible.
+
+-- EXAMPLE START
 #### editor:replacement
 path/to/file
 
@@ -34,18 +59,7 @@ path/to/file
 <new_content_2>
 >>>>>>> UPDATED
 `````
-
-EDITOR SYNTAX - IMPORTANT RULES:
-- Always use ````` for code blocks to prevent escaping issues
-- NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
-- File paths are always relative to the project root
-- The language tag <lang> should match the file extension (e.g. lua, typescript, etc.)
-- For replacements:
-  - Show the EXACT content that should be replaced in the ORIGINAL section.
-  - Make the ORIGINAL section unique enough to only match what you want to replace EXCEPT if you want to do more general replacements (like replacing function names)
-  - ALWAYS PUT ALL REPLACEMENTS IN A FILE INTO ONE CODE BLOCK (without duplicating the header)
-  - Multiline replacements are possible.
-- PREFER the use of REPLACEMENTS over oerrides for most edits to save tokens. Use overrides if more than 50% of the file is affected by the changes.
+-- EXAMPLE END
 ]]),
 
   ---Parse editor tool calls from message content
@@ -129,9 +143,7 @@ EDITOR SYNTAX - IMPORTANT RULES:
             pos = end_marker + 16
           end
 
-          if #replacements > 0 then
-            current_call.replacements = replacements
-          end
+          current_call.replacements = replacements
         end
 
         -- Reset current call as we're done processing it

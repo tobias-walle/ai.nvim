@@ -97,7 +97,8 @@ function M.load_state()
     local content = file:read('*all')
     file:close()
     if content then
-      local state = vim.json.decode(content)
+      local state =
+        vim.json.decode(content, { luanil = { object = true, array = true } })
       return state
     end
   end

@@ -54,7 +54,7 @@ local options = {
             table.insert(tool_call_result_content, {
               type = 'tool_result',
               tool_use_id = tool_call_result.id,
-              content = vim.fn.json_encode(tool_call_result.result),
+              content = vim.json.encode(tool_call_result.result),
             })
           end
           table.insert(messages, {
@@ -79,7 +79,11 @@ local options = {
       if not data then
         return
       end
-      local success, json = pcall(vim.json.decode, data)
+      local success, json = pcall(
+        vim.json.decode,
+        data,
+        { luanil = { object = true, array = true } }
+      )
       if success then
         return json
       else

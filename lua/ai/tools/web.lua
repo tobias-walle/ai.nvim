@@ -42,7 +42,7 @@ For example let's take the task "Build a Google Search CLI tool in Rust". You co
       return callback('Error: ' .. error)
     end
 
-    local request_body = vim.fn.json_encode({
+    local request_body = vim.json.encode({
       model = 'llama-3.1-sonar-small-128k-online',
       messages = {
         {
@@ -80,7 +80,11 @@ For example let's take the task "Build a Google Search CLI tool in Rust". You co
           return callback(error)
         end
 
-        local success, response = pcall(vim.json.decode, obj.stdout)
+        local success, response = pcall(
+          vim.json.decode,
+          obj.stdout,
+          { luanil = { object = true, array = true } }
+        )
 
         if not success then
           local error = string.format(

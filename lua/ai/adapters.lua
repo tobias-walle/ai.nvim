@@ -189,7 +189,11 @@ function Adapter:chat_stream(options)
       elseif delta.type == 'tool_call_end' then
         if active_tool_call then
           active_tool_call.is_loading = false
-          local ok, parsed = pcall(vim.json.decode, active_tool_call.content)
+          local ok, parsed = pcall(
+            vim.json.decode,
+            active_tool_call.content,
+            { luanil = { object = true, array = true } }
+          )
           if ok then
             active_tool_call.params = parsed
           else

@@ -150,7 +150,10 @@ local function send_message(bufnr)
   end
 
   local current_response = {}
-  local system_prompt_parts = { system_prompt_template }
+  local system_prompt_parts = {
+    'Current time: ' .. os.date('%Y-%m-%d %H:%M:%S'),
+    system_prompt_template,
+  }
   for _, fake_tool in ipairs(parsed.fake_tools or {}) do
     table.insert(system_prompt_parts, fake_tool)
   end

@@ -6,7 +6,8 @@ local M = {}
 ---@field context_file? string -- Name of an optional file relative to the opened projects to define custom context for the LLM.
 
 M.default_config = {
-  adapter = require('ai.adapters.anthropic'),
+  -- adapter = require('ai.adapters.anthropic'),
+  adapter = require('ai.adapters.openai'),
   mappings = {
     accept_suggestion = '<Tab>',
   },

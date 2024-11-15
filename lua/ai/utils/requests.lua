@@ -31,7 +31,7 @@ function M.stream(options)
   end
   -- Add body
   table.insert(cmd, '-d')
-  table.insert(cmd, vim.fn.json_encode(options.json_body))
+  table.insert(cmd, vim.json.encode(options.json_body))
 
   local cancelled = false
   local stdout = ''

@@ -3,37 +3,14 @@ local M = {}
 local Buffer = require('ai.chat.buffer')
 local Tools = require('ai.tools')
 local Cache = require('ai.utils.cache')
+local Promise = require('ai.utils.promise')
 
 ---@class ChatContext
 ---(Empty for now)
 
-local system_prompt_template = vim.trim([[
-Act as an expert software developer.
-
-Coding:
-- Always use best practices when coding.
-- Respect and use existing conventions, libraries, etc that are already present in the code base.
-- Take requests for changes to the supplied code.
-- Try to stay DRY, but duplicate code if it makes sense.
-- If you are using languages with optional static typing, always define the types at least on function signatures.
-
-Requests:
-- If the request is ambiguous, ask questions.
-- IF YOU DON'T HAVE THE NECESSARY INFORMATION TO ANSWER A QUESTION ASK FOR IT! NEVER TRY TO GUESS AN ANSWER!
-
-Formatting:
-- Create a new line after each sentence.
-
-Variables:
-- Variables can be added to the text and start with # (e.g. #buffer)
-- Only variables of the last message are provided to you.
-- If you are missing information of a variable to answer the question ask for it.
-
-Tools:
-- Before you are plan to use tools list the steps you plan to do in a bullet point list (around one sentence each).
-- Before the call of each tools add one sentence what you are about to do.
-- After you are done with all tools calls add one word and a fitting emoji indicate that you are done. DO NOT ADD MORE TEXT TO SAVE TOKENS!
-]])
+local function get_chat_text(bufnr)
+  return vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
+end
 
 local function move_cursor_to_end(bufnr)
   local line_count = vim.api.nvim_buf_line_count(bufnr)
@@ -41,8 +18,7 @@ local function move_cursor_to_end(bufnr)
 end
 
 local function save_current_chat(bufnr)
-  local chat =
-    vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
+  local chat = get_chat_text(bufnr)
   Cache.save_chat(chat)
 end
 
@@ -135,6 +111,17 @@ local function create_messages(buffer)
   return result
 end
 
+local function create_system_prompt(parsed)
+  local system_prompt_parts = {
+    'Current time: ' .. os.date('%Y-%m-%d %H:%M:%S'),
+    require('ai.chat.prompts').system_prompt,
+  }
+  for _, fake_tool in ipairs(parsed.fake_tools or {}) do
+    table.insert(system_prompt_parts, fake_tool)
+  end
+  return vim.fn.join(system_prompt_parts, '\n\n---\n\n')
+end
+
 local function send_message(bufnr)
   local adapter = require('ai.config').adapter
   local parsed = Buffer.parse(bufnr)
@@ -149,75 +136,58 @@ local function send_message(bufnr)
     return
   end
 
-  local current_response = {}
-  local system_prompt_parts = {
-    'Current time: ' .. os.date('%Y-%m-%d %H:%M:%S'),
-    system_prompt_template,
-  }
-  for _, fake_tool in ipairs(parsed.fake_tools or {}) do
-    table.insert(system_prompt_parts, fake_tool)
-  end
-  local system_prompt = vim.fn.join(system_prompt_parts, '\n\n---\n\n')
+  local tool_definitions = vim
+    .iter(parsed.tools)
+    :map(function(tool)
+      return tool.definition
+    end)
+    :totable()
+
   vim.b[bufnr].running_job = adapter:chat_stream({
-    system_prompt = system_prompt,
-    messages = create_messages(parsed),
-    tools = vim
-      .iter(parsed.tools)
-      :map(function(tool)
-        return tool.definition
-      end)
-      :totable(),
     temperature = 0.3,
+    system_prompt = create_system_prompt(parsed),
+    messages = create_messages(parsed),
+    tools = tool_definitions,
     on_update = function(update)
-      current_response = vim.split(update.response, '\n')
       local all_messages = vim.deepcopy(messages_before_send)
       table.insert(all_messages, {
         role = 'assistant',
-        content = table.concat(current_response, '\n'),
+        content = update.response,
         tool_calls = update.tool_calls,
       })
       update_messages(bufnr, all_messages, false)
     end,
-    on_error = function(err)
-      -- Remove ^M from err
-      err = vim.trim(err:gsub('\r', ''))
-      local err_msg = 'Error'
-      if #err > 0 then
-        err_msg = err_msg .. ':\n' .. err
-      end
-      table.insert(
-        messages_before_send,
-        { role = 'assistant', content = err_msg }
-      )
-      vim.b[bufnr].running_job = nil
-      update_messages(bufnr, parsed.messages, true)
-    end,
     on_exit = function(data)
       vim.b[bufnr].running_job = nil
-      local all_messages = vim.deepcopy(messages_before_send)
       if data.cancelled then
-        update_messages(bufnr, all_messages, true)
+        -- If cancelled, just render the messages before send
+        update_messages(bufnr, messages_before_send, true)
       elseif data.exit_code == 0 then
         -- Add message only if the request was an success
+
+        -- Print out the amount of tokens used
+        local tokens = data.input_tokens + data.output_tokens
+        vim.notify(
+          string.format(
+            '%d tokens used (%d input, %d output)',
+            tokens,
+            data.input_tokens,
+            data.output_tokens
+          ),
+          vim.log.levels.INFO
+        )
+
+        -- Render the final message
+        local all_messages = vim.deepcopy(messages_before_send)
         local assistant_message = {
           role = 'assistant',
           content = data.response,
           tool_calls = data.tool_calls,
         }
         table.insert(all_messages, assistant_message)
-        local tokens = data.input_tokens + data.output_tokens
-        vim.notify(
-          tokens
-            .. ' tokens used ('
-            .. data.input_tokens
-            .. ' input, '
-            .. data.output_tokens
-            .. ' output)',
-          vim.log.levels.INFO
-        )
-
         update_messages(bufnr, all_messages, true)
 
+        -- Execute "fake" tools in sequence
         local fake_tool_uses =
           Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
         local function execute_next_fake_tool(index, callback)
@@ -233,6 +203,7 @@ local function send_message(bufnr)
           end
         end
 
+        -- Execute "real" tools
         local function execute_next_tool(index)
           local tool_call = assistant_message.tool_calls[index]
           if not tool_call then
@@ -272,6 +243,20 @@ local function send_message(bufnr)
           end
         end)
       end
+    end,
+    on_error = function(err)
+      -- Remove ^M from err
+      err = vim.trim(err:gsub('\r', ''))
+      local err_msg = 'Error'
+      if #err > 0 then
+        err_msg = err_msg .. ':\n' .. err
+      end
+      table.insert(
+        messages_before_send,
+        { role = 'assistant', content = err_msg }
+      )
+      vim.b[bufnr].running_job = nil
+      update_messages(bufnr, parsed.messages, true)
     end,
   })
 

@@ -7,7 +7,8 @@ local M = {}
 
 M.default_config = {
   -- adapter = require('ai.adapters.anthropic'),
-  adapter = require('ai.adapters.openai'),
+  -- adapter = require('ai.adapters.openai'),
+  adapter = require('ai.adapters.azure'),
   mappings = {
     accept_suggestion = '<Tab>',
   },

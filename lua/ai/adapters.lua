@@ -120,8 +120,31 @@ function Adapter:chat_stream(options)
   local response = ''
   ---@type AdapterToolCall[]
   local tool_calls = {}
+
   ---@type AdapterToolCall|nil
   local active_tool_call
+  local function finalize_active_tool_call_if_present()
+    if not active_tool_call then
+      return
+    end
+    local ok, parsed = pcall(
+      vim.json.decode,
+      active_tool_call.content,
+      { luanil = { object = true, array = true } }
+    )
+    if ok then
+      active_tool_call.params = parsed
+    else
+      vim.notify(
+        'Invalid tool call params: '
+          .. parsed
+          .. ' '
+          .. active_tool_call.content
+      )
+    end
+    active_tool_call = nil
+  end
+
   local input_tokens = 0
   local output_tokens = 0
   local request_body = self.handlers.create_request_body({
@@ -132,8 +155,10 @@ function Adapter:chat_stream(options)
     temperature = options.temperature,
     tools = options.tools,
   })
+
+  local url = self.url:gsub('{{model}}', self.model)
   return requests.stream({
-    url = self.url,
+    url = url,
     headers = self.headers,
     json_body = request_body,
     on_data = function(raw_response)
@@ -167,6 +192,7 @@ function Adapter:chat_stream(options)
         delta_content = delta.content
         response = response .. delta.content
       elseif delta.type == 'tool_call_start' then
+        finalize_active_tool_call_if_present()
         -- Start new tool call
         active_tool_call = {
           id = delta.id,
@@ -189,21 +215,7 @@ function Adapter:chat_stream(options)
       elseif delta.type == 'tool_call_end' then
         if active_tool_call then
           active_tool_call.is_loading = false
-          local ok, parsed = pcall(
-            vim.json.decode,
-            active_tool_call.content,
-            { luanil = { object = true, array = true } }
-          )
-          if ok then
-            active_tool_call.params = parsed
-          else
-            vim.notify(
-              'Invalid tool call params: '
-                .. parsed
-                .. ' '
-                .. active_tool_call.content
-            )
-          end
+          finalize_active_tool_call_if_present()
           active_tool_call = nil
         end
       end

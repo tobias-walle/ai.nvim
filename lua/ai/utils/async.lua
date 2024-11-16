@@ -5,8 +5,8 @@ local co = coroutine
 
 --- Executes a function within a coroutine and handles its completion.
 --- @generic T
---- @param func fun():T The function to execute within the coroutine.
---- @param callback fun(result:T) The callback function to call upon completion.
+--- @param func fun(): T|nil The function to execute within the coroutine.
+--- @param callback fun(result: T) The callback function to call upon completion.
 local pong = function(func, callback)
   assert(type(func) == 'function', 'type error :: expected func')
   local thread = co.create(func)

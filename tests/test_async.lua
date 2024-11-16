@@ -20,17 +20,6 @@ local T = MiniTest.new_set({
   },
 })
 
-T['test'] = function()
-  child.lua([[
-    vim.defer_fn(function()
-      vim.g.done = true
-    end, 10)
-    vim.wait(100, function() return vim.g.done end)
-  ]])
-
-  eq(child.lua_get('vim.g.done'), true)
-end
-
 T['should create and run async functions'] = function()
   child.lua([[
     local sleep = Async.wrap_1(function(timeout, callback)

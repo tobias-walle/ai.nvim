@@ -6,7 +6,7 @@ local Cache = require('ai.utils.cache')
 local Async = require('ai.utils.async')
 
 ---@class ChatContext
----(Empty for now)
+---@field chat_bufnr number
 
 local function get_chat_text(bufnr)
   return vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
@@ -143,6 +143,17 @@ local function send_message(bufnr)
     end)
     :totable()
 
+  local cancelled = false
+  vim.keymap.set('n', 'q', function()
+    cancelled = true
+    local job = vim.b[bufnr].running_job
+    if job then
+      job:stop()
+      vim.b[bufnr].running_job = nil
+    end
+    update_messages(bufnr, messages_before_send, true)
+  end, { buffer = bufnr, noremap = true })
+
   vim.b[bufnr].running_job = adapter:chat_stream({
     temperature = 0.3,
     system_prompt = create_system_prompt(parsed),
@@ -158,91 +169,99 @@ local function send_message(bufnr)
       update_messages(bufnr, all_messages, false)
     end,
     on_exit = function(data)
-      vim.b[bufnr].running_job = nil
-      if data.cancelled then
-        -- If cancelled, just render the messages before send
-        update_messages(bufnr, messages_before_send, true)
-      elseif data.exit_code == 0 then
-        -- Add message only if the request was an success
+      Async.async(function()
+        vim.b[bufnr].running_job = nil
+        if data.cancelled then
+          return
+        elseif data.exit_code == 0 then
+          -- Add message only if the request was an success
 
-        -- Print out the amount of tokens used
-        local tokens = data.input_tokens + data.output_tokens
-        vim.notify(
-          string.format(
-            '%d tokens used (%d input, %d output)',
-            tokens,
-            data.input_tokens,
-            data.output_tokens
-          ),
-          vim.log.levels.INFO
-        )
+          -- Print out the amount of tokens used
+          local tokens = data.input_tokens + data.output_tokens
+          vim.notify(
+            string.format(
+              '%d tokens used (%d input, %d output)',
+              tokens,
+              data.input_tokens,
+              data.output_tokens
+            ),
+            vim.log.levels.INFO
+          )
 
-        -- Render the final message
-        local all_messages = vim.deepcopy(messages_before_send)
-        local assistant_message = {
-          role = 'assistant',
-          content = data.response,
-          tool_calls = data.tool_calls,
-        }
-        table.insert(all_messages, assistant_message)
-        update_messages(bufnr, all_messages, true)
+          -- Render the final message
+          local all_messages = vim.deepcopy(messages_before_send)
+          local assistant_message = {
+            role = 'assistant',
+            content = data.response,
+            tool_calls = data.tool_calls,
+          }
+          table.insert(all_messages, assistant_message)
+          update_messages(bufnr, all_messages, true)
 
-        -- Execute "fake" tools in sequence
-        local fake_tool_uses =
-          Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
-        local function execute_next_fake_tool(index, callback)
-          local tool_use = fake_tool_uses[index]
-          if not tool_use then
-            callback()
-            return
-          end
-          for _, call in ipairs(tool_use.calls) do
-            tool_use.tool.execute({}, call, function()
-              execute_next_fake_tool(index + 1, callback)
-            end)
-          end
-        end
+          ---@type ChatContext
+          local ctx = {
+            chat_bufnr = bufnr,
+          }
 
-        -- Execute "real" tools
-        local function execute_next_tool(index)
-          local tool_call = assistant_message.tool_calls[index]
-          if not tool_call then
-            update_messages(bufnr, all_messages, true)
-            -- Rerun to allow agentic workflows
-            send_message(bufnr)
-            return
+          -- Execute "fake" tools in sequence
+          local fake_tool_uses =
+            Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
+          for _, tool_use in ipairs(fake_tool_uses) do
+            local execute = Async.wrap_2(tool_use.tool.execute)
+            for _, call in ipairs(tool_use.calls) do
+              Async.await(execute(ctx, call))
+              if cancelled then
+                goto on_exit_end
+              end
+            end
           end
 
-          if not tool_call.result then
+          -- Execute "real" tools
+          local number_of_tool_results = 0
+          for _, tool_call in ipairs(assistant_message.tool_calls) do
+            if tool_call.result then
+              goto continue
+            end
+
             local tool = Tools.find_real_tool_by_name(tool_call.tool)
-            if tool then
-              tool_call.is_loading = true
-              tool.execute({}, tool_call.params, function(result)
-                ---@diagnostic disable-next-line: inject-field
-                tool_call.result = result
-                tool_call.is_loading = false
-                update_messages(bufnr, all_messages, true)
-                execute_next_tool(index + 1)
-              end)
-            else
+            if not tool then
               vim.notify(
                 'Tool not found: ' .. tool_call.tool,
                 vim.log.levels.ERROR
               )
-              execute_next_tool(index + 1)
+              goto continue
             end
-          end
-        end
 
-        execute_next_fake_tool(1, function()
-          if #assistant_message.tool_calls > 0 then
-            execute_next_tool(1)
+            tool_call.is_loading = true
+
+            local execute = Async.wrap_2(tool.execute)
+            local result = Async.await(execute(ctx, tool_call.params))
+            if cancelled then
+              goto on_exit_end
+            end
+            number_of_tool_results = number_of_tool_results + 1
+
+            update_messages(bufnr, all_messages, true)
+            tool_call.result = result
+            tool_call.is_loading = false
+            ::continue::
+          end
+
+          if
+            #assistant_message.tool_calls > 0
+            and #assistant_message.tool_calls == number_of_tool_results
+          then
+            update_messages(bufnr, all_messages, true)
+            -- If tools were executed, send the message again to allow agentic workflows
+            send_message(bufnr)
           else
+            -- Otherwise it is the users turn again
             table.insert(all_messages, { role = 'user', content = '' })
             update_messages(bufnr, all_messages, true)
           end
-        end)
-      end
+        end
+        ::on_exit_end::
+      end)()
     end,
     on_error = function(err)
       -- Remove ^M from err
@@ -278,14 +297,6 @@ function M.open_chat()
     vim.keymap.set('n', '<CR>', function()
       if not vim.b[bufnr].running_job then
         send_message(bufnr)
-      end
-    end, { buffer = bufnr, noremap = true })
-
-    vim.keymap.set('n', 'q', function()
-      local job = vim.b[bufnr].running_job
-      if job then
-        job:stop()
-        vim.b[bufnr].running_job = nil
       end
     end, { buffer = bufnr, noremap = true })
 

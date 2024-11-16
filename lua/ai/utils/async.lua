@@ -47,6 +47,13 @@ local wrap_any = function(func)
   return factory
 end
 
+--- @generic T
+--- @param func fun( callback: fun(result: T)):unknown
+--- @return fun(): fun(step?: fun(result:T))
+local wrap_0 = function(func)
+  return wrap_any(func)
+end
+
 --- @generic T, A
 --- @param func fun(a: A, callback: fun(result: T)):unknown
 --- @return fun(a: A): fun(step?: fun(result:T))
@@ -112,7 +119,7 @@ end
 
 --- Suspends the execution of the current coroutine, yielding control to the provided function.
 --- @generic T
---- @param defer fun():T The function to defer.
+--- @param defer fun(step?: fun(result: T))
 --- @return T The result of the deferred function.
 local await = function(defer)
   assert(type(defer) == 'function', 'type error :: expected func')
@@ -128,10 +135,13 @@ local await_all = function(defer)
   return co.yield(join(defer))
 end
 
+local async = wrap_1(pong)
+
 return {
-  sync = wrap_1(pong),
-  wait = await,
-  wait_all = await_all,
+  async = async,
+  await = await,
+  await_all = await_all,
+  wrap_0 = wrap_0,
   wrap_1 = wrap_1,
   wrap_2 = wrap_2,
   wrap_3 = wrap_3,

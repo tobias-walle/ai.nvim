@@ -3,7 +3,7 @@ local M = {}
 local Buffer = require('ai.chat.buffer')
 local Tools = require('ai.tools')
 local Cache = require('ai.utils.cache')
-local Promise = require('ai.utils.promise')
+local Async = require('ai.utils.async')
 
 ---@class ChatContext
 ---(Empty for now)

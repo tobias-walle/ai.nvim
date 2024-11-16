@@ -56,3 +56,10 @@ Please setup the following environment variables, depending on which feature you
 - `OPENAI_API_KEY`: Api key for OpenAI if you want to use their models
 - `ANTHROPIC_API_KEY`: Api key for Anthropic if you want to use their models
 - `PERPLEXITY_API_KEY`: Api key for Perplexity if you want to the @web tool
+
+## Development
+
+To run the tests:
+
+1. Download the required dependencies with `just prepare` (This includes [mini.test](https://github.com/echasnovski/mini.nvim/blob/main/TESTING.md))
+2. Run the tests with `just test` OR run the tests of a single file with `just test_file FILE`

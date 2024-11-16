@@ -11,30 +11,16 @@ EDITOR SYNTAX - IMPORTANT RULES:
 - NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
 - File paths are always relative to the project root
 - The language tag <lang> should match the file extension (e.g. lua, typescript, etc.)
-- Follow the syntax in the examples closely. Derivating from it can cause errors.
+- FOLLOW THE SYNTAX IN THE EXAMPLES CLOSELY. Derivating from it can cause errors. Never use the editor as a tool call.
+- BEFORE USING THE EDITOR, REASON ABOUT WHICH ONE IS MORE APPROPRIATE
+  - Use "replacement" for edits that only affect parts of the file (which are most of the cases)
+  - Use "override" if more than 50% of the lines file is affected by the changes and the complete file is known or if new files are created
 
 You can do the following changes:
-
-## Override
-
-Completly override the content of a file, or create a new one.
-
-Rules:
-- Use overrides if more than 50% of the file is affected by the changes.
-
--- EXAMPLE START
-#### editor:override
-path/to/file
-
-`````<lang>
-<content_to_override>
-`````
--- EXAMPLE END
 
 ## Replacement
 
 Perform one or more replacements in the specified file.
-
 
 Rules:
 - ALWAYS USE THE REPLACEMENT MARKERS LIKE IN THE EXAMPLE
@@ -58,6 +44,20 @@ path/to/file
 =======
 <new_content_2>
 >>>>>>> UPDATED
+`````
+-- EXAMPLE END
+
+
+## Override
+
+Completly override the content of a file, or create a new one.
+
+-- EXAMPLE START
+#### editor:override
+path/to/file
+
+`````<lang>
+<content_to_override>
 `````
 -- EXAMPLE END
 ]]),

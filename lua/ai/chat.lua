@@ -218,34 +218,34 @@ local function send_message(bufnr)
 
           -- Execute "real" tools
           local number_of_tool_results = 0
-          for _, tool_call in ipairs(assistant_message.tool_calls) do
-            if tool_call.result then
-              goto continue
-            end
+          local jobs = vim
+            .iter(assistant_message.tool_calls)
+            :filter(function(tool_call)
+              return not tool_call.result
+            end)
+            :map(function(tool_call)
+              return Async.async(function()
+                local tool = Tools.find_real_tool_by_name(tool_call.tool)
+                if not tool then
+                  vim.notify(
+                    'Tool not found: ' .. tool_call.tool,
+                    vim.log.levels.ERROR
+                  )
+                  return nil
+                end
 
-            local tool = Tools.find_real_tool_by_name(tool_call.tool)
-            if not tool then
-              vim.notify(
-                'Tool not found: ' .. tool_call.tool,
-                vim.log.levels.ERROR
-              )
-              goto continue
-            end
+                tool_call.is_loading = true
 
-            tool_call.is_loading = true
-
-            local execute = Async.wrap_2(tool.execute)
-            local result = Async.await(execute(ctx, tool_call.params))
-            if cancelled then
-              goto on_exit_end
-            end
-            number_of_tool_results = number_of_tool_results + 1
-
-            update_messages(bufnr, all_messages, true)
-            tool_call.result = result
-            tool_call.is_loading = false
-            ::continue::
-          end
+                local execute = Async.wrap_2(tool.execute)
+                local result = Async.await(execute(ctx, tool_call.params))
+                tool_call.result = result
+                tool_call.is_loading = false
+                number_of_tool_results = number_of_tool_results + 1
+                update_messages(bufnr, all_messages, true)
+              end)
+            end)
+            :totable()
+          Async.await_all(jobs)
 
           if
             #assistant_message.tool_calls > 0

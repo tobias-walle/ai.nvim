@@ -6,30 +6,19 @@ local tool = {
 You can use the `editor` special syntax to apply changes directly.
 The user has the opportunity to accept, reject or modify the changes.
 
-EDITOR SYNTAX - IMPORTANT RULES:
-- Always use ````` for code blocks to prevent escaping issues
-- NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
-- File paths are always relative to the project root
-- The language tag <lang> should match the file extension (e.g. lua, typescript, etc.)
-- FOLLOW THE SYNTAX IN THE EXAMPLES CLOSELY. Derivating from it can cause errors. Never use the editor as a tool call.
-- BEFORE USING THE EDITOR, REASON ABOUT WHICH ONE IS MORE APPROPRIATE
-  - Use "replacement" for edits that only affect parts of the file (which are most of the cases)
-  - Use "override" if more than 50% of the lines file is affected by the changes and the complete file is known or if new files are created
+You can provide changes in two formats:
 
-You can do the following changes:
+1. Override or create new files
 
-## Replacement
+#### editor:override
+path/to/file
 
-Perform one or more replacements in the specified file.
+`````<lang>
+<content_to_override>
+`````
 
-Rules:
-- ALWAYS USE THE REPLACEMENT MARKERS LIKE IN THE EXAMPLE
-- ALWAYS PUT ALL REPLACEMENTS IN A FILE INTO ONE CODE BLOCK (without duplicating the header)
-- Show the EXACT content that should be replaced in the ORIGINAL section.
-- Make the ORIGINAL section unique enough to only match what you want to replace EXCEPT if you want to do more general replacements (like replacing function names)
-- Multiline replacements are possible.
+2. Replace specific parts with 1 or more replacements:
 
--- EXAMPLE START
 #### editor:replacement
 path/to/file
 
@@ -45,21 +34,31 @@ path/to/file
 <new_content_2>
 >>>>>>> UPDATED
 `````
--- EXAMPLE END
 
-
-## Override
-
-Completly override the content of a file, or create a new one.
-
--- EXAMPLE START
-#### editor:override
-path/to/file
+For example (Prompt: "Add the argument firstName and lastName to the hello function"):
+#### editor:replacement
+src/hello.ts
 
 `````<lang>
-<content_to_override>
+<<<<<<< ORIGINAL
+function sayHello(): void {
+  console.log('Hello World')
+}
+=======
+function sayHello(firstName: string, lastName: string): void {
+  const fullName = `${firstName} ${lastName}`;
+  console.log(`Hello ${fullName}`);
+}
+>>>>>>> UPDATED
 `````
--- EXAMPLE END
+
+IMPORTANT RULES:
+- Always use ````` for code blocks to prevent escaping issues
+- NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
+- File paths are always relative to the project root
+- The language tag <lang> should match the file extension (e.g. lua, typescript, etc.)
+- ALWAYS USE
+- Prefer the use of replacement for most edits to save tokens. Only use overrides if more than 80% of the file content changes.
 ]]),
 
   ---Parse editor tool calls from message content

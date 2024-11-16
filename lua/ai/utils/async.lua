@@ -20,7 +20,7 @@ local pong = function(func, callback)
       if callback then
         (function(_, ...)
           callback(...)
-        end)(table.unpack(pack))
+        end)(unpack(pack))
       end
     else
       assert(
@@ -130,10 +130,9 @@ local await = function(async_value)
   return co.yield(async_value)
 end
 
---- Suspends the execution of the current coroutine, yielding control to the provided array of functions.
 --- @generic T
---- @param async_values Async<T>[] The array of functions to defer.
---- @return T[] The result of the deferred functions.
+--- @param async_values Async<T>[]
+--- @return T[]
 local await_all = function(async_values)
   assert(type(async_values) == 'table', 'type error :: expected table')
   return co.yield(join(async_values))

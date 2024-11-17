@@ -9,7 +9,7 @@ Neovim plugin to integrate LLMs and other AI tools into Neovim to assist the dev
 
 This plugin is inspired by the following tools:
 
-- [continue.dev VSCode Plugin](https://www.continue.dev/)
+- [continue.dev (VSCode)](https://www.continue.dev/)
 - [Cursor Editor](https://www.cursor.com/)
 - [Codeium](https://codeium.com/)
 - [Aider](https://aider.chat)

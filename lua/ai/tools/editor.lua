@@ -3,22 +3,45 @@ local tool = {
   is_fake = true,
   name = 'editor',
   system_prompt = vim.trim([[
-You can use the `editor` special syntax to apply changes directly.
-The user has the opportunity to accept, reject or modify the changes.
+# Special "Editor" Syntax
+You can use this `editor` special syntax to apply changes directly in the code base.
 
-You can provide changes in two formats:
+The user can interact with the suggested changes by accepting, rejecting, or modifying them. There are two main ways to specify changes:
 
-1. Override or create new files
+## 1. Override or Create New Files
 
+Use this method when you need to completely replace the contents of a file or create a new file from scratch.
+
+### Syntax: `editor:override`
+- Specify the exact path to the file.
+- Provide the complete new content to override the original file.
+
+**Syntax Example:**
+```markdown
 #### editor:override
 path/to/file
 
 `````<lang>
 <content_to_override>
 `````
+```
 
-2. Replace specific parts with 1 or more replacements:
+- `path/to/file`: Location of the file, relative to the project root.
+- `<lang>`: The language tag must match the file extension (e.g., `typescript`, `python`, etc.).
+- `<content_to_override>`: The new content that will replace the entire file content.
 
+Use this when over 80% of the file content changes.
+
+## 2. Replace Specific Parts of a File
+
+Use this method if you only need to change specific parts of a file. This helps in saving computational tokens by targeting exact locations.
+
+### Syntax: `editor:replacement`
+- Specify the path to the file.
+- Mark the original content and specify the new content replacement(s).
+
+**Syntax Example:**
+```markdown
 #### editor:replacement
 path/to/file
 
@@ -28,18 +51,47 @@ path/to/file
 =======
 <new_content>
 >>>>>>> UPDATED
-<<<<<<< ORIGINAL
-<original_content_2>
-=======
-<new_content_2>
->>>>>>> UPDATED
 `````
+```
 
-For example (Prompt: "Add the argument firstName and lastName to the hello function"):
+- `path/to/file`: Location of the file, relative to the project root.
+- `<lang>`: The language tag matching the file type (e.g., `tsx`).
+- Within the content:
+  - `<<<<<<< ORIGINAL`: Starts the original content block.
+  - `<original_content>`: The part of the file being replaced.
+  - `=======`: Separator between old and new content.
+  - `<new_content>`: The new content to replace `<original_content>`.
+  - `>>>>>>> UPDATED`: Ends the new content declaration.
+
+### Notes
+- **Multiple Replacements**: You can repeat `<<<<<<< ORIGINAL`, `=======`, and `>>>>>>> UPDATED` to provide multiple replacements within the same file.
+- **Completeness**: Always provide the entire replacement or overridden content without placeholders like "// Rest of the file."
+
+## Steps
+
+1. Choose `editor:override` if the entire file or a large majority needs to be replaced.
+2. Choose `editor:replacement` if you need to target specific parts of the file for modification.
+3. Make sure paths are always relative to the project root.
+4. Follow the syntax strictly to ensure proper parsing.
+
+## Output Format
+
+Provide changes using one of the two formats `editor:override` or `editor:replacement`. Be explicit about replacements and use code blocks correctly (`````) for consistency.
+
+Make sure the output contains:
+- **File Paths**: Always relative.
+- **Language Tags**: Match the file extension.
+- **NO Placeholders**: Always provide the full content to replace or override.
+
+## Example (editor:replacement)
+
+**Prompt: "Add the argument firstName and lastName to the hello function"**
+
+```plain
 #### editor:replacement
 src/hello.ts
 
-`````<lang>
+`````typescript
 <<<<<<< ORIGINAL
 function sayHello(): void {
   console.log('Hello World')
@@ -51,14 +103,9 @@ function sayHello(firstName: string, lastName: string): void {
 }
 >>>>>>> UPDATED
 `````
+```
 
-IMPORTANT RULES:
-- Always use ````` for code blocks to prevent escaping issues
-- NEVER use placeholders like "// Rest of the file" or similar. ALWAYS show the complete content that should be changed
-- File paths are always relative to the project root
-- The language tag <lang> should match the file extension (e.g. lua, typescript, etc.)
-- ALWAYS USE
-- Prefer the use of replacement for most edits to save tokens. Only use overrides if more than 80% of the file content changes.
+Use similar formats for any change request. Understand context and apply changes precisely.
 ]]),
 
   ---Parse editor tool calls from message content

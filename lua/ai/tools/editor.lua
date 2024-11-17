@@ -17,14 +17,14 @@ Use this method when you need to completely replace the contents of a file or cr
 - Provide the complete new content to override the original file.
 
 **Syntax Example:**
-```markdown
+``````markdown
 #### editor:override
 path/to/file
 
 `````<lang>
 <content_to_override>
 `````
-```
+``````
 
 - `path/to/file`: Location of the file, relative to the project root.
 - `<lang>`: The language tag must match the file extension (e.g., `typescript`, `python`, etc.).
@@ -39,9 +39,10 @@ Use this method if you only need to change specific parts of a file. This helps 
 ### Syntax: `editor:replacement`
 - Specify the path to the file.
 - Mark the original content and specify the new content replacement(s).
+- Make sure the original content is unique in the file to prevent unintended replacements. Choose a bigger section if in doubt.
 
 **Syntax Example:**
-```markdown
+``````markdown
 #### editor:replacement
 path/to/file
 
@@ -52,7 +53,7 @@ path/to/file
 <new_content>
 >>>>>>> UPDATED
 `````
-```
+``````
 
 - `path/to/file`: Location of the file, relative to the project root.
 - `<lang>`: The language tag matching the file type (e.g., `tsx`).
@@ -87,7 +88,6 @@ Make sure the output contains:
 
 **Prompt: "Add the argument firstName and lastName to the hello function"**
 
-```plain
 #### editor:replacement
 src/hello.ts
 
@@ -103,7 +103,6 @@ function sayHello(firstName: string, lastName: string): void {
 }
 >>>>>>> UPDATED
 `````
-```
 
 Use similar formats for any change request. Understand context and apply changes precisely.
 ]]),
@@ -112,10 +111,13 @@ Use similar formats for any change request. Understand context and apply changes
   ---@param message_content string
   ---@return FakeToolCall[]
   parse = function(message_content)
+    -- Ensure newline at the end to prevent parsing issues
+    message_content = message_content .. '\n'
+
     local parser = vim.treesitter.get_string_parser(message_content, 'markdown')
 
     -- Queries to match our tool format
-    local markdown_query = vim.treesitter.query.parse(
+    local query = vim.treesitter.query.parse(
       'markdown',
       [[
       (
@@ -126,9 +128,8 @@ Use similar formats for any change request. Understand context and apply changes
         )
         (paragraph) @file_path
         (fenced_code_block
-          (info_string
-            (language) @lang)
-          (code_fence_content) @code)
+          (info_string (language) @lang)
+          (code_fence_content) @code)+
       )
       ]]
     )
@@ -136,65 +137,73 @@ Use similar formats for any change request. Understand context and apply changes
     local calls = {}
     local current_call = nil
 
-    -- First pass: Find all paragraphs and code blocks
-    for id, node in
-      markdown_query:iter_captures(parser:parse()[1]:root(), message_content)
+    for _, match, _ in
+      query:iter_matches(
+        parser:parse()[1]:root(),
+        message_content,
+        0,
+        -1,
+        { all = true }
+      )
     do
-      local text = vim.treesitter.get_node_text(node, message_content)
+      for id, nodes in ipairs(match) do
+        for _, node in ipairs(nodes) do
+          local capture_name = query.captures[id]
+          local text = vim.treesitter.get_node_text(node, message_content)
 
-      if markdown_query.captures[id] == 'tool_header' then
-        current_call = {}
-        -- Extract operation type from ATX heading (#### editor:type)
-        current_call.type = text:match('editor:(%w+)')
-        if current_call.type then
-          table.insert(calls, current_call)
-        else
-          current_call = nil
-        end
-      end
-
-      if markdown_query.captures[id] == 'file_path' then
-        current_call.file = vim.trim(text)
-      end
-
-      -- Parse the code content
-      if markdown_query.captures[id] == 'code' and current_call then
-        if current_call.type == 'override' then
-          current_call.content = text
-        elseif current_call.type == 'replacement' then
-          -- Extract all original and updated content pairs
-          local replacements = {}
-          local pos = 1
-          while true do
-            local original_start = text:find('<<<<<<< ORIGINAL\n', pos)
-            if not original_start then
-              break
+          if capture_name == 'tool_header' then
+            current_call = {}
+            -- Extract operation type from ATX heading (#### editor:type)
+            current_call.type = text:match('editor:(%w+)')
+            if current_call.type then
+              if current_call.type == 'replacement' then
+                current_call.replacements = {}
+              end
+              table.insert(calls, current_call)
+            else
+              current_call = nil
             end
-
-            local separator = text:find('\n=======\n', original_start)
-            local end_marker = text:find('\n>>>>>>> UPDATED', separator)
-
-            if not separator or not end_marker then
-              break
-            end
-
-            local original = text:sub(original_start + 17, separator - 1)
-            local updated = text:sub(separator + 9, end_marker - 1)
-
-            table.insert(replacements, {
-              search = original,
-              replacement = updated,
-            })
-
-            pos = end_marker + 16
           end
 
-          current_call.replacements = replacements
-        end
+          if capture_name == 'file_path' then
+            current_call.file = vim.trim(text)
+          end
 
-        -- Reset current call as we're done processing it
-        current_call = nil
+          -- Parse the code content
+          if capture_name == 'code' and current_call then
+            if current_call.type == 'override' then
+              current_call.content = text
+            elseif current_call.type == 'replacement' then
+              local pos = 1
+              while true do
+                local original_start = text:find('<<<<<<< ORIGINAL\n', pos)
+                if not original_start then
+                  break
+                end
+
+                local separator = text:find('\n=======\n', original_start)
+                local end_marker = text:find('\n>>>>>>> UPDATED', separator)
+
+                if not separator or not end_marker then
+                  break
+                end
+
+                local original = text:sub(original_start + 17, separator - 1)
+                local updated = text:sub(separator + 9, end_marker - 1)
+
+                table.insert(current_call.replacements, {
+                  search = original,
+                  replacement = updated,
+                })
+
+                pos = end_marker + 16
+              end
+            end
+          end
+        end
       end
+      -- Reset current call as we're done processing it
+      current_call = nil
     end
 
     return calls
@@ -249,12 +258,36 @@ Use similar formats for any change request. Understand context and apply changes
     vim.api.nvim_win_set_buf(win, bufnr)
     vim.cmd('diffthis')
 
-    vim.cmd('vert leftabove split')
+    vim.cmd('vsplit')
     local temp_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(temp_win, temp_bufnr)
     vim.cmd('diffthis')
 
-    -- Setup keymaps
+    -- Setup autocmd to close diff if one of the buffers is closed
+    local already_closed = false
+    local close_tab = function()
+      if not already_closed then
+        already_closed = true
+        pcall(vim.api.nvim_win_close, win, true)
+        pcall(vim.api.nvim_win_close, temp_win, true)
+        pcall(vim.api.nvim_buf_delete, temp_bufnr, { force = true })
+        callback()
+      end
+    end
+
+    for _, b in ipairs({ bufnr, temp_bufnr }) do
+      vim.api.nvim_create_autocmd('WinClosed', {
+        buffer = b,
+        once = true,
+        callback = function(event)
+          local event_win_id = tonumber(event.match)
+          if event_win_id == win or event_win_id == temp_win then
+            close_tab()
+          end
+        end,
+      })
+    end
+
     local opts = { buffer = true, silent = true }
 
     -- Accept changes
@@ -269,14 +302,12 @@ Use similar formats for any change request. Understand context and apply changes
         end
         vim.cmd('write')
       end)
-      vim.cmd('tabclose')
-      callback()
+      close_tab()
     end, opts)
 
     -- Reject changes
     vim.keymap.set('n', 'gr', function()
-      vim.cmd('tabclose')
-      callback()
+      close_tab()
     end, opts)
   end,
 }

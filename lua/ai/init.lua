@@ -13,4 +13,9 @@ function M.setup(config)
   M.did_setup = true
 end
 
+--- Toggle the chat sidebar
+function M.toggle_chat()
+  require('ai.chat').toggle_chat()
+end
+
 return M

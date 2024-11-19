@@ -1,9 +1,9 @@
-local M = {
-  current_bufnr = nil,
-}
+local M = {}
 
 local Tools = require('ai.tools')
 local Variables = require('ai.variables')
+
+local BUF_NAME = 'ai-chat'
 
 ---@return integer|nil The buffer number of the created buffer
 function M.create()
@@ -11,12 +11,17 @@ function M.create()
   local bufnr = vim.api.nvim_create_buf(false, true)
 
   -- Set buffer options
+  vim.api.nvim_buf_set_name(bufnr, BUF_NAME)
   vim.api.nvim_buf_set_option(bufnr, 'buftype', 'nofile')
   vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
   vim.api.nvim_buf_set_option(bufnr, 'modifiable', true)
 
-  -- Open buffer in a vertical split
-  vim.cmd('vsplit')
+  -- Open buffer in a vertical split with 40% of the available width
+  vim.cmd(
+    'rightbelow vsplit | vertical resize ' .. math.floor(vim.o.columns * 0.45)
+  )
+  -- Set wrap
+  vim.api.nvim_win_set_option(0, 'wrap', true)
 
   -- Highlight
   vim.api.nvim_win_set_buf(0, bufnr)
@@ -31,24 +36,15 @@ function M.create()
     vim.cmd.syntax('match Identifier "#' .. variable.name .. '"')
   end
 
-  M.current_bufnr = bufnr
   return bufnr
 end
 
 ---@return boolean success Whether the buffer was successfully closed
 function M.close()
-  if not M.current_bufnr then
-    return false
-  end
-
-  -- Check if buffer exists
-  if not vim.api.nvim_buf_is_valid(M.current_bufnr) then
-    M.current_bufnr = nil
-    return false
-  end
+  local bufnr = vim.fn.bufnr(BUF_NAME)
 
   -- Get windows displaying the buffer
-  local wins = vim.fn.win_findbuf(M.current_bufnr)
+  local wins = vim.fn.win_findbuf(bufnr)
 
   -- Close all windows displaying the buffer
   for _, win in ipairs(wins) do
@@ -56,16 +52,22 @@ function M.close()
   end
 
   -- Delete the buffer
-  vim.api.nvim_buf_delete(M.current_bufnr, { force = true })
-  M.current_bufnr = nil
+  vim.api.nvim_buf_delete(bufnr, { force = true })
   return true
 end
 
 ---@return integer|nil bufnr The buffer number of the toggled buffer (if opened)
 function M.toggle()
-  if M.current_bufnr then
-    M.close()
-    return nil
+  local bufnr = vim.fn.bufnr(BUF_NAME)
+  local wins = vim.fn.win_findbuf(bufnr)
+  if vim.api.nvim_buf_is_valid(bufnr) then
+    if #wins > 0 then
+      M.close()
+      return nil
+    else
+      vim.api.nvim_buf_delete(bufnr, { force = true })
+      return M.create()
+    end
   else
     return M.create()
   end

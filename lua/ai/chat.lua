@@ -154,6 +154,7 @@ local function send_message(bufnr)
     update_messages(bufnr, messages_before_send, true)
   end, { buffer = bufnr, noremap = true })
 
+  vim.g._ai_is_loading = true
   vim.b[bufnr].running_job = adapter:chat_stream({
     temperature = 0.3,
     system_prompt = create_system_prompt(parsed),
@@ -203,19 +204,6 @@ local function send_message(bufnr)
             chat_bufnr = bufnr,
           }
 
-          -- Execute "fake" tools in sequence
-          local fake_tool_uses =
-            Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
-          for _, tool_use in ipairs(fake_tool_uses) do
-            local execute = Async.wrap_2(tool_use.tool.execute)
-            for _, call in ipairs(tool_use.calls) do
-              Async.await(execute(ctx, call))
-              if cancelled then
-                goto on_exit_end
-              end
-            end
-          end
-
           -- Execute "real" tools
           local number_of_tool_results = 0
           local jobs = vim
@@ -247,10 +235,28 @@ local function send_message(bufnr)
             :totable()
           Async.await_all(jobs)
 
-          if
-            #assistant_message.tool_calls > 0
+          local should_trigger_agentic_workflow = #assistant_message.tool_calls
+              > 0
             and #assistant_message.tool_calls == number_of_tool_results
-          then
+
+          if not should_trigger_agentic_workflow then
+            vim.g._ai_is_loading = false
+          end
+
+          -- Execute "fake" tools in sequence
+          local fake_tool_uses =
+            Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
+          for _, tool_use in ipairs(fake_tool_uses) do
+            local execute = Async.wrap_2(tool_use.tool.execute)
+            for _, call in ipairs(tool_use.calls) do
+              Async.await(execute(ctx, call))
+              if cancelled then
+                goto on_exit_end
+              end
+            end
+          end
+
+          if should_trigger_agentic_workflow then
             update_messages(bufnr, all_messages, true)
             -- If tools were executed, send the message again to allow agentic workflows
             send_message(bufnr)
@@ -282,7 +288,7 @@ local function send_message(bufnr)
   update_messages(bufnr, parsed.messages, true)
 end
 
-function M.open_chat()
+function M.toggle_chat()
   local bufnr = Buffer.toggle()
 
   if bufnr ~= nil then
@@ -348,7 +354,7 @@ function M.open_chat()
 end
 
 function M.setup()
-  vim.api.nvim_create_user_command('AiChat', M.open_chat, {})
+  vim.api.nvim_create_user_command('AiChat', M.toggle_chat, {})
 end
 
 --- Parse the messages of the current buffer (0) and render them again in a split

@@ -21,8 +21,9 @@ end
 ---@param file string
 ---@return string
 local function get_cache_path(file)
+  local config = require('ai.config').config
   local project_id = get_project_id()
-  local base_path = vim.fn.stdpath('data') .. '/ai/' .. project_id .. '/'
+  local base_path = config.data_dir .. '/' .. project_id .. '/'
   return base_path .. file
 end
 

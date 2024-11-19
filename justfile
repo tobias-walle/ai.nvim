@@ -15,6 +15,14 @@ prepare:
 test:
     nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
 
+# Run all test files, but update all screenshots
+test-update:
+  UPDATE_SCREENSHOTS=true just test
+
 # Run test a single test file
-test_file FILE:
+test-file FILE:
     nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run_file('{{FILE}}')"
+
+# Run test a single test file, but update all screenshots
+test-file-update FILE:
+  UPDATE_SCREENSHOTS=true just test_file "{{FILE}}"

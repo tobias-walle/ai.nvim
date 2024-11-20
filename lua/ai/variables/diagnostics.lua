@@ -48,13 +48,16 @@ return {
     end
 
     -- Return formatted diagnostics
+    local path = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ':.')
     return string.format(
       vim.trim([[
 Variable: #diagnostics - Contains the diagnostics messages of the current buffer (like errors and warnings). It is always updated and contains all the changes made before.
+FILE: %s
 ```
 %s
 ```
 ]]),
+      path,
       table.concat(diagnostic_lines, '\n')
     )
   end,

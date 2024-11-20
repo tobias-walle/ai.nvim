@@ -21,9 +21,14 @@ local T = MiniTest.new_set({
     end,
     post_case = function()
       if #MiniTest.current.case.exec.fails > 0 then
+        local formatted_debug_info = U.get_formatted_debug_info()
+        if formatted_debug_info then
+          MiniTest.add_note('\nDebugInfo:\n' .. formatted_debug_info)
+        end
         -- Log screenshot after test
-        MiniTest.add_note('Screen:\n' .. tostring(child.get_screenshot()))
+        MiniTest.add_note('\nScreen:\n' .. tostring(child.get_screenshot()))
       end
+      U.reset_debug_info()
     end,
     -- Stop once all test cases are finished
     post_once = child.stop,
@@ -75,6 +80,9 @@ T['should fix bug using ai'] = function()
   -- Now we will see a diff in which we can accept the changes
   -- We accept it
   child.type_keys('ga')
+
+  -- Add the chat content to the debug info
+  U.add_debug_info(buffer_content_normalized(0))
 
   -- Let's close the chat again
   child.lua([[ require('ai').toggle_chat() ]])

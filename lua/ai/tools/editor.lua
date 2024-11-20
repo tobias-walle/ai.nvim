@@ -3,94 +3,38 @@ local tool = {
   is_fake = true,
   name = 'editor',
   system_prompt = vim.trim([[
-# Special "Editor" Syntax
-You can use this `editor` special syntax to apply changes directly in the code base.
+# Special "@editor" syntax
+You can use apply changes directly in the code base.
 
-The user can interact with the suggested changes by accepting, rejecting, or modifying them. There are two main ways to specify changes:
+The user can interact with the suggested changes by accepting, rejecting, or modifying them.
 
-## 1. Override or Create New Files
+## Overriding Files
 
-Use this method when you need to completely replace the contents of a file or create a new file from scratch.
+You apply the changes of a code block by adding `FILE: <path-relative-to-project-root>` over it.
 
-### Syntax: `editor:override`
-- Specify the exact path to the file.
-- Provide the complete new content to override the original file.
+Example:
 
-**Syntax Example:**
-``````markdown
-#### editor:override
-path/to/file
+FILE: src/hello.ts
+`````typescript
+function sayHello(): void {
+  console.log('Hello World')
+}
 
-`````<lang>
-<content_to_override>
+sayHello()
 `````
-``````
 
-- `path/to/file`: Location of the file, relative to the project root.
-- `<lang>`: The language tag must match the file extension (e.g., `typescript`, `python`, etc.).
-- `<content_to_override>`: The new content that will replace the entire file content.
+- **Make sure to always use 5 ticks ````` for the code blocks.**
+- If the the file already exists, it's content with overridden
+- IF YOU USE THIS METHOD, ALWAYS SPECIFY THE FULL FILE CONTENT AND NOT JUST PARTS OF IT
 
-Use this when over 80% of the file content changes.
+## Replace Content
+Often you only need to replace parts of the file. It would be ineffecient to repeat the content of the whole file in this case.
 
-## 2. Replace Specific Parts of a File
+For this special replacement markers can be used.
 
-Use this method if you only need to change specific parts of a file. This helps in saving computational tokens by targeting exact locations.
+Example:
 
-### Syntax: `editor:replacement`
-- Specify the path to the file.
-- Mark the original content and specify the new content replacement(s).
-- Make sure the original content is unique in the file to prevent unintended replacements. Choose a bigger section if in doubt.
-
-**Syntax Example:**
-``````markdown
-#### editor:replacement
-path/to/file
-
-`````<lang>
-<<<<<<< ORIGINAL
-<original_content>
-=======
-<new_content>
->>>>>>> UPDATED
-`````
-``````
-
-- `path/to/file`: Location of the file, relative to the project root.
-- `<lang>`: The language tag matching the file type (e.g., `tsx`).
-- Within the content, use the markers:
-  - `<<<<<<< ORIGINAL`: Marks the start of the original content block.
-  - `<original_content>`: The part of the file being replaced.
-  - `=======`: Marks the separator between old and new content.
-  - `<new_content>`: The new content to replace `<original_content>`.
-  - `>>>>>>> UPDATED`: Marks the end the new content declaration.
-
-### Notes
-- **Multiple Replacements**: You can repeat `<<<<<<< ORIGINAL`, `=======`, and `>>>>>>> UPDATED` to provide multiple replacements within the same file.
-- **Completeness**: Always provide the entire replacement or overridden content without placeholders like "// Rest of the file."
-
-## Steps
-
-1. Choose `editor:override` if the entire file or a large majority needs to be replaced.
-2. Choose `editor:replacement` if you need to target specific parts of the file for modification.
-3. Make sure paths are always relative to the project root.
-4. Follow the syntax strictly to ensure proper parsing.
-
-## Output Format
-
-Provide changes using one of the two formats `editor:override` or `editor:replacement`. Be explicit about replacements and use code blocks correctly (`````) for consistency.
-
-Make sure the output contains:
-- **File Paths**: Always relative.
-- **Language Tags**: Match the file extension.
-- **NO Placeholders**: Always provide the full content to replace or override.
-
-## Example (editor:replacement)
-
-**Prompt: "Add the argument firstName and lastName to the hello function"**
-
-#### editor:replacement
-src/hello.ts
-
+FILE: src/hello.ts
 `````typescript
 <<<<<<< ORIGINAL
 function sayHello(): void {
@@ -104,7 +48,26 @@ function sayHello(firstName: string, lastName: string): void {
 >>>>>>> UPDATED
 `````
 
-NEVER DO REPLACEMENTS WITHOUT THE CONTENT MARKERS!!!
+- Follow the syntax very closely
+  - `<<<<<<< ORIGINAL`: Marks the start of the original content block.
+  - `=======`: Marks the separator between old and new content.
+  - `>>>>>>> UPDATED`: Marks the end the new content declaration.
+
+- Make sure the original content is unique in the file to prevent unintended replacements. Choose a bigger section if in doubt.
+
+## Decide between strategies
+
+Use the following logic to decide which strategy to use
+- A lot of small changes across the file -> replacement
+- Creation of new file -> override
+- Update of more than 70% of lines in the file -> override
+- One tiny change -> replacement
+- You are not sure -> replacement
+- Extraction of some code part into a new file -> override for new file, replacement to update imports in original file
+
+Before EACH code block: Summarize in one sentence what you want to do and which strategy you want to use (with explaination).
+
+Afterwards do the changes directly, without waiting for user input, if not prompted otherwise.
 ]]),
 
   ---Parse editor tool calls from message content
@@ -121,12 +84,8 @@ NEVER DO REPLACEMENTS WITHOUT THE CONTENT MARKERS!!!
       'markdown',
       [[
       (
-        (atx_heading
-          (atx_h4_marker)
-          (inline) @tool_header
-          (#match? @tool_header "^editor:.*")
-        )
         (paragraph) @file_path
+        (#match? @file_path "FILE: .*")
         (fenced_code_block
           (info_string (language) @lang)
           (code_fence_content) @code)+
@@ -151,26 +110,23 @@ NEVER DO REPLACEMENTS WITHOUT THE CONTENT MARKERS!!!
           local capture_name = query.captures[id]
           local text = vim.treesitter.get_node_text(node, message_content)
 
-          if capture_name == 'tool_header' then
-            current_call = {}
-            -- Extract operation type from ATX heading (#### editor:type)
-            current_call.type = text:match('editor:(%w+)')
-            if current_call.type then
-              if current_call.type == 'replacement' then
-                current_call.replacements = {}
-              end
-              table.insert(calls, current_call)
-            else
-              current_call = nil
-            end
-          end
-
           if capture_name == 'file_path' then
-            current_call.file = vim.trim(text)
+            local file = text:gsub('^FILE:%s*', '')
+            current_call = { file = vim.trim(file) }
+            table.insert(calls, current_call)
           end
 
           -- Parse the code content
           if capture_name == 'code' and current_call then
+            -- If the call has markers, it is a replacement, otherwise an override
+            local has_replacement_markers = text:find('<<<<<<< ORIGINAL\n')
+              ~= nil
+            if has_replacement_markers then
+              current_call.type = 'replacement'
+            else
+              current_call.type = 'override'
+            end
+
             if current_call.type == 'override' then
               current_call.content = text
             elseif current_call.type == 'replacement' then
@@ -191,6 +147,7 @@ NEVER DO REPLACEMENTS WITHOUT THE CONTENT MARKERS!!!
                 local original = text:sub(original_start + 17, separator - 1)
                 local updated = text:sub(separator + 9, end_marker - 1)
 
+                current_call.replacements = current_call.replacements or {}
                 table.insert(current_call.replacements, {
                   search = original,
                   replacement = updated,

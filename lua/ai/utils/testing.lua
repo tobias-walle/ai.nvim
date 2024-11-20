@@ -64,6 +64,30 @@ function M.setup(child)
     )
   end
 
+  local debug_info = {}
+
+  function U.reset_debug_info()
+    debug_info = {}
+  end
+
+  function U.add_debug_info(value)
+    table.insert(debug_info, value)
+  end
+
+  function U.get_formatted_debug_info()
+    if #debug_info == 0 then
+      return nil
+    end
+    local result = ''
+    for _, info in ipairs(debug_info) do
+      if type(info) ~= 'string' then
+        info = vim.inspect(info)
+      end
+      result = result .. info .. '\n'
+    end
+    return vim.trim(result)
+  end
+
   return U
 end
 

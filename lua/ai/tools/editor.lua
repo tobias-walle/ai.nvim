@@ -57,12 +57,12 @@ path/to/file
 
 - `path/to/file`: Location of the file, relative to the project root.
 - `<lang>`: The language tag matching the file type (e.g., `tsx`).
-- Within the content:
-  - `<<<<<<< ORIGINAL`: Starts the original content block.
+- Within the content, use the markers:
+  - `<<<<<<< ORIGINAL`: Marks the start of the original content block.
   - `<original_content>`: The part of the file being replaced.
-  - `=======`: Separator between old and new content.
+  - `=======`: Marks the separator between old and new content.
   - `<new_content>`: The new content to replace `<original_content>`.
-  - `>>>>>>> UPDATED`: Ends the new content declaration.
+  - `>>>>>>> UPDATED`: Marks the end the new content declaration.
 
 ### Notes
 - **Multiple Replacements**: You can repeat `<<<<<<< ORIGINAL`, `=======`, and `>>>>>>> UPDATED` to provide multiple replacements within the same file.
@@ -104,7 +104,7 @@ function sayHello(firstName: string, lastName: string): void {
 >>>>>>> UPDATED
 `````
 
-Use similar formats for any change request. Understand context and apply changes precisely.
+NEVER DO REPLACEMENTS WITHOUT THE CONTENT MARKERS!!!
 ]]),
 
   ---Parse editor tool calls from message content
@@ -206,15 +206,28 @@ Use similar formats for any change request. Understand context and apply changes
       current_call = nil
     end
 
-    return calls
+    -- Group the results by file
+    local calls_grouped_by_file = {}
+    for _, call in ipairs(calls) do
+      local file = call.file
+      calls_grouped_by_file[file] = calls_grouped_by_file[file] or {}
+      table.insert(calls_grouped_by_file[file], call)
+    end
+
+    local groups = {}
+    for file, file_calls in pairs(calls_grouped_by_file) do
+      table.insert(groups, { file = file, calls = file_calls })
+    end
+
+    return groups
   end,
 
   ---Execute the editor tool
   ---@param ctx ChatContext
-  ---@param params table
+  ---@param group table
   ---@param callback function
-  execute = function(ctx, params, callback)
-    local bufnr = vim.fn.bufadd(params.file)
+  execute = function(ctx, group, callback)
+    local bufnr = vim.fn.bufadd(group.file)
     vim.fn.bufload(bufnr)
 
     -- Create temporary buffer with changes
@@ -227,29 +240,32 @@ Use similar formats for any change request. Understand context and apply changes
     vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, lines)
 
     -- Apply the operation
-    if params.type == 'override' then
-      local new_lines = vim.split(params.content, '\n')
-      vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, new_lines)
-    elseif params.type == 'replacement' then
-      local current_lines = vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
-      local buffer_text = vim.fn.join(current_lines, '\n')
+    for _, call in ipairs(group.calls) do
+      if call.type == 'override' then
+        local new_lines = vim.split(call.content, '\n')
+        vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, new_lines)
+      elseif call.type == 'replacement' then
+        local current_lines =
+          vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
+        local buffer_text = vim.fn.join(current_lines, '\n')
 
-      local replacements = params.replacements
+        local replacements = call.replacements
 
-      local new_buffer_text = buffer_text
-      for _, rep in ipairs(replacements) do
-        local search = rep.search:gsub('%W', '%%%1')
-        local replacement = rep.replacement:gsub('%%', '%%%%')
-        new_buffer_text = new_buffer_text:gsub(search, replacement)
+        local new_buffer_text = buffer_text
+        for _, rep in ipairs(replacements) do
+          local search = rep.search:gsub('%W', '%%%1')
+          local replacement = rep.replacement:gsub('%%', '%%%%')
+          new_buffer_text = new_buffer_text:gsub(search, replacement)
+        end
+
+        vim.api.nvim_buf_set_lines(
+          temp_bufnr,
+          0,
+          -1,
+          false,
+          vim.split(new_buffer_text, '\n')
+        )
       end
-
-      vim.api.nvim_buf_set_lines(
-        temp_bufnr,
-        0,
-        -1,
-        false,
-        vim.split(new_buffer_text, '\n')
-      )
     end
 
     -- Show diff view

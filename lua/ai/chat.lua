@@ -14,7 +14,7 @@ end
 
 local function move_cursor_to_end(bufnr)
   local line_count = vim.api.nvim_buf_line_count(bufnr)
-  pcall(vim.api.nvim_win_set_cursor, 0, { line_count - 1, 0 })
+  pcall(vim.api.nvim_win_set_cursor, 0, { line_count, 0 })
 end
 
 local function save_current_chat(bufnr)
@@ -262,7 +262,27 @@ local function send_message(bufnr)
             send_message(bufnr)
           else
             -- Otherwise it is the users turn again
-            table.insert(all_messages, { role = 'user', content = '' })
+
+            -- Copy the last variable uses into the next message
+            local next_message_content_lines = {}
+            local user_messages = vim
+              .iter(messages_before_send)
+              :filter(function(msg)
+                return msg.role == 'user'
+              end)
+              :totable()
+            ---@type ChatMessage | nil
+            local last_user_message = user_messages[#user_messages]
+            if last_user_message then
+              for _, variable in ipairs(last_user_message.variables) do
+                table.insert(next_message_content_lines, '#' .. variable.name)
+              end
+            end
+
+            table.insert(all_messages, {
+              role = 'user',
+              content = vim.fn.join(next_message_content_lines, '\n'),
+            })
             update_messages(bufnr, all_messages, true)
           end
         end

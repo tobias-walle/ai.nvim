@@ -27,7 +27,7 @@ function helloWorld {
 local ns_id = vim.api.nvim_create_namespace('ai_completion')
 
 function M.trigger_completion()
-  local adapter = require('ai.config').adapter
+  local adapter = require('ai.config').get_completion_adapter()
   vim.notify(
     '[ai] Trigger completion with ' .. adapter.name .. ':' .. adapter.model,
     vim.log.levels.INFO
@@ -88,7 +88,7 @@ function M.trigger_completion()
     vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
     vim.keymap.del(
       'i',
-      require('ai.config').config.mappings.accept_suggestion,
+      require('ai.config').get().mappings.accept_suggestion,
       { buffer = bufnr }
     )
     vim.api.nvim_del_autocmd(autocmd_id)
@@ -110,7 +110,7 @@ function M.trigger_completion()
   -- Map Tab to accept the suggestion
   vim.keymap.set(
     'i',
-    require('ai.config').config.mappings.accept_suggestion,
+    require('ai.config').get().mappings.accept_suggestion,
     accept_suggestion,
     { buffer = bufnr, noremap = true }
   )

@@ -51,7 +51,7 @@ local prompt_template_selection = vim.trim([[
 local ns_id = vim.api.nvim_create_namespace('ai_command')
 
 local function rewrite_with_instructions(opts, instructions)
-  local adapter = require('ai.config').adapter
+  local adapter = require('ai.config').get_command_adapter()
   vim.notify(
     '[ai] Trigger command with ' .. adapter.name .. ':' .. adapter.model,
     vim.log.levels.INFO

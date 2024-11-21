@@ -43,7 +43,7 @@ end
 ---@param buffer ParsedChatBuffer
 ---@return AdapterMessage[]
 local function create_messages(buffer)
-  local config = require('ai.config').config
+  local config = require('ai.config').get()
 
   ---@type AdapterMessage[]
   local context_messages = {}
@@ -127,7 +127,7 @@ local function create_system_prompt(parsed)
 end
 
 local function send_message(bufnr)
-  local adapter = require('ai.config').adapter
+  local adapter = require('ai.config').get_chat_adapter()
   local parsed = Buffer.parse(bufnr)
   local messages_before_send = parsed.messages
   local last_message = messages_before_send[#messages_before_send]
@@ -277,7 +277,7 @@ local function send_message(bufnr)
               :totable()
             ---@type ChatMessage | nil
             local last_user_message = user_messages[#user_messages]
-            if last_user_message then
+            if last_user_message and last_user_message.variables then
               for _, variable in ipairs(last_user_message.variables) do
                 table.insert(next_message_content_lines, '#' .. variable.name)
               end
@@ -312,13 +312,15 @@ local function send_message(bufnr)
   update_messages(bufnr, parsed.messages, true)
 end
 
-local initial_msg = {
-  role = 'user',
-  content = vim.fn.join({
-    '#buffer',
-    '@editor',
-  }, '\n'),
-}
+local initial_msg = function()
+  return {
+    role = 'user',
+    content = vim.fn.join({
+      '#buffer',
+      '@editor',
+    }, '\n'),
+  }
+end
 
 function M.toggle_chat()
   local bufnr = Buffer.toggle()
@@ -342,7 +344,7 @@ function M.toggle_chat()
       save_current_chat(bufnr)
       Cache.new_chat()
       update_messages(bufnr, {
-        initial_msg,
+        initial_msg(),
       })
     end, { buffer = bufnr, noremap = true })
 
@@ -378,7 +380,7 @@ function M.toggle_chat()
       move_cursor_to_end(bufnr)
     else
       -- Add initial message
-      update_messages(bufnr, initial_msg)
+      update_messages(bufnr, { initial_msg() })
     end
   end
 end

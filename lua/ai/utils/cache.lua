@@ -21,7 +21,7 @@ end
 ---@param file string
 ---@return string
 local function get_cache_path(file)
-  local config = require('ai.config').config
+  local config = require('ai.config').get()
   local project_id = get_project_id()
   local base_path = config.data_dir .. '/' .. project_id .. '/'
   return base_path .. file

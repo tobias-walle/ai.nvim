@@ -4,7 +4,7 @@ M.did_setup = false
 
 ---@param config AiConfig?
 function M.setup(config)
-  require('ai.config').setup(config)
+  require('ai.config').set(config)
   require('ai.commands').setup()
   require('ai.chat').setup()
 

@@ -23,8 +23,11 @@ function M.create()
   -- Set wrap
   vim.api.nvim_win_set_option(0, 'wrap', true)
 
-  -- Highlight
   vim.api.nvim_win_set_buf(0, bufnr)
+
+  -- Highlight
+  -- Configure highlights for editor special syntax
+  vim.cmd.syntax('match Keyword "^FILE:"')
   -- Configure tools highlight
   for _, tool in ipairs(Tools.all) do
     vim.cmd.syntax(

@@ -3,10 +3,18 @@ local tool = {
   is_fake = true,
   name = 'editor',
   system_prompt = vim.trim([[
-# Special "@editor" syntax
+# Special Editor syntax
 You can use apply changes directly in the code base.
 
 The user can interact with the suggested changes by accepting, rejecting, or modifying them.
+
+Syntax:
+
+FILE: <path-relative-to-project-root>
+
+`````<language>
+<code-block>
+`````
 
 ## Overriding Files
 
@@ -15,6 +23,7 @@ You apply the changes of a code block by adding `FILE: <path-relative-to-project
 Example:
 
 FILE: src/hello.ts
+
 `````typescript
 function sayHello(): void {
   console.log('Hello World')
@@ -24,6 +33,8 @@ sayHello()
 `````
 
 - **Make sure to always use 5 ticks ````` for the code blocks.**
+- ALWAYS SPECIFY THE FILE PATH
+- NEVER USE PLACEHOLDERS FOR THE REST OF THE FILE LIKE ... OR COMMENTS LIKE // Other methods here
 - If the the file already exists, it's content with overridden
 - IF YOU USE THIS METHOD, ALWAYS SPECIFY THE FULL FILE CONTENT AND NOT JUST PARTS OF IT
 
@@ -35,6 +46,7 @@ For this special replacement markers can be used.
 Example:
 
 FILE: src/hello.ts
+
 `````typescript
 <<<<<<< ORIGINAL
 function sayHello(): void {
@@ -52,6 +64,7 @@ function sayHello(firstName: string, lastName: string): void {
   - `<<<<<<< ORIGINAL`: Marks the start of the original content block.
   - `=======`: Marks the separator between old and new content.
   - `>>>>>>> UPDATED`: Marks the end the new content declaration.
+- Remember to ALWAYS add the `FILE: ` over the code block!
 
 - Make sure the original content is unique in the file to prevent unintended replacements. Choose a bigger section if in doubt.
 
@@ -63,9 +76,10 @@ Use the following logic to decide which strategy to use
 - Update of more than 70% of lines in the file -> override
 - One tiny change -> replacement
 - You are not sure -> replacement
+- One change that also requires a new import -> replacement for the change and another replacement for the import
 - Extraction of some code part into a new file -> override for new file, replacement to update imports in original file
 
-Before EACH code block: Summarize in one sentence what you want to do and which strategy you want to use (with explaination).
+Summarize in one sentence what you want to do and which strategy you want to use (with explaination).
 
 Afterwards do the changes directly, without waiting for user input, if not prompted otherwise.
 ]]),

@@ -4,50 +4,42 @@ local tool = {
   name = 'editor',
   system_prompt = vim.trim([[
 # Special Editor syntax
-You can use apply changes directly in the code base.
+You can use this syntax to apply changes directly in the code base.
 
-The user can interact with the suggested changes by accepting, rejecting, or modifying them.
+- You can use this syntax to replace sections in project files.
+- Make sure the original content is unique in the file to prevent unintended replacements.
+- Combine multiple replacements for more complex changes.
 
-Syntax:
+Follow the syntax VERY CLOSELY:
 
 FILE: <path-relative-to-project-root>
+```<language>
+<<<<<<< ORIGINAL
+<original-code>
+=======:
+<updated-code>
+>>>>>>> UPDATED
+```
 
-`````<language>
-<code-block>
-`````
+- FILE: <path> - Specifies the file. Required for the detection of the syntax. NEVER LEAVE IT OUT.
+- ```<language> - Start of the code block. Use more than three ticks if three ticks are used within the changes.
+- <<<<<<< ORIGINAL - Marks the start of the original content block.
+- <original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE!
+- ======= - Marks the separator between old and new content.
+- <original-code> - The updated code. NEVER USE PLACEHOLDERS LIKE "...", "// Other Methods", etc. IN THE CODE, INSTEAD PROVIDE THE FULL UPDATED CODE.
+- >>>>>>> UPDATED - Marks the end the new content declaration.
+- ``` - End of the code block
 
-## Overriding Files
+- The markers HAVE TO BE USED IN THE EXACT ORDER
+- You can use multiple markers in the same code block IF the order is honored.
+- Add no content between the markers
 
-You apply the changes of a code block by adding `FILE: <path-relative-to-project-root>` over it.
+In the following section, examples are separated with "--- EXAMPLE START" and "--- EXAMPLE END".
+NEVER USE THESE SEPERATORS IN YOUR OUTPUT.
 
-Example:
-
+--- EXAMPLE START
 FILE: src/hello.ts
-
-`````typescript
-function sayHello(): void {
-  console.log('Hello World')
-}
-
-sayHello()
-`````
-
-- **Make sure to always use 5 ticks ````` for the code blocks.**
-- ALWAYS SPECIFY THE FILE PATH
-- NEVER USE PLACEHOLDERS FOR THE REST OF THE FILE LIKE ... OR COMMENTS LIKE // Other methods here
-- If the the file already exists, it's content with overridden
-- IF YOU USE THIS METHOD, ALWAYS SPECIFY THE FULL FILE CONTENT AND NOT JUST PARTS OF IT
-
-## Replace Content
-Often you only need to replace parts of the file. It would be ineffecient to repeat the content of the whole file in this case.
-
-For this special replacement markers can be used.
-
-Example:
-
-FILE: src/hello.ts
-
-`````typescript
+```typescript
 <<<<<<< ORIGINAL
 function sayHello(): void {
   console.log('Hello World')
@@ -58,30 +50,45 @@ function sayHello(firstName: string, lastName: string): void {
   console.log(`Hello ${fullName}`);
 }
 >>>>>>> UPDATED
-`````
+```
+--- EXAMPLE END
 
-- Follow the syntax very closely
-  - `<<<<<<< ORIGINAL`: Marks the start of the original content block.
-  - `=======`: Marks the separator between old and new content.
-  - `>>>>>>> UPDATED`: Marks the end the new content declaration.
-- Remember to ALWAYS add the `FILE: ` over the code block!
+--- EXAMPLE START
+FILE: backend/logging.py
+```python
+<<<<<<< ORIGINAL
+import logging
+=======
+from loguru import logger
+>>>>>>> UPDATED
+<<<<<<< ORIGINAL
+logging.basicConfig(
+    level=logging.INFO, format=f"{grey}%(levelname)s(%(name)s):{reset} %(message)s"
+)
 
-- Make sure the original content is unique in the file to prevent unintended replacements. Choose a bigger section if in doubt.
+logger = logging.getLogger("backend")
+=======
+logger.remove()
+logger.add(lambda msg: print(f"{grey}{msg}{reset}"), level="INFO", format="{level}({name}): {message}", colorize=False)
+>>>>>>> UPDATED
+```
+--- EXAMPLE END
 
-## Decide between strategies
 
-Use the following logic to decide which strategy to use
-- A lot of small changes across the file -> replacement
-- Creation of new file -> override
-- Update of more than 70% of lines in the file -> override
-- One tiny change -> replacement
-- You are not sure -> replacement
-- One change that also requires a new import -> replacement for the change and another replacement for the import
-- Extraction of some code part into a new file -> override for new file, replacement to update imports in original file
+Here some example which logic to follow then applying changes:
+- A lot of small changes across the file -> Replace the changed content
+- Creation of new file -> Create the file by keep the ORIGINAL block empty and only specifying the UPDATED content.
+- One tiny change -> Replace the part of the file that needs to be changed
+- One change that also requires a new import -> Replace the part of the code that needs to be changed and use another replacement for adding the import
+- Extraction of some code part into a new file -> Create a the new file, update the imports in the original file using one replacement and use another replacement to remove the old code.
 
-Summarize in one sentence what you want to do and which strategy you want to use (with explaination).
+Remember that you HAVE to use the markers.
 
-Afterwards do the changes directly, without waiting for user input, if not prompted otherwise.
+Before each strategy use:
+Summarize in one short sentence what you want to do and which strategy you want to use. Keep it short.
+
+After you have done the changes:
+Post a nice emoji and a short, inspirational quote fitting to the change.
 ]]),
 
   ---Parse editor tool calls from message content

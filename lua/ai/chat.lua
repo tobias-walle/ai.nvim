@@ -160,7 +160,7 @@ local function send_message(bufnr)
 
   vim.g._ai_is_loading = true
   vim.b[bufnr].running_job = adapter:chat_stream({
-    temperature = 0.3,
+    temperature = 0,
     system_prompt = create_system_prompt(parsed),
     messages = create_messages(parsed),
     tools = tool_definitions,

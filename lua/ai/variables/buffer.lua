@@ -14,7 +14,7 @@ return {
     return string.format(
       vim.trim([[
 Variable: #buffer - Contains the current buffer. It is always updated and contains all the changes made before.
-File: %s
+FILE: %s
 ```%s
 %s
 ```

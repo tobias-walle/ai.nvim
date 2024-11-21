@@ -61,9 +61,13 @@ local function create_messages(buffer)
   local chat_messages = vim
     .iter(buffer.messages)
     :map(function(m)
+      local content = m.content
+      for _, tool in ipairs(Tools.all) do
+        content = content:gsub('@' .. Tools.get_tool_definition_name(tool), '')
+      end
       local msg = {
         role = m.role,
-        content = m.content,
+        content = content,
         tool_calls = {},
         tool_call_results = {},
       }
@@ -308,6 +312,14 @@ local function send_message(bufnr)
   update_messages(bufnr, parsed.messages, true)
 end
 
+local initial_msg = {
+  role = 'user',
+  content = vim.fn.join({
+    '#buffer',
+    '@editor',
+  }, '\n'),
+}
+
 function M.toggle_chat()
   local bufnr = Buffer.toggle()
 
@@ -330,7 +342,7 @@ function M.toggle_chat()
       save_current_chat(bufnr)
       Cache.new_chat()
       update_messages(bufnr, {
-        { role = 'user', content = '' },
+        initial_msg,
       })
     end, { buffer = bufnr, noremap = true })
 
@@ -366,9 +378,7 @@ function M.toggle_chat()
       move_cursor_to_end(bufnr)
     else
       -- Add initial message
-      update_messages(bufnr, {
-        { role = 'user', content = '' },
-      })
+      update_messages(bufnr, initial_msg)
     end
   end
 end

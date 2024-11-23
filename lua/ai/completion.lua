@@ -2,25 +2,67 @@
 local M = {}
 
 local system_prompt = vim.trim([[
-You are an intelligent code auto-completion assistant. Your task is to provide accurate and context-aware code suggestions based on the given file content and cursor position. Focus on completing the current line or suggesting the next logical code element. Prioritize code that follows best practices, maintains consistent style with the existing code, and is syntactically correct.
+You are an intelligent code auto-completion assistant.
+Your task is to provide accurate and context-aware code suggestions based on the given file content and cursor position.
 
-You are getting some code as input with the cursor position marked as <|cursor|> and ONLY answer with the autocompletion suggestion without repeating the input or the cursor position.
+INPUT:
+- You are getting some code as input with the cursor position marked as <|START|><|END|>.
+- Additional instructions might be added above the cursor as comments. If this is the case, try to solve the task in your completion.
+
+OUTPUT:
+- Complete the code between <|START|><|END|>.
+- ALWAYS wrap your completion with <|START|> and <|END|>. NEVER omit these markers.
+- ONLY output your completion in the code block. NO SURROUNDING CODE!
+- Try to immitate the patterns and code style already existing in the file.
 
 Provide clean, well-documented code completions without additional explanations.
 
-DO NOT wrap your response in a code block.
-
-# Example
+## Example 1
 <input>
 ```javascript
-function helloWorld {
-<|cursor|>
+function helloWorld() {
+<|START|><|END|>
 }
 ```
 </input>
 
 <output>
-  console.log('Hello World')
+```javascript
+<|START|>  console.log('Hello World')<|END|>
+```
+</output>
+
+## Example 2
+<input>
+```javascript
+function add(<|START|><|END|>) {
+  return a + b;
+}
+```
+</input>
+
+<output>
+```javascript
+<|START|>a, b<|END|>
+```
+</output>
+
+## Example 3
+<input>
+```lua
+<|START|><|END|>
+function say_hello(name)
+  print("Hello " .. name)
+end
+```
+</input>
+
+<output>
+```lua
+<|START|>---Print "Hello <name>" to the console.
+---@param name string
+---@return nil<|END|>
+```
 </output>
 ]])
 
@@ -47,30 +89,42 @@ function M.trigger_completion()
   local cursor_line = lines[row]
   local before = cursor_line:sub(1, col)
   local after = cursor_line:sub(col + 1)
-  lines[row] = before .. '<|cursor|>' .. after
+  lines[row] = before .. '<|START|><|END|>' .. after
 
   table.insert(lines, 1, '```' .. lang)
   table.insert(lines, '```')
+
+  -- Insert file name as well
+  table.insert(lines, 1, 'FILE: ' .. vim.fn.expand('%'))
 
   local content = table.concat(lines, '\n')
 
   local cancelled = false
   local suggestion = ''
 
+  print(content)
   local job = adapter:chat_stream({
     system_prompt = system_prompt,
     messages = {
       { role = 'user', content = content },
     },
     temperature = 0,
-    max_tokens = 128,
+    max_tokens = 500,
     on_update = function(update)
       if cancelled then
         return
       end
-      suggestion = update.response
+      -- Extract content between tokens
+      suggestion = string.match(update.response, '<|START|>(.-)<|END|>')
+      -- If <|END|> is not found, extract content to the end of the line
+      if not suggestion then
+        suggestion = string.match(update.response, '<|START|>(.-)\n')
+      end
+      if not suggestion then
+        suggestion = update.response
+      end
       require('ai.render').render_ghost_text({
-        text = update.response,
+        text = suggestion,
         buffer = bufnr,
         ns_id = ns_id,
         row = row - 1,

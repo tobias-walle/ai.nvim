@@ -6,6 +6,7 @@ local ui = require('ai.ui')
 
 ---@class CommandDefinition
 ---@field name string
+---@field instructions? string
 
 local prompt_template_file = vim.trim([[
 ## Full File
@@ -156,7 +157,13 @@ end
 ---@param definition CommandDefinition
 local function create_command(definition)
   local function cmd_fn(opts)
-    if opts.args and opts.args ~= '' then
+    if definition.instructions and definition.instructions ~= '' then
+      return rewrite_with_instructions(
+        definition,
+        opts,
+        definition.instructions
+      )
+    elseif opts.args and opts.args ~= '' then
       return rewrite_with_instructions(definition, opts, opts.args)
     else
       ui.input({ prompt = 'Instructions' }, function(instructions)
@@ -175,6 +182,18 @@ end
 function M.setup()
   create_command({
     name = 'Rewrite',
+  })
+  create_command({
+    name = 'SpellCheck',
+    instructions = 'Fix all grammar and spelling errors without changing the meaning of the text.',
+  })
+  create_command({
+    name = 'Translate',
+    instructions = 'Translate all foreign words to english.',
+  })
+  create_command({
+    name = 'Fix',
+    instructions = 'Fix any bugs you find. Add a comment above the fixes, explaining your reasoning.',
   })
 end
 

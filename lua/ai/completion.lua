@@ -1,18 +1,23 @@
 -- Define a module
 local M = {}
 
-local system_prompt = vim.trim([[
+local TOKEN_START = '<|COMPLETION_START|>'
+local TOKEN_END = '<|COMPLETION_END|>'
+
+local system_prompt = vim
+  .trim([[
 You are an intelligent code auto-completion assistant.
 Your task is to provide accurate and context-aware code suggestions based on the given file content and cursor position.
 
 INPUT:
-- You are getting some code as input with the cursor position marked as <|START|><|END|>.
+- You are getting some code as input with the cursor position marked as {{TOKEN_START}}{{TOKEN_END}}.
 - Additional instructions might be added above the cursor as comments. If this is the case, try to solve the task in your completion.
 
 OUTPUT:
-- Complete the code between <|START|><|END|>.
-- ALWAYS wrap your completion with <|START|> and <|END|>. NEVER omit these markers.
-- ONLY output your completion in the code block. NO SURROUNDING CODE!
+- Complete the code between {{TOKEN_START}}{{TOKEN_END}}.
+- ALWAYS wrap your completion with {{TOKEN_START}} and {{TOKEN_END}}. NEVER OMIT THESE MARKERS.
+- ONLY output your completion! NO SURROUNDING CODE!
+- If there is already an ident before {{TOKEN_START}}, do not repeat it!
 - Try to immitate the patterns and code style already existing in the file.
 
 Provide clean, well-documented code completions without additional explanations.
@@ -21,36 +26,32 @@ Provide clean, well-documented code completions without additional explanations.
 <input>
 ```javascript
 function helloWorld() {
-<|START|><|END|>
+  {{TOKEN_START}}{{TOKEN_END}}
 }
 ```
 </input>
 
 <output>
-```javascript
-<|START|>  console.log('Hello World')<|END|>
-```
+  {{TOKEN_START}}console.log('Hello World'){{TOKEN_END}}
 </output>
 
 ## Example 2
 <input>
 ```javascript
-function add(<|START|><|END|>) {
+function add({{TOKEN_START}}{{TOKEN_END}}) {
   return a + b;
 }
 ```
 </input>
 
 <output>
-```javascript
-<|START|>a, b<|END|>
-```
+{{TOKEN_START}}a, b{{TOKEN_END}}
 </output>
 
 ## Example 3
 <input>
 ```lua
-<|START|><|END|>
+{{TOKEN_START}}{{TOKEN_END}}
 function say_hello(name)
   print("Hello " .. name)
 end
@@ -58,13 +59,12 @@ end
 </input>
 
 <output>
-```lua
-<|START|>---Print "Hello <name>" to the console.
+{{TOKEN_START}}---Print "Hello <name>" to the console.
 ---@param name string
----@return nil<|END|>
-```
+---@return nil{{TOKEN_END}}
 </output>
 ]])
+  :gsub('{{(.-)}}', { TOKEN_START = TOKEN_START, TOKEN_END = TOKEN_END })
 
 local ns_id = vim.api.nvim_create_namespace('ai_completion')
 
@@ -100,9 +100,20 @@ function M.trigger_completion()
   local content = table.concat(lines, '\n')
 
   local cancelled = false
+  local response_content = ''
   local suggestion = ''
 
-  print(content)
+  local render_ghost_text = function(text)
+    require('ai.render').render_ghost_text({
+      text = text,
+      buffer = bufnr,
+      ns_id = ns_id,
+      row = row - 1,
+      col = col,
+    })
+  end
+
+  render_ghost_text('...')
   local job = adapter:chat_stream({
     system_prompt = system_prompt,
     messages = {
@@ -114,22 +125,28 @@ function M.trigger_completion()
       if cancelled then
         return
       end
+      response_content = update.response or ''
       -- Extract content between tokens
-      suggestion = string.match(update.response, '<|START|>(.-)<|END|>')
+      suggestion = string.match(
+        response_content,
+        TOKEN_START .. '(.-)' .. TOKEN_END
+      ) or ''
       -- If <|END|> is not found, extract content to the end of the line
-      if not suggestion then
-        suggestion = string.match(update.response, '<|START|>(.-)\n')
+      if suggestion == '' then
+        suggestion = string.match(response_content, TOKEN_START .. '(.-)\n')
       end
-      if not suggestion then
-        suggestion = update.response
+      if suggestion == '' then
+        suggestion = string.match(response_content, '(.-)' .. TOKEN_END)
       end
-      require('ai.render').render_ghost_text({
-        text = suggestion,
-        buffer = bufnr,
-        ns_id = ns_id,
-        row = row - 1,
-        col = col,
-      })
+      render_ghost_text(suggestion or '...')
+    end,
+    on_exit = function()
+      if vim.trim(suggestion) == '' then
+        --
+        render_ghost_text(response_content)
+      else
+        render_ghost_text(suggestion)
+      end
     end,
   })
 

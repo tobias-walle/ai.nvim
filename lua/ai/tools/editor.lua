@@ -204,27 +204,24 @@ Post a nice emoji and a short, inspirational quote fitting to the change.
   ---@param ctx ChatContext
   ---@param group table
   ---@param callback function
+  ---@diagnostic disable-next-line: unused-local
   execute = function(ctx, group, callback)
     local bufnr = vim.fn.bufadd(group.file)
     vim.fn.bufload(bufnr)
 
-    -- Create temporary buffer with changes
-    local temp_bufnr = vim.api.nvim_create_buf(false, true)
-    local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
-    vim.api.nvim_buf_set_option(temp_bufnr, 'filetype', filetype)
-
-    -- Copy content
-    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-    vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, lines)
+    local diff_bufnr = require('ai.utils.diff_view').render_diff_view({
+      bufnr = bufnr,
+      callback = callback,
+    })
 
     -- Apply the operation
     for _, call in ipairs(group.calls) do
       if call.type == 'override' then
         local new_lines = vim.split(call.content, '\n')
-        vim.api.nvim_buf_set_lines(temp_bufnr, 0, -1, false, new_lines)
+        vim.api.nvim_buf_set_lines(diff_bufnr, 0, -1, false, new_lines)
       elseif call.type == 'replacement' then
         local current_lines =
-          vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
+          vim.api.nvim_buf_get_lines(diff_bufnr, 0, -1, false)
         local buffer_text = vim.fn.join(current_lines, '\n')
 
         local replacements = call.replacements
@@ -237,7 +234,7 @@ Post a nice emoji and a short, inspirational quote fitting to the change.
         end
 
         vim.api.nvim_buf_set_lines(
-          temp_bufnr,
+          diff_bufnr,
           0,
           -1,
           false,
@@ -245,64 +242,6 @@ Post a nice emoji and a short, inspirational quote fitting to the change.
         )
       end
     end
-
-    -- Show diff view
-    vim.cmd('tabnew')
-    local win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(win, bufnr)
-    vim.cmd('diffthis')
-
-    vim.cmd('vsplit')
-    local temp_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(temp_win, temp_bufnr)
-    vim.cmd('diffthis')
-
-    -- Setup autocmd to close diff if one of the buffers is closed
-    local already_closed = false
-    local close_tab = function()
-      if not already_closed then
-        already_closed = true
-        pcall(vim.api.nvim_win_close, win, true)
-        pcall(vim.api.nvim_win_close, temp_win, true)
-        pcall(vim.api.nvim_buf_delete, temp_bufnr, { force = true })
-        callback()
-      end
-    end
-
-    for _, b in ipairs({ bufnr, temp_bufnr }) do
-      vim.api.nvim_create_autocmd('WinClosed', {
-        buffer = b,
-        once = true,
-        callback = function(event)
-          local event_win_id = tonumber(event.match)
-          if event_win_id == win or event_win_id == temp_win then
-            close_tab()
-          end
-        end,
-      })
-    end
-
-    local opts = { buffer = true, silent = true }
-
-    -- Accept changes
-    vim.keymap.set('n', 'ga', function()
-      local lines = vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
-      vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-      vim.api.nvim_buf_call(bufnr, function()
-        local file_path = vim.api.nvim_buf_get_name(bufnr)
-        local parent_dir = vim.fn.fnamemodify(file_path, ':h')
-        if vim.fn.isdirectory(parent_dir) == 0 then
-          vim.fn.mkdir(parent_dir, 'p')
-        end
-        vim.cmd('write')
-      end)
-      close_tab()
-    end, opts)
-
-    -- Reject changes
-    vim.keymap.set('n', 'gr', function()
-      close_tab()
-    end, opts)
   end,
 }
 

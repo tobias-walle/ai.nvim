@@ -14,11 +14,17 @@ Coding:
 
 Formatting:
 - Create a new line after each sentence.
+]])
+
+M.system_prompt_chat = vim
+  .trim([[
+{{system_prompt}}
 
 Tools and Special Syntax:
 - You might get access to tools or special syntax.
 - These are not the same DO NOT INTERCHANGE THEM. Tools are clearly declared as such and special syntax as well. There are used in very different ways.
 - Really try to use everything available to you. There are given to you for a reason.
 ]])
+  :gsub('{{(.-)}}', { system_prompt = M.system_prompt })
 
 return M

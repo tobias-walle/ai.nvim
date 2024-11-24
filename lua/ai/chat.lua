@@ -118,7 +118,7 @@ end
 local function create_system_prompt(parsed)
   local system_prompt_parts = {
     'Current time: ' .. os.date('%Y-%m-%d %H:%M:%S'),
-    require('ai.chat.prompts').system_prompt,
+    require('ai.prompts').system_prompt_chat,
   }
   for _, fake_tool in ipairs(parsed.fake_tools or {}) do
     table.insert(system_prompt_parts, fake_tool)

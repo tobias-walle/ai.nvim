@@ -1,2 +1,1 @@
-- Use localleader for buffer keymaps
 - Add keymap to copy last code block

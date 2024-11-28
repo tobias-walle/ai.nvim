@@ -8,6 +8,7 @@ local M = {}
 ---@param opts AiRenderDiffViewOptions
 ---@return integer diff_bufnr The buffer to apply the changes to
 function M.render_diff_view(opts)
+  local config = require('ai.config').get()
   local bufnr = opts.bufnr
   local callback = opts.callback
   local window_before_diff = vim.api.nvim_get_current_win()
@@ -65,7 +66,7 @@ function M.render_diff_view(opts)
   local keymap_opts = { buffer = true, silent = true }
 
   -- Accept changes
-  vim.keymap.set('n', 'ga', function()
+  vim.keymap.set('n', config.mappings.diff.accept_suggestion, function()
     local lines = vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     vim.api.nvim_buf_call(bufnr, function()
@@ -80,7 +81,7 @@ function M.render_diff_view(opts)
   end, keymap_opts)
 
   -- Reject changes
-  vim.keymap.set('n', 'gr', function()
+  vim.keymap.set('n', config.mappings.diff.reject_suggestion, function()
     close_tab('REJECTED')
   end, keymap_opts)
 

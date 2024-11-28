@@ -46,6 +46,7 @@ local prompt_template_selection = vim.trim([[
 ---@param opts table
 ---@param instructions string
 local function rewrite_with_instructions(definition, opts, instructions)
+  local config = require('ai.config').get()
   local adapter = require('ai.config').get_command_adapter()
   vim.notify(
     '[ai] Trigger command with ' .. adapter.name .. ':' .. adapter.model,
@@ -57,14 +58,15 @@ local function rewrite_with_instructions(definition, opts, instructions)
   local filename = vim.fn.expand('%')
 
   local start_line, end_line
+  local last_line = vim.fn.line('$')
   if opts.range ~= 0 then
     start_line = opts.line1
     end_line = opts.line2
   else
     start_line = 1
-    end_line = vim.fn.line('$')
+    end_line = last_line
   end
-  local is_whole_file = start_line == start_line and end_line == last_line
+  local is_whole_file = start_line == 1 and end_line == last_line
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local content = table.concat(lines, '\n')
 

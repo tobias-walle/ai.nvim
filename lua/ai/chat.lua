@@ -327,6 +327,7 @@ local initial_msg = function()
 end
 
 function M.toggle_chat()
+  local config = require('ai.config').get()
   local bufnr = Buffer.toggle()
 
   if bufnr ~= nil then
@@ -338,13 +339,13 @@ function M.toggle_chat()
     })
 
     -- Set up keymaps
-    vim.keymap.set('n', '<CR>', function()
+    vim.keymap.set('n', config.mappings.chat.submit, function()
       if not vim.b[bufnr].running_job then
         send_message(bufnr)
       end
     end, { buffer = bufnr, noremap = true })
 
-    vim.keymap.set('n', 'gx', function()
+    vim.keymap.set('n', config.mappings.chat.new_chat, function()
       save_current_chat(bufnr)
       Cache.new_chat()
       update_messages(bufnr, {
@@ -352,7 +353,7 @@ function M.toggle_chat()
       })
     end, { buffer = bufnr, noremap = true })
 
-    vim.keymap.set('n', 'gn', function()
+    vim.keymap.set('n', config.mappings.chat.goto_next_chat, function()
       save_current_chat(bufnr)
       local chat = Cache.next_chat()
       if chat then
@@ -360,7 +361,7 @@ function M.toggle_chat()
       end
     end, { buffer = bufnr, noremap = true })
 
-    vim.keymap.set('n', 'gp', function()
+    vim.keymap.set('n', config.mappings.chat.goto_prev_chat, function()
       save_current_chat(bufnr)
       local chat = Cache.previous_chat()
       if chat then
@@ -368,15 +369,20 @@ function M.toggle_chat()
       end
     end, { buffer = bufnr, noremap = true })
 
-    vim.keymap.set('n', 'gs', function()
-      save_current_chat(bufnr)
-      Cache.search_chats({}, function()
-        local chat = Cache.load_chat()
-        if chat then
-          set_chat_text(bufnr, chat)
-        end
-      end)
-    end, { buffer = bufnr, noremap = true })
+    vim.keymap.set(
+      'n',
+      config.mappings.chat.goto_chat_with_tressitter,
+      function()
+        save_current_chat(bufnr)
+        Cache.search_chats({}, function()
+          local chat = Cache.load_chat()
+          if chat then
+            set_chat_text(bufnr, chat)
+          end
+        end)
+      end,
+      { buffer = bufnr, noremap = true }
+    )
 
     local existing_chat = Cache.load_chat()
     if existing_chat then

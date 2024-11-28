@@ -63,6 +63,18 @@ end
 ---@param name string
 ---@return nil{{TOKEN_END}}
 </output>
+
+## Example 4
+<input>
+```lua
+const firstName = "Karl"
+console.log(`Hello ${{{TOKEN_START}}{{TOKEN_END}}}`);
+```
+</input>
+
+<output>
+{{TOKEN_START}}firstName{{TOKEN_END}}
+</output>
 ]])
   :gsub('{{(.-)}}', { TOKEN_START = TOKEN_START, TOKEN_END = TOKEN_END })
 
@@ -134,16 +146,22 @@ function M.trigger_completion()
       -- If <|END|> is not found, extract content to the end of the line
       if suggestion == '' then
         suggestion = string.match(response_content, TOKEN_START .. '(.-)\n')
+          or ''
       end
       if suggestion == '' then
-        suggestion = string.match(response_content, '(.-)' .. TOKEN_END)
+        suggestion = string.match(response_content, '(.-)' .. TOKEN_END) or ''
       end
       render_ghost_text(suggestion or '...')
     end,
     on_exit = function()
       if vim.trim(suggestion) == '' then
-        --
-        render_ghost_text(response_content)
+        -- Remove code block if present
+        local fallback = require('ai.utils.treesitter').extract_code(
+          response_content
+        ) or response_content
+        -- Remove tokens if present
+        fallback = fallback:gsub(TOKEN_START, ''):gsub(TOKEN_END, '')
+        render_ghost_text(fallback)
       else
         render_ghost_text(suggestion)
       end

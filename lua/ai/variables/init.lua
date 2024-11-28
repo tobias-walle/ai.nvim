@@ -56,28 +56,30 @@ function M.parse_variable_uses(msg)
   -- Split the text into lines (if needed) and iterate over each line
   for _, full_match in ipairs(Regex.find_all_regex_matches(msg, M.pattern_full)) do
     local variable_name = full_match[2]
-    local params = {}
-    for _, param_match in
-      ipairs(
-        Regex.find_all_regex_matches(full_match[1], M.pattern_single_param)
-      )
-    do
-      for i = 2, #param_match do
-        -- Find matched group
-        if param_match[i] ~= '' then
-          table.insert(params, param_match[i])
+    if M.find_by_name(variable_name) ~= nil then
+      local params = {}
+      for _, param_match in
+        ipairs(
+          Regex.find_all_regex_matches(full_match[1], M.pattern_single_param)
+        )
+      do
+        for i = 2, #param_match do
+          -- Find matched group
+          if param_match[i] ~= '' then
+            table.insert(params, param_match[i])
+          end
         end
       end
-    end
-    local match = {
-      raw = full_match[1],
-      name = variable_name,
-      params = params,
-    }
-    local match_key = unique_key(match.name, match.params)
-    if not already_included_keys[match_key] then
-      already_included_keys[match_key] = true
-      table.insert(matches, match)
+      local match = {
+        raw = full_match[1],
+        name = variable_name,
+        params = params,
+      }
+      local match_key = unique_key(match.name, match.params)
+      if not already_included_keys[match_key] then
+        already_included_keys[match_key] = true
+        table.insert(matches, match)
+      end
     end
   end
 

@@ -20,6 +20,17 @@ M.system_prompt_chat = vim
   .trim([[
 {{system_prompt}}
 
+Variables:
+- Special variables are speficed with #
+- You can request access to the following variables:
+  - #file:`<path-to-file>` (Get the content of a file)
+  - #web:`<url>` (Get the content of a website, make sure the site exists)
+- For example by declaring:
+    I need access to:
+    #file:`README.md`
+    #file:`src/hello.ts`
+    #web:`https://neovim.io/doc/user/quickref.html`
+
 Tools and Special Syntax:
 - You might get access to tools or special syntax.
 - These are not the same DO NOT INTERCHANGE THEM. Tools are clearly declared as such and special syntax as well. There are used in very different ways.

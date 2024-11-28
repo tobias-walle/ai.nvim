@@ -11,6 +11,7 @@ M.all = {
   require('ai.variables.buffer'),
   require('ai.variables.diagnostics'),
   require('ai.variables.file'),
+  require('ai.variables.files'),
   require('ai.variables.web'),
 }
 

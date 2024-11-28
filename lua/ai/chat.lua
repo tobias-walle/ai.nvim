@@ -384,6 +384,19 @@ function M.toggle_chat()
       { buffer = bufnr, noremap = true }
     )
 
+    vim.keymap.set('n', config.mappings.chat.delete_previous_msg, function()
+      save_current_chat(bufnr)
+      local messages = Buffer.parse(bufnr).messages
+      Cache.new_chat()
+      if #messages > 0 then
+        table.remove(messages, #messages) -- Remove the last message
+        while #messages > 0 and messages[#messages].role ~= 'user' do
+          table.remove(messages, #messages) -- Every message until the next user message
+        end
+        update_messages(bufnr, messages, true)
+      end
+    end, { buffer = bufnr, noremap = true })
+
     local existing_chat = Cache.load_chat()
     if existing_chat then
       set_chat_text(bufnr, existing_chat)

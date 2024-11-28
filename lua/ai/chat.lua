@@ -40,9 +40,10 @@ local function set_chat_text(bufnr, chat)
   move_cursor_to_end(bufnr)
 end
 
+---@param ctx ChatContext
 ---@param buffer ParsedChatBuffer
 ---@return AdapterMessage[]
-local function create_messages(buffer)
+local function create_messages(ctx, buffer)
   local config = require('ai.config').get()
 
   ---@type AdapterMessage[]
@@ -94,12 +95,15 @@ local function create_messages(buffer)
   local variable_messages = {}
   for i = #buffer.messages, 1, -1 do
     if buffer.messages[i].role == 'user' then
-      for _, variable in ipairs(buffer.messages[i].variables or {}) do
-        local msg = {
-          role = 'user',
-          content = variable.resolve({}, {}),
-        }
-        table.insert(variable_messages, msg)
+      for _, variable_use in ipairs(buffer.messages[i].variables or {}) do
+        local variable = require('ai.variables').find_by_name(variable_use.name)
+        if variable ~= nil then
+          local msg = {
+            role = 'user',
+            content = variable.resolve(ctx, variable_use.params),
+          }
+          table.insert(variable_messages, msg)
+        end
       end
       break
     end
@@ -132,6 +136,11 @@ local function send_message(bufnr)
   local messages_before_send = parsed.messages
   local last_message = messages_before_send[#messages_before_send]
 
+  ---@type ChatContext
+  local ctx = {
+    chat_bufnr = bufnr,
+  }
+
   if
     not last_message
     or (last_message.role ~= 'user' and #last_message.tool_calls == 0)
@@ -162,7 +171,7 @@ local function send_message(bufnr)
   vim.b[bufnr].running_job = adapter:chat_stream({
     temperature = 0,
     system_prompt = create_system_prompt(parsed),
-    messages = create_messages(parsed),
+    messages = create_messages(ctx, parsed),
     tools = tool_definitions,
     on_update = function(update)
       local all_messages = vim.deepcopy(messages_before_send)
@@ -202,11 +211,6 @@ local function send_message(bufnr)
           }
           table.insert(all_messages, assistant_message)
           update_messages(bufnr, all_messages, true)
-
-          ---@type ChatContext
-          local ctx = {
-            chat_bufnr = bufnr,
-          }
 
           -- Execute "real" tools
           local number_of_tool_results = 0
@@ -279,7 +283,7 @@ local function send_message(bufnr)
             local last_user_message = user_messages[#user_messages]
             if last_user_message and last_user_message.variables then
               for _, variable in ipairs(last_user_message.variables) do
-                table.insert(next_message_content_lines, '#' .. variable.name)
+                table.insert(next_message_content_lines, variable.raw)
               end
             end
 

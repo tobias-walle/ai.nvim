@@ -13,6 +13,7 @@ M.all = {
   require('ai.variables.file'),
   require('ai.variables.files'),
   require('ai.variables.web'),
+  require('ai.variables.sh'),
 }
 
 ---@param name string

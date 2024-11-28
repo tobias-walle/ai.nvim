@@ -1,1 +1,2 @@
 - Add keymap to copy last code block
+- Add keymap to rexecute fake tools calls in a chat message

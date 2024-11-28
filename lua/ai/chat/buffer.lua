@@ -30,13 +30,15 @@ function M.create()
   vim.cmd.syntax('match Keyword "^FILE:"')
   -- Configure tools highlight
   for _, tool in ipairs(Tools.all) do
-    vim.cmd.syntax(
-      'match Special "@' .. Tools.get_tool_definition_name(tool) .. '"'
-    )
+    vim.fn.matchadd('Special', '@' .. Tools.get_tool_definition_name(tool))
   end
+
   -- Configure variables highlight
   for _, variable in ipairs(Variables.all) do
-    vim.cmd.syntax('match Identifier "#' .. variable.name .. '"')
+    vim.fn.matchadd(
+      'Identifier',
+      '#' .. variable.name .. require('ai.variables').pattern_multi_param
+    )
   end
 
   return bufnr
@@ -123,7 +125,7 @@ end
 ---@field content string The text content of the message
 ---@field tool_calls? RealToolCall[] Optional list of tool calls associated with the message
 ---@field fake_tool_uses? FakeToolUse[] The fake tools used in this message
----@field variables? VariableDefinition[] Optional list of variables used in the message
+---@field variables? VariableUse[] Optional list of variables used in the message
 
 ---@class ParsedChatBuffer
 ---@field messages ChatMessage[] The chat messages
@@ -220,20 +222,8 @@ function M.parse(bufnr)
     end
 
     -- Find variable uses
-    local current_message_variables = {}
-    for _, variable in ipairs(Variables.all) do
-      if content:match('#' .. variable.name) then
-        if
-          not vim
-            .iter(current_message_variables)
-            :find(function(existing_variable)
-              return existing_variable.name == variable.name
-            end)
-        then
-          table.insert(current_message_variables, variable)
-        end
-      end
-    end
+    local current_message_variables =
+      require('ai.variables').parse_variable_uses(content)
 
     table.insert(messages, {
       role = role,

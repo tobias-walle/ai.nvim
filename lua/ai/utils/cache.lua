@@ -244,12 +244,19 @@ function M.search_chats(opts, callback)
               content = content,
             })
           end
+          -- Sort the results by filename
+          table.sort(results, function(a, b)
+            return a.filename > b.filename
+          end)
           return results
         end)(),
         entry_maker = function(entry)
+          local lines = vim.split(entry.content, '\n')
+          local content_preview =
+            table.concat(vim.list_slice(lines, 2, 20), ' ')
           return {
             value = entry.value,
-            display = entry.filename,
+            display = entry.filename .. content_preview,
             ordinal = entry.filename .. ' ' .. entry.content,
             filename = entry.filename,
           }

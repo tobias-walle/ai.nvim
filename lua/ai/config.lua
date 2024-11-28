@@ -1,11 +1,31 @@
 local Config = {}
 
+---@class AiKeyMapCompletion
+---@field accept_suggestion? string
+
+---@class AiKeyMapChat
+---@field submit? string
+---@field new_chat? string
+---@field goto_prev_chat? string
+---@field goto_next_chat? string
+---@field goto_chat_with_tressitter? string
+---@field delete_previous_msg? string
+
+---@class AiKeyMapDiff
+---@field accept_suggestion? string
+---@field reject_suggestion? string
+
+---@class AiKeyMap
+---@field completion? AiKeyMapCompletion
+---@field chat? AiKeyMapChat
+---@field diff? AiKeyMapDiff
+
 ---@class AiConfig
 ---@field default_model? ModelString The default model to use in the format [adapter]:[model] e.g., openai:gpt-4
 ---@field adapters? table<string, AdapterOptions>
 ---@field data_dir? string Folder in which chats and other data is stored
----@field mappings? { accept_suggestion: string }
----@field context_file? string -- Name of an optional file relative to the opened projects to define custom context for the LLM.
+---@field mappings? AiKeyMap Key mappings
+---@field context_file? string Name of an optional file relative to the opened projects to define custom context for the LLM.
 ---@field chat? AiChatConfig
 ---@field command? AiCommandConfig
 ---@field completion? AiCommandConfig
@@ -29,10 +49,24 @@ Config.default_config = {
     openai = require('ai.adapters.openai'),
     azure = require('ai.adapters.azure'),
   },
-  data_dir = vim.fn.stdpath('data') .. '/ai',
   mappings = {
-    accept_suggestion = '<Tab>',
+    completion = {
+      accept_suggestion = '<Tab>',
+    },
+    chat = {
+      submit = '<CR>',
+      new_chat = '<LocalLeader>x',
+      goto_prev_chat = '<LocalLeader>p',
+      goto_next_chat = '<LocalLeader>n',
+      goto_chat_with_tressitter = '<LocalLeader>s',
+      delete_previous_msg = '<LocalLeader>d',
+    },
+    diff = {
+      accept_suggestion = '<LocalLeader>a',
+      reject_suggestion = '<LocalLeader>r',
+    },
   },
+  data_dir = vim.fn.stdpath('data') .. '/ai',
   context_file = '.ai-context.md',
   chat = {
     -- model = "openai:gpt-4o",

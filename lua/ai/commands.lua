@@ -19,7 +19,8 @@ local prompt_template_file = vim.trim([[
 {{intructions}}
 
 - Respond exclusively with the code replacing the file content in the code block!
-- Do not wrap the response in a code block.
+- Always wrap the response in a code block.
+- Preserve leading whitespace
 ]])
 
 local prompt_template_selection = vim.trim([[
@@ -39,6 +40,7 @@ local prompt_template_selection = vim.trim([[
 {{intructions}}
 
 - Respond exclusively with the code replacing the selection!
+- Always wrap the response in a code block.
 - Preserve leading whitespace
 ]])
 
@@ -115,7 +117,13 @@ local function rewrite_with_instructions(definition, opts, instructions)
   })
 
   -- Clear content to be replaced
-  vim.api.nvim_buf_set_lines(diff_bufnr, start_line - 1, end_line, false, {})
+  vim.api.nvim_buf_set_lines(
+    diff_bufnr,
+    start_line - 1,
+    end_line - 1,
+    false,
+    {}
+  )
 
   local new_end_line = start_line
   job = adapter:chat_stream({
@@ -131,8 +139,10 @@ local function rewrite_with_instructions(definition, opts, instructions)
       if cancelled then
         return
       end
-      local code = require('ai.utils.treesitter').extract_code(update.response)
-        or ''
+      print(update.response)
+      local code = vim.trim(
+        require('ai.utils.treesitter').extract_code(update.response) or ''
+      )
       local code_lines = vim.split(code, '\n')
       vim.api.nvim_buf_set_lines(
         diff_bufnr,

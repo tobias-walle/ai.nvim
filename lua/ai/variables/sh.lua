@@ -1,6 +1,8 @@
 ---@type VariableDefinition
 return {
   name = 'sh',
+  min_params = 1,
+  max_params = 1,
   resolve = function(_ctx, params)
     if not params or #params < 1 then
       error(

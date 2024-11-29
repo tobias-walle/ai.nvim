@@ -1,6 +1,8 @@
 ---@type VariableDefinition
 return {
   name = 'file',
+  min_params = 1,
+  max_params = 1,
   resolve = function(_ctx, params)
     -- Ensure params is provided and has at least one element
     if not params or #params < 1 then

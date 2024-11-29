@@ -15,8 +15,12 @@ function S:complete(request, callback)
 
   -- Add variable completions
   for _, variable in ipairs(require('ai.variables').all) do
+    local label = '#' .. variable.name
+    if variable.min_params and variable.min_params > 0 then
+      label = label .. ':'
+    end
     table.insert(items, {
-      label = '#' .. variable.name,
+      label = label,
       kind = cmp.lsp.CompletionItemKind.Variable,
       documentation = 'Variable: ' .. variable.name,
     })

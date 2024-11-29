@@ -273,6 +273,8 @@ local function send_message(bufnr)
 
             -- Copy the last variable uses into the next message
             local next_message_content_lines = {}
+
+            ---@type ChatMessage | nil
             local last_user_message = vim
               .iter(messages_before_send)
               :filter(function(msg)
@@ -281,6 +283,7 @@ local function send_message(bufnr)
               :last()
 
             local latest_messages = Buffer.parse(bufnr).messages
+            ---@type ChatMessage | nil
             local last_assistant_message = vim
               .iter(latest_messages)
               :filter(function(msg)
@@ -289,19 +292,31 @@ local function send_message(bufnr)
               end)
               :last()
 
-            ---@type ChatMessage | nil
-            if last_user_message and last_user_message.variables then
-              for _, variable in ipairs(last_user_message.variables) do
-                table.insert(next_message_content_lines, variable.raw)
-              end
+            local last_user_message_variable_uses = last_user_message
+                and last_user_message.variables
+              or {}
+            for _, variable in ipairs(last_user_message_variable_uses) do
+              table.insert(next_message_content_lines, variable.raw)
             end
 
             if last_assistant_message and last_assistant_message.variables then
+              local request_assistant_variables =
+                vim.deepcopy(last_assistant_message.variables or {})
+              -- Remove variables already defined by user
+              require('ai.variables').remove_duplicates(
+                request_assistant_variables,
+                last_assistant_message.variables
+              )
+              -- Add a bit of space if there is already something in the message
               if #next_message_content_lines > 0 then
                 table.insert(next_message_content_lines, '')
               end
+              -- Add the variables
               for _, variable in ipairs(last_assistant_message.variables) do
-                table.insert(next_message_content_lines, variable.raw)
+                -- Only add variables with parameters, other variables don't really make sense
+                if variable.params then
+                  table.insert(next_message_content_lines, variable.raw)
+                end
               end
             end
 

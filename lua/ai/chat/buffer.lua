@@ -45,8 +45,10 @@ function M.create()
   local _, cmp = pcall(require, 'cmp')
   if cmp ~= nil then
     cmp.register_source('ai-variables', require('ai.cmp.variables').new())
+    cmp.register_source('ai-tools', require('ai.cmp.tools').new())
     local sources = {
       { name = 'ai-variables' },
+      { name = 'ai-tools' },
     }
 
     for _, variable in ipairs(Variables.all) do

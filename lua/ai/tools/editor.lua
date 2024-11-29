@@ -224,7 +224,7 @@ Post a nice emoji and a short, inspirational quote fitting to the change.
           vim.api.nvim_buf_get_lines(diff_bufnr, 0, -1, false)
         local buffer_text = vim.fn.join(current_lines, '\n')
 
-        local replacements = call.replacements
+        local replacements = call.replacements or {}
 
         local new_buffer_text = buffer_text
         for _, rep in ipairs(replacements) do

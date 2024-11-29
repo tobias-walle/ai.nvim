@@ -287,7 +287,6 @@ local function send_message(bufnr)
             local last_assistant_message = vim
               .iter(latest_messages)
               :filter(function(msg)
-                print(msg)
                 return msg.role == 'assistant'
               end)
               :last()

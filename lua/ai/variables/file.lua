@@ -59,9 +59,11 @@ FILE: %s
         return {}
       end
 
+      -- Add .* between each char of search
+      local pattern = search:gsub('(.)', '%1.*')
       local paths = {}
       local stdout = vim
-        .system({ 'fd', '--type', 'f', '--full-path', search, base_path })
+        .system({ 'fd', '--type', 'f', '--full-path', pattern, base_path })
         :wait().stdout or ''
       for _, line in ipairs(vim.split(stdout, '\n')) do
         table.insert(paths, line:sub(#base_path + 2)) -- make relative

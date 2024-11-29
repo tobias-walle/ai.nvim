@@ -139,7 +139,6 @@ local function rewrite_with_instructions(definition, opts, instructions)
       if cancelled then
         return
       end
-      print(update.response)
       local code = vim.trim(
         require('ai.utils.treesitter').extract_code(update.response) or ''
       )

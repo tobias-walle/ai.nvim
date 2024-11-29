@@ -45,14 +45,8 @@ M.pattern_full = M.pattern_variable_name .. M.pattern_multi_param
 function M.parse_variable_uses(msg)
   -- Define the Vim regex pattern
 
-  -- Compute a unique key for a variable
-  local unique_key = function(name, params)
-    return name .. ':' .. table.concat(params, ',')
-  end
-
   -- Initialize a table to store the matches
   local matches = {}
-  local already_included_keys = {}
 
   -- Split the text into lines (if needed) and iterate over each line
   for _, full_match in ipairs(Regex.find_all_regex_matches(msg, M.pattern_full)) do
@@ -76,15 +70,42 @@ function M.parse_variable_uses(msg)
         name = variable_name,
         params = params,
       }
-      local match_key = unique_key(match.name, match.params)
-      if not already_included_keys[match_key] then
-        already_included_keys[match_key] = true
-        table.insert(matches, match)
-      end
+      table.insert(matches, match)
     end
   end
 
-  return matches
+  return M.remove_duplicates(matches)
+end
+
+--- Compute a unique key for a variable
+---@param name string
+---@param params string[]
+---@return string
+function M.unique_key(name, params)
+  return name .. ':' .. table.concat(params, ',')
+end
+
+---@param variable_uses VariableUse[]
+---@param other_variable_uses? VariableUse[]
+function M.remove_duplicates(variable_uses, other_variable_uses)
+  local unique_keys = {}
+
+  if other_variable_uses then
+    for _, use in ipairs(other_variable_uses) do
+      local key = M.unique_key(use.name, use.params)
+      unique_keys[key] = true
+    end
+  end
+
+  local unique_variable_uses = {}
+  for _, use in ipairs(variable_uses) do
+    local key = M.unique_key(use.name, use.params)
+    if not unique_keys[key] then
+      unique_keys[key] = true
+      table.insert(unique_variable_uses, use)
+    end
+  end
+  return unique_variable_uses
 end
 
 return M

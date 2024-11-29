@@ -35,4 +35,53 @@ FILE: %s
       text
     )
   end,
+  cmp_source = function()
+    local S = {}
+
+    local cmp = require('cmp')
+
+    S.new = function()
+      return setmetatable({}, { __index = S })
+    end
+
+    function S:get_keyword_pattern()
+      return [[#file:\S\+]]
+    end
+
+    function S:complete(request, callback)
+      local items = {}
+      local base_path = vim.fn.getcwd()
+
+      local text = request.context.cursor_line or ''
+      local search = text:gsub('#file:?', '')
+
+      if search == '' then
+        return {}
+      end
+
+      local paths = {}
+      local stdout = vim
+        .system({ 'fd', '--type', 'f', search, base_path })
+        :wait().stdout or ''
+      for _, line in ipairs(vim.split(stdout, '\n')) do
+        table.insert(paths, line:sub(#base_path + 2)) -- make relative
+      end
+
+      for _, relative_path in ipairs(paths) do
+        table.insert(items, {
+          label = '#file:`' .. relative_path .. '`',
+          kind = cmp.lsp.CompletionItemKind.File,
+          documentation = 'File: ' .. relative_path,
+        })
+      end
+
+      callback({ items = items, isIncomplete = true })
+    end
+
+    function S:get_debug_name()
+      return 'ai-variable-file'
+    end
+
+    return S
+  end,
 }

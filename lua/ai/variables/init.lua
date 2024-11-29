@@ -5,6 +5,7 @@ local Regex = require('ai.utils.regex')
 ---@class VariableDefinition
 ---@field name string
 ---@field resolve fun(ctx: ChatContext, params: table): string
+---@field cmp_source? fun(): table An optional cmp_source to provide autocompletion for this variable
 
 ---@type VariableDefinition[]
 M.all = {

@@ -61,7 +61,7 @@ FILE: %s
 
       local paths = {}
       local stdout = vim
-        .system({ 'fd', '--type', 'f', search, base_path })
+        .system({ 'fd', '--type', 'f', '--full-path', search, base_path })
         :wait().stdout or ''
       for _, line in ipairs(vim.split(stdout, '\n')) do
         table.insert(paths, line:sub(#base_path + 2)) -- make relative

@@ -102,7 +102,7 @@ function M.trigger_completion()
   local cursor_line = lines[row]
   local before = cursor_line:sub(1, col)
   local after = cursor_line:sub(col + 1)
-  lines[row] = before .. '<|START|><|END|>' .. after
+  lines[row] = before .. TOKEN_START .. TOKEN_END .. after
 
   table.insert(lines, 1, '```' .. lang)
   table.insert(lines, '```')
@@ -155,6 +155,9 @@ function M.trigger_completion()
       render_ghost_text(suggestion or '...')
     end,
     on_exit = function()
+      if cancelled then
+        return
+      end
       if vim.trim(suggestion) == '' then
         -- Remove code block if present
         local fallback = require('ai.utils.treesitter').extract_code(

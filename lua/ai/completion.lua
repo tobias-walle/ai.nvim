@@ -126,51 +126,68 @@ function M.trigger_completion()
     })
   end
 
-  render_ghost_text('...')
-  local job = adapter:chat_stream({
-    system_prompt = system_prompt,
-    messages = {
-      { role = 'user', content = content },
-    },
-    temperature = 0,
-    max_tokens = 500,
-    on_update = function(update)
-      if cancelled then
-        return
-      end
-      response_content = update.response or ''
-      -- Extract content between tokens
-      suggestion = string.match(
-        response_content,
-        TOKEN_START .. '(.-)' .. TOKEN_END
-      ) or ''
-      -- If <|END|> is not found, extract content to the end of the line
-      if suggestion == '' then
-        suggestion = string.match(response_content, TOKEN_START .. '(.-)\n')
-          or ''
-      end
-      if suggestion == '' then
-        suggestion = string.match(response_content, '(.-)' .. TOKEN_END) or ''
-      end
-      render_ghost_text(suggestion or '...')
-    end,
-    on_exit = function()
-      if cancelled then
-        return
-      end
-      if vim.trim(suggestion) == '' then
-        -- Remove code block if present
-        local fallback = require('ai.utils.treesitter').extract_code(
-          response_content
-        ) or response_content
-        -- Remove tokens if present
-        fallback = fallback:gsub(TOKEN_START, ''):gsub(TOKEN_END, '')
-        render_ghost_text(fallback)
-      else
-        render_ghost_text(suggestion)
-      end
-    end,
-  })
+  local messages = {
+    { role = 'user', content = content },
+  }
+  local job
+  local function send()
+    -- Clear old completion if it existing
+    if job then
+      job:stop()
+    end
+    vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
+    cancelled = false
+    response_content = ''
+    suggestion = ''
+
+    -- Start new
+    render_ghost_text('...')
+    job = adapter:chat_stream({
+      system_prompt = system_prompt,
+      messages = messages,
+      temperature = 0,
+      max_tokens = 500,
+      on_update = function(update)
+        if cancelled then
+          return
+        end
+        response_content = update.response or ''
+        -- Extract content between tokens
+        suggestion = string.match(
+          response_content,
+          TOKEN_START .. '(.-)' .. TOKEN_END
+        ) or ''
+        -- If <|END|> is not found, extract content to the end of the line
+        if suggestion == '' then
+          suggestion = string.match(response_content, TOKEN_START .. '(.-)\n')
+            or ''
+        end
+        if suggestion == '' then
+          suggestion = string.match(response_content, '(.-)' .. TOKEN_END) or ''
+        end
+        render_ghost_text(suggestion or '...')
+      end,
+      on_exit = function()
+        if cancelled then
+          return
+        end
+        if vim.trim(suggestion) == '' then
+          -- Remove code block if present
+          local fallback = require('ai.utils.treesitter').extract_code(
+            response_content
+          ) or response_content
+          -- Remove tokens if present
+          fallback = fallback:gsub(TOKEN_START, ''):gsub(TOKEN_END, '')
+          render_ghost_text(fallback)
+        else
+          render_ghost_text(suggestion)
+        end
+      end,
+    })
+  end
+
+  -- Send it!
+  send()
 
   -- Functions to accept or cancel the suggestion
   local autocmd_id
@@ -179,12 +196,42 @@ function M.trigger_completion()
     cancelled = true
     job:stop()
     vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
+    vim.api.nvim_del_autocmd(autocmd_id)
     vim.keymap.del(
       'i',
       require('ai.config').get().mappings.completion.accept_suggestion,
       { buffer = bufnr }
     )
-    vim.api.nvim_del_autocmd(autocmd_id)
+    vim.keymap.del(
+      'i',
+      require('ai.config').get().mappings.completion.next_suggestion,
+      { buffer = bufnr }
+    )
+    vim.keymap.del(
+      'i',
+      require('ai.config').get().mappings.completion.next_suggestion_with_prompt,
+      { buffer = bufnr }
+    )
+  end
+
+  local function next_suggestion(prompt)
+    if cancelled then
+      return
+    end
+    table.insert(messages, {
+      role = 'assistant',
+      content = response_content,
+    })
+    local msg =
+      'The user rejected your suggestion, create another one that is meaningfully different.'
+    if prompt then
+      msg = msg .. '\n' .. 'Notes from the user: ' .. prompt
+    end
+    table.insert(messages, {
+      role = 'user',
+      content = msg,
+    })
+    send()
   end
 
   local function accept_suggestion()
@@ -205,6 +252,26 @@ function M.trigger_completion()
     'i',
     require('ai.config').get().mappings.completion.accept_suggestion,
     accept_suggestion,
+    { buffer = bufnr, noremap = true }
+  )
+
+  -- Map Tab to generate the next suggestion
+  vim.keymap.set(
+    'i',
+    require('ai.config').get().mappings.completion.next_suggestion,
+    next_suggestion,
+    { buffer = bufnr, noremap = true }
+  )
+
+  -- Map Tab to generate the next suggestion with a prompt
+  vim.keymap.set(
+    'i',
+    require('ai.config').get().mappings.completion.next_suggestion_with_prompt,
+    function()
+      vim.ui.input({ prompt = 'Prompt' }, function(prompt)
+        next_suggestion(prompt)
+      end)
+    end,
     { buffer = bufnr, noremap = true }
   )
 

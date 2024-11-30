@@ -132,6 +132,239 @@ function M.create_system_prompt(parsed)
   return vim.fn.join(system_prompt_parts, '\n\n---\n\n')
 end
 
+---@param data AdapterStreamExitData
+local function notify_about_token_usage(data)
+  local tokens = data.input_tokens + data.output_tokens
+  local cached_msg = ''
+  if data.input_tokens_cached > 0 then
+    cached_msg = ' [Cached: ' .. data.input_tokens_cached .. ']'
+  end
+  vim.notify(
+    tokens
+      .. ' tokens used ('
+      .. data.input_tokens
+      .. cached_msg
+      .. ', '
+      .. data.output_tokens
+      .. ' output)',
+    vim.log.levels.INFO
+  )
+end
+
+---@param bufnr number
+---@param messages_before_send AdapterMessage[]
+---@param data AdapterStreamExitData
+---@return AdapterMessage
+local function render_assistant_message(bufnr, messages_before_send, data)
+  local all_messages = vim.deepcopy(messages_before_send)
+  local assistant_message = {
+    role = 'assistant',
+    content = data.response,
+    tool_calls = data.tool_calls,
+  }
+  table.insert(all_messages, assistant_message)
+  M.update_messages(bufnr, all_messages, true)
+  return assistant_message
+end
+
+--- Execute real tools and update the messages.
+---@param bufnr number The buffer number for the chat.
+---@param ctx ChatContext The chat context.
+---@param assistant_message AdapterMessage The assistant message.
+---@param all_messages AdapterMessage[] All messages including the assistant message.
+---@return boolean Whether the agentic workflow should be triggered.
+local function execute_real_tools(bufnr, ctx, assistant_message, all_messages)
+  local number_of_tool_results = 0
+  local jobs = vim
+    .iter(assistant_message.tool_calls)
+    :filter(function(tool_call)
+      return not tool_call.result
+    end)
+    :map(function(tool_call)
+      return Async.async(function()
+        local tool = Tools.find_real_tool_by_name(tool_call.tool)
+        if not tool then
+          vim.notify('Tool not found: ' .. tool_call.tool, vim.log.levels.ERROR)
+          return nil
+        end
+
+        tool_call.is_loading = true
+
+        local execute = Async.wrap_2(tool.execute)
+        local result = Async.await(execute(ctx, tool_call.params))
+        tool_call.result = result
+        tool_call.is_loading = false
+        number_of_tool_results = number_of_tool_results + 1
+        M.update_messages(bufnr, all_messages, true)
+      end)
+    end)
+    :totable()
+  Async.await_all(jobs)
+
+  return #assistant_message.tool_calls > 0
+    and #assistant_message.tool_calls == number_of_tool_results
+end
+
+--- Execute fake tools in sequence.
+---@param parsed ParsedChatBuffer
+---@param data AdapterStreamExitData
+---@param ctx ChatContext
+---@param cancelled boolean
+local function execute_fake_tools(parsed, data, ctx, cancelled)
+  local fake_tool_uses =
+    Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
+  for _, tool_use in ipairs(fake_tool_uses) do
+    local execute = Async.wrap_2(tool_use.tool.execute)
+    for _, call in ipairs(tool_use.calls) do
+      Async.await(execute(ctx, call))
+      if cancelled then
+        return
+      end
+    end
+  end
+end
+
+--- Prepare the next user message content.
+---@param messages_before_send AdapterMessage[] The messages before sending.
+---@param bufnr number The buffer number for the chat.
+---@return string[] The lines of the next user message content.
+local function prepare_next_user_message_content(messages_before_send, bufnr)
+  local next_message_content_lines = {}
+
+  ---@type ChatMessage | nil
+  local last_user_message = vim
+    .iter(messages_before_send)
+    :filter(function(msg)
+      return msg.role == 'user'
+    end)
+    :last()
+
+  local latest_messages = Buffer.parse(bufnr).messages
+  ---@type ChatMessage | nil
+  local last_assistant_message = vim
+    .iter(latest_messages)
+    :filter(function(msg)
+      return msg.role == 'assistant'
+    end)
+    :last()
+
+  local last_user_message_variable_uses = last_user_message
+      and last_user_message.variables
+    or {}
+  for _, variable in ipairs(last_user_message_variable_uses) do
+    table.insert(next_message_content_lines, variable.raw)
+  end
+
+  if last_assistant_message and last_assistant_message.variables then
+    local request_assistant_variables =
+      vim.deepcopy(last_assistant_message.variables or {})
+    -- Remove variables already defined by user
+    require('ai.variables').remove_duplicates(
+      request_assistant_variables,
+      last_assistant_message.variables
+    )
+    -- Add a bit of space if there is already something in the message
+    if #next_message_content_lines > 0 then
+      table.insert(next_message_content_lines, '')
+    end
+    -- Add the variables
+    for _, variable in ipairs(last_assistant_message.variables) do
+      -- Only add variables with parameters, other variables don't really make sense
+      if variable.params then
+        table.insert(next_message_content_lines, variable.raw)
+      end
+    end
+  end
+
+  return next_message_content_lines
+end
+
+--- Handle the exit of the chat stream.
+---@param data AdapterStreamExitData The data returned from the chat stream.
+---@param bufnr number
+---@param messages_before_send AdapterMessage[]
+---@param parsed ParsedChatBuffer
+---@param ctx ChatContext
+---@param cancelled boolean
+local function handle_exit(
+  data,
+  bufnr,
+  messages_before_send,
+  parsed,
+  ctx,
+  cancelled
+)
+  Async.async(function()
+    vim.b[bufnr].running_job = nil
+    if data.cancelled or cancelled then
+      return
+    elseif data.exit_code == 0 then
+      -- Add message only if the request was a success
+
+      -- Print out the amount of tokens used
+      notify_about_token_usage(data)
+
+      -- Render the final message
+      local assistant_message =
+        render_assistant_message(bufnr, messages_before_send, data)
+
+      -- Execute "real" tools
+      local all_messages = vim.deepcopy(messages_before_send)
+      table.insert(all_messages, assistant_message)
+      local should_trigger_agentic_workflow =
+        execute_real_tools(bufnr, ctx, assistant_message, all_messages)
+
+      if not should_trigger_agentic_workflow then
+        vim.g._ai_is_loading = false
+      end
+
+      -- Execute "fake" tools
+      execute_fake_tools(parsed, data, ctx, cancelled)
+
+      if should_trigger_agentic_workflow then
+        M.update_messages(bufnr, all_messages, true)
+        -- If tools were executed, send the message again to allow agentic workflows
+        M.send_message(bufnr)
+      else
+        -- Otherwise it is the user's turn again
+
+        -- Copy the last variable uses into the next message
+        local next_message_content_lines =
+          prepare_next_user_message_content(messages_before_send, bufnr)
+
+        table.insert(all_messages, {
+          role = 'user',
+          content = vim.fn.join(next_message_content_lines, '\n'),
+        })
+        M.update_messages(bufnr, all_messages, true)
+      end
+    end
+  end)()
+end
+
+--- Handle errors that occur during the chat stream.
+---@param err string
+---@param bufnr number
+---@param messages_before_send AdapterMessage[]
+---@param parsed ParsedChatBuffer
+local function handle_chat_stream_error(
+  err,
+  bufnr,
+  messages_before_send,
+  parsed
+)
+  -- Remove ^M from err
+  err = vim.trim(err:gsub('\r', ''))
+  local err_msg = 'Error'
+  if #err > 0 then
+    err_msg = err_msg .. ':\n' .. err
+  end
+  table.insert(messages_before_send, { role = 'assistant', content = err_msg })
+  vim.b[bufnr].running_job = nil
+  M.update_messages(bufnr, parsed.messages, true)
+end
+
+---@param bufnr integer
 function M.send_message(bufnr)
   local adapter = require('ai.config').get_chat_adapter()
   local parsed = Buffer.parse(bufnr)
@@ -185,171 +418,10 @@ function M.send_message(bufnr)
       M.update_messages(bufnr, all_messages, false)
     end,
     on_exit = function(data)
-      Async.async(function()
-        vim.b[bufnr].running_job = nil
-        if data.cancelled then
-          return
-        elseif data.exit_code == 0 then
-          -- Add message only if the request was an success
-
-          -- Print out the amount of tokens used
-          local tokens = data.input_tokens + data.output_tokens
-          local cached_msg = ''
-          if data.input_tokens_cached > 0 then
-            cached_msg =
-              string.format(' [Cached: %d]', data.input_tokens_cached)
-          end
-          vim.notify(
-            string.format(
-              '%d tokens used (%d input%s, %d output)',
-              tokens,
-              data.input_tokens,
-              cached_msg,
-              data.output_tokens
-            ),
-            vim.log.levels.INFO
-          )
-
-          -- Render the final message
-          local all_messages = vim.deepcopy(messages_before_send)
-          local assistant_message = {
-            role = 'assistant',
-            content = data.response,
-            tool_calls = data.tool_calls,
-          }
-          table.insert(all_messages, assistant_message)
-          M.update_messages(bufnr, all_messages, true)
-
-          -- Execute "real" tools
-          local number_of_tool_results = 0
-          local jobs = vim
-            .iter(assistant_message.tool_calls)
-            :filter(function(tool_call)
-              return not tool_call.result
-            end)
-            :map(function(tool_call)
-              return Async.async(function()
-                local tool = Tools.find_real_tool_by_name(tool_call.tool)
-                if not tool then
-                  vim.notify(
-                    'Tool not found: ' .. tool_call.tool,
-                    vim.log.levels.ERROR
-                  )
-                  return nil
-                end
-
-                tool_call.is_loading = true
-
-                local execute = Async.wrap_2(tool.execute)
-                local result = Async.await(execute(ctx, tool_call.params))
-                tool_call.result = result
-                tool_call.is_loading = false
-                number_of_tool_results = number_of_tool_results + 1
-                M.update_messages(bufnr, all_messages, true)
-              end)
-            end)
-            :totable()
-          Async.await_all(jobs)
-
-          local should_trigger_agentic_workflow = #assistant_message.tool_calls
-              > 0
-            and #assistant_message.tool_calls == number_of_tool_results
-
-          if not should_trigger_agentic_workflow then
-            vim.g._ai_is_loading = false
-          end
-
-          -- Execute "fake" tools in sequence
-          local fake_tool_uses =
-            Tools.find_fake_tool_uses(parsed.fake_tools or {}, data.response)
-          for _, tool_use in ipairs(fake_tool_uses) do
-            local execute = Async.wrap_2(tool_use.tool.execute)
-            for _, call in ipairs(tool_use.calls) do
-              Async.await(execute(ctx, call))
-              if cancelled then
-                goto on_exit_end
-              end
-            end
-          end
-
-          if should_trigger_agentic_workflow then
-            M.update_messages(bufnr, all_messages, true)
-            -- If tools were executed, send the message again to allow agentic workflows
-            M.send_message(bufnr)
-          else
-            -- Otherwise it is the users turn again
-
-            -- Copy the last variable uses into the next message
-            local next_message_content_lines = {}
-
-            ---@type ChatMessage | nil
-            local last_user_message = vim
-              .iter(messages_before_send)
-              :filter(function(msg)
-                return msg.role == 'user'
-              end)
-              :last()
-
-            local latest_messages = Buffer.parse(bufnr).messages
-            ---@type ChatMessage | nil
-            local last_assistant_message = vim
-              .iter(latest_messages)
-              :filter(function(msg)
-                return msg.role == 'assistant'
-              end)
-              :last()
-
-            local last_user_message_variable_uses = last_user_message
-                and last_user_message.variables
-              or {}
-            for _, variable in ipairs(last_user_message_variable_uses) do
-              table.insert(next_message_content_lines, variable.raw)
-            end
-
-            if last_assistant_message and last_assistant_message.variables then
-              local request_assistant_variables =
-                vim.deepcopy(last_assistant_message.variables or {})
-              -- Remove variables already defined by user
-              require('ai.variables').remove_duplicates(
-                request_assistant_variables,
-                last_assistant_message.variables
-              )
-              -- Add a bit of space if there is already something in the message
-              if #next_message_content_lines > 0 then
-                table.insert(next_message_content_lines, '')
-              end
-              -- Add the variables
-              for _, variable in ipairs(last_assistant_message.variables) do
-                -- Only add variables with parameters, other variables don't really make sense
-                if variable.params then
-                  table.insert(next_message_content_lines, variable.raw)
-                end
-              end
-            end
-
-            table.insert(all_messages, {
-              role = 'user',
-              content = vim.fn.join(next_message_content_lines, '\n'),
-            })
-            M.update_messages(bufnr, all_messages, true)
-          end
-        end
-        ::on_exit_end::
-      end)()
+      handle_exit(data, bufnr, messages_before_send, parsed, ctx, cancelled)
     end,
     on_error = function(err)
-      -- Remove ^M from err
-      err = vim.trim(err:gsub('\r', ''))
-      local err_msg = 'Error'
-      if #err > 0 then
-        err_msg = err_msg .. ':\n' .. err
-      end
-      table.insert(
-        messages_before_send,
-        { role = 'assistant', content = err_msg }
-      )
-      vim.b[bufnr].running_job = nil
-      M.update_messages(bufnr, parsed.messages, true)
+      handle_chat_stream_error(err, bufnr, messages_before_send, parsed)
     end,
   })
 

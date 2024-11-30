@@ -16,9 +16,9 @@ function M.create()
   vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
   vim.api.nvim_buf_set_option(bufnr, 'modifiable', true)
 
-  -- Open buffer in a vertical split with 40% of the available width
+  -- Open buffer in a vertical split
   vim.cmd(
-    'rightbelow vsplit | vertical resize ' .. math.floor(vim.o.columns * 0.45)
+    'rightbelow vsplit | vertical resize ' .. math.floor(vim.o.columns * 0.55)
   )
   -- Set wrap
   vim.api.nvim_win_set_option(0, 'wrap', true)

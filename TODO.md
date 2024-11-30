@@ -1,4 +1,3 @@
-- Add keymap to copy last code block
 - Add keymap to rexecute fake tools calls in a chat message
 - Add variable support to AiRewrite
 - Add selection support to chat

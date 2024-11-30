@@ -12,6 +12,7 @@ local Config = {}
 ---@field goto_next_chat? string
 ---@field goto_chat_with_tressitter? string
 ---@field delete_previous_msg? string
+---@field copy_last_code_block? string
 
 ---@class AiKeyMapDiff
 ---@field accept_suggestion? string
@@ -64,6 +65,7 @@ Config.default_config = {
       goto_next_chat = '<LocalLeader>n',
       goto_chat_with_tressitter = '<LocalLeader>s',
       delete_previous_msg = '<LocalLeader>d',
+      copy_last_code_block = '<LocalLeader>y',
     },
     diff = {
       accept_suggestion = '<LocalLeader>a',

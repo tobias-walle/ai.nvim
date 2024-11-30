@@ -434,6 +434,16 @@ function M.toggle_chat()
       end
     end, { buffer = bufnr, noremap = true })
 
+    vim.keymap.set('n', config.mappings.chat.copy_last_code_block, function()
+      local last_code_block = Buffer.parse_last_code_block(bufnr)
+      if last_code_block then
+        vim.fn.setreg('+', last_code_block)
+        vim.notify('Last code block copied to clipboard', vim.log.levels.INFO)
+      else
+        vim.notify('No code block found', vim.log.levels.WARN)
+      end
+    end, { buffer = bufnr, noremap = true })
+
     local existing_chat = Cache.load_chat()
     if existing_chat then
       set_chat_text(bufnr, existing_chat)

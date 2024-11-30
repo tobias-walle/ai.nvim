@@ -5,11 +5,15 @@ _default:
 prepare:
   #!/usr/bin/env sh
   if [ ! -d "deps/mini.nvim" ]; then
-    git clone --filter=blob:none https://github.com/echasnovski/mini.nvim deps/mini.nvim
+    git clone --filter=blob:none git@github.com:echasnovski/mini.nvim.git deps/mini.nvim
   fi
   if [ ! -d "deps/dressing.nvim" ]; then
-    git clone --filter=blob:none https://github.com/stevearc/dressing.nvim -b v3.1.0 deps/dressing.nvim
+    git clone --filter=blob:none git@github.com:stevearc/dressing.nvim.git -b v3.1.0 deps/dressing.nvim
   fi
+  if [ ! -d "deps/cmp.nvim" ]; then
+    git clone --filter=blob:none git@github.com:hrsh7th/nvim-cmp.git deps/cmp.nvim
+  fi
+
 
 # Run all test files
 test:

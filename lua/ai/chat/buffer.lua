@@ -42,8 +42,8 @@ function M.create()
   end
 
   -- Load cmp source if cmp is installed
-  local _, cmp = pcall(require, 'cmp')
-  if cmp ~= nil then
+  local cmp_exists, cmp = pcall(require, 'cmp')
+  if cmp_exists then
     cmp.register_source('ai-variables', require('ai.cmp.variables').new())
     cmp.register_source('ai-tools', require('ai.cmp.tools').new())
     local sources = {

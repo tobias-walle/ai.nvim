@@ -1,5 +1,3 @@
-local cmp = require('cmp')
-
 local S = {}
 
 S.new = function()
@@ -11,6 +9,7 @@ function S:get_keyword_pattern()
 end
 
 function S:complete(request, callback)
+  local cmp = require('cmp')
   local items = {}
 
   -- Add variable completions

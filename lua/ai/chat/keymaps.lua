@@ -69,6 +69,9 @@ function M.setup_chat_keymaps(bufnr)
   vim.keymap.set('n', config.mappings.chat.copy_last_code_block, function()
     local last_code_block = Buffer.parse_last_code_block(bufnr)
     if last_code_block then
+      -- Default register
+      vim.fn.setreg('"', last_code_block)
+      -- System register
       vim.fn.setreg('+', last_code_block)
       vim.notify('Last code block copied to clipboard', vim.log.levels.INFO)
     else

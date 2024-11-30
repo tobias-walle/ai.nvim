@@ -121,7 +121,6 @@ end
 
 local function create_system_prompt(parsed)
   local system_prompt_parts = {
-    'Current time: ' .. os.date('%Y-%m-%d %H:%M:%S'),
     require('ai.prompts').system_prompt_chat,
   }
   for _, fake_tool in ipairs(parsed.fake_tools or {}) do
@@ -192,11 +191,17 @@ local function send_message(bufnr)
 
           -- Print out the amount of tokens used
           local tokens = data.input_tokens + data.output_tokens
+          local cached_msg = ''
+          if data.input_tokens_cached > 0 then
+            cached_msg =
+              string.format(' [Cached: %d]', data.input_tokens_cached)
+          end
           vim.notify(
             string.format(
-              '%d tokens used (%d input, %d output)',
+              '%d tokens used (%d input%s, %d output)',
               tokens,
               data.input_tokens,
+              cached_msg,
               data.output_tokens
             ),
             vim.log.levels.INFO

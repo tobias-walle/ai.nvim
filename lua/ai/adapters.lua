@@ -57,7 +57,7 @@ local requests = require('ai.utils.requests')
 ---@field create_request_body fun(request: AdapterRequestOptions): table -- Create the request body for the API
 ---@field parse_response fun(raw_response: string): any -- Parse the response so they can be used by the following function
 ---@field is_done fun(response: any): boolean -- Return true if the response is completed
----@field get_tokens fun(response: any): { input: integer | nil, output: integer | nil } | nil
+---@field get_tokens fun(response: any): { input: integer | nil, input_cached: integer | nil, output: integer | nil } | nil
 ---@field get_delta fun(response: any): AdapterDelta | nil -- Get the text from the response
 
 ---@class AdapterOptions
@@ -99,6 +99,7 @@ end
 ---@field response string
 ---@field tool_calls AdapterToolCall[]
 ---@field input_tokens integer
+---@field input_tokens_cached integer
 ---@field output_tokens integer
 ---@field exit_code integer
 ---@field cancelled boolean
@@ -146,6 +147,7 @@ function Adapter:chat_stream(options)
   end
 
   local input_tokens = 0
+  local input_tokens_cached = 0
   local output_tokens = 0
   local request_body = self.handlers.create_request_body({
     model = self.model,
@@ -177,6 +179,7 @@ function Adapter:chat_stream(options)
       local tokens = self.handlers.get_tokens(data)
       if tokens then
         input_tokens = input_tokens + (tokens.input or 0)
+        input_tokens_cached = input_tokens_cached + (tokens.input_cached or 0)
         output_tokens = output_tokens + (tokens.output or 0)
       end
 
@@ -223,6 +226,7 @@ function Adapter:chat_stream(options)
         response = response,
         delta = delta_content,
         input_tokens = input_tokens,
+        input_tokens_cached = input_tokens_cached,
         output_tokens = output_tokens,
         tool_calls = tool_calls,
       })
@@ -234,6 +238,7 @@ function Adapter:chat_stream(options)
           response = response,
           tool_calls = tool_calls,
           input_tokens = input_tokens,
+          input_tokens_cached = input_tokens_cached,
           output_tokens = output_tokens,
           exit_code = exit_code,
           cancelled = cancelled,

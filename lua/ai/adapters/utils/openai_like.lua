@@ -110,6 +110,9 @@ function M.create_adapter_options(options)
         if response.usage then
           return {
             input = response.usage.prompt_tokens or 0,
+            input_cached = response.usage.prompt_tokens_details
+                and response.usage.prompt_tokens_details.cached_tokens
+              or 0,
             output = response.usage.completion_tokens or 0,
           }
         end

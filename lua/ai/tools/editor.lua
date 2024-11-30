@@ -9,26 +9,27 @@ You can use this syntax to apply changes directly in the code base.
 - You can use this syntax to replace sections in project files.
 - Make sure the original content is unique in the file to prevent unintended replacements.
 - Combine multiple replacements for more complex changes.
+- MAKE SURE TO ALWAYS USE REPLACEMENTS FOR EDITS. AVOID REPEATING THE WHOLE FILE CONTENT.
 
 Follow the syntax VERY CLOSELY:
 
 FILE: <path-relative-to-project-root>
-```<language>
+`````<language>
 <<<<<<< ORIGINAL
 <original-code>
 =======:
 <updated-code>
 >>>>>>> UPDATED
-```
+`````
 
-- FILE: <path> - Specifies the file. Required for the detection of the syntax. NEVER LEAVE IT OUT.
-- ```<language> - Start of the code block. Use more than three ticks if three ticks are used within the changes.
+- FILE: <path> - Specifies the file. Required for the detection of the syntax. NEVER LEAVE IT OUT. NEVER ADD CODE BLOCK MARKERS ABOVE IT.
+- `````<language> - Start of the code block. Use five instead of three ticks to avoid conflicts with triple ticks inside the block.
 - <<<<<<< ORIGINAL - Marks the start of the original content block.
 - <original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE!
 - ======= - Marks the separator between old and new content.
 - <original-code> - The updated code. NEVER USE PLACEHOLDERS LIKE "...", "// Other Methods", etc. IN THE CODE, INSTEAD PROVIDE THE FULL UPDATED CODE.
 - >>>>>>> UPDATED - Marks the end the new content declaration.
-- ``` - End of the code block
+- ````` - End of the code block
 
 - The markers HAVE TO BE USED IN THE EXACT ORDER
 - You can use multiple markers in the same code block IF the order is honored.
@@ -39,7 +40,7 @@ NEVER USE THESE SEPERATORS IN YOUR OUTPUT.
 
 --- EXAMPLE START
 FILE: src/hello.ts
-```typescript
+`````typescript
 <<<<<<< ORIGINAL
 function sayHello(): void {
   console.log('Hello World')
@@ -50,12 +51,12 @@ function sayHello(firstName: string, lastName: string): void {
   console.log(`Hello ${fullName}`);
 }
 >>>>>>> UPDATED
-```
+`````
 --- EXAMPLE END
 
 --- EXAMPLE START
 FILE: backend/logging.py
-```python
+`````python
 <<<<<<< ORIGINAL
 import logging
 =======
@@ -71,7 +72,7 @@ logger = logging.getLogger("backend")
 logger.remove()
 logger.add(lambda msg: print(f"{grey}{msg}{reset}"), level="INFO", format="{level}({name}): {message}", colorize=False)
 >>>>>>> UPDATED
-```
+`````
 --- EXAMPLE END
 
 
@@ -88,7 +89,7 @@ Before each strategy use:
 Summarize in one short sentence what you want to do and which strategy you want to use. Keep it short.
 
 After you have done the changes:
-Post a nice emoji and a short, inspirational quote fitting to the change.
+Post a emoji fitting the theme of the changes
 ]]),
 
   ---Parse editor tool calls from message content

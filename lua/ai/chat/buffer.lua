@@ -42,26 +42,7 @@ function M.create()
   end
 
   -- Load cmp source if cmp is installed
-  local cmp_exists, cmp = pcall(require, 'cmp')
-  if cmp_exists then
-    cmp.register_source('ai-variables', require('ai.cmp.variables').new())
-    cmp.register_source('ai-tools', require('ai.cmp.tools').new())
-    local sources = {
-      { name = 'ai-variables' },
-      { name = 'ai-tools' },
-    }
-
-    for _, variable in ipairs(Variables.all) do
-      if variable.cmp_source then
-        local name = 'ai-variable-' .. variable.name
-        local source = variable.cmp_source().new()
-        cmp.register_source(name, source)
-        table.insert(sources, { name = name })
-      end
-    end
-
-    cmp.setup.buffer({ sources = sources })
-  end
+  require('ai.cmp').setup_buffer()
 
   return bufnr
 end

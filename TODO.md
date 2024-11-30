@@ -1,3 +1,4 @@
 - Add keymap to rexecute fake tools calls in a chat message
 - Add variable support to AiRewrite
 - Add selection support to chat
+- Record & repeat function

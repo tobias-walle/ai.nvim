@@ -22,16 +22,26 @@ local options = {
   headers = {
     ['x-api-key'] = os.getenv('ANTHROPIC_API_KEY'),
     ['anthropic-version'] = '2023-06-01',
+    ['anthropic-beta'] = 'prompt-caching-2024-07-31',
   },
   default_model = 'claude-3-5-sonnet-20241022',
   -- default_model = 'claude-3-5-haiku-20241022',
   handlers = {
     create_request_body = function(request)
       local messages = {}
+
+      local get_cache_control_for_big_text = function(content)
+        return #content > 5000 and { type = 'ephemeral' } or nil
+      end
+
       for _, msg in ipairs(request.messages) do
         local content = {}
         if msg.content and #msg.content > 0 then
-          table.insert(content, { type = 'text', text = msg.content })
+          table.insert(content, {
+            type = 'text',
+            text = msg.content,
+            cache_control = get_cache_control_for_big_text(msg.content),
+          })
         end
         if msg.tool_calls then
           for _, tool_call in ipairs(msg.tool_calls) do
@@ -55,6 +65,7 @@ local options = {
               type = 'tool_result',
               tool_use_id = tool_call_result.id,
               content = vim.json.encode(tool_call_result.result),
+              cache_control = get_cache_control_for_big_text(content),
             })
           end
           table.insert(messages, {
@@ -67,7 +78,15 @@ local options = {
       return {
         stream = true,
         model = request.model,
-        system = request.system_prompt,
+        system = request.system_prompt and {
+          {
+            type = 'text',
+            text = request.system_prompt,
+            cache_control = get_cache_control_for_big_text(
+              request.system_prompt
+            ),
+          },
+        } or nil,
         max_tokens = request.max_tokens or 4000,
         temperature = request.temperature,
         tools = map_tools(request.tools),
@@ -98,6 +117,7 @@ local options = {
         local usage = response.message.usage
         return {
           input = usage.input_tokens or 0,
+          input_cached = usage.cache_read_input_tokens or 0,
           output = usage.output_tokens or 0,
         }
       end

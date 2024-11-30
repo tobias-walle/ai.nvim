@@ -2,6 +2,8 @@ local Config = {}
 
 ---@class AiKeyMapCompletion
 ---@field accept_suggestion? string
+---@field next_suggestion? string
+---@field next_suggestion_with_prompt? string
 
 ---@class AiKeyMapChat
 ---@field submit? string
@@ -52,6 +54,8 @@ Config.default_config = {
   mappings = {
     completion = {
       accept_suggestion = '<Tab>',
+      next_suggestion = '<C-n>',
+      next_suggestion_with_prompt = '<S-C-n>',
     },
     chat = {
       submit = '<CR>',

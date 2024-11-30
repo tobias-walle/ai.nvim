@@ -1,3 +1,8 @@
+---@class CachedWebUrl
+---@field url string
+---@field lastUsed string
+
+---@param url string
 local function update_web_urls_cache(url)
   local config = require('ai.config').get()
   local web_urls_path = config.data_dir .. '/web-urls.json'
@@ -35,10 +40,10 @@ local function update_web_urls_cache(url)
   -- Save the updated URLs back to the file
   web_urls = unique_web_urls
   local ok, err = pcall(function()
-    local file = io.open(web_urls_path, 'w')
-    if file ~= nil then
-      file:write(vim.fn.json_encode(web_urls))
-      file:close()
+    local file_handle = io.open(web_urls_path, 'w')
+    if file_handle ~= nil then
+      file_handle:write(vim.fn.json_encode(web_urls))
+      file_handle:close()
     end
   end)
 
@@ -47,6 +52,7 @@ local function update_web_urls_cache(url)
   end
 end
 
+---@return CachedWebUrl[]
 local function load_web_urls_from_cache()
   local config = require('ai.config').get()
   local web_urls_path = config.data_dir .. '/web-urls.json'
@@ -129,12 +135,25 @@ URL: %s
     end
 
     function S:get_keyword_pattern()
-      return [[#web:\S*]]
+      return [[#web:\(\S*\)]]
     end
 
     function S:complete(request, callback)
       local items = {}
+
       local web_urls = load_web_urls_from_cache()
+
+      local keyword_pattern = self:get_keyword_pattern()
+      local line = request.context.cursor_line or ''
+      local search = vim.fn.matchlist(line, keyword_pattern)[2] or ''
+      local pattern = search:gsub('(.)', '%1.*')
+
+      web_urls = vim
+        .iter(web_urls)
+        :filter(function(entry)
+          return entry.url:match(pattern)
+        end)
+        :totable()
 
       -- Sort URLs by recency
       table.sort(web_urls, function(a, b)

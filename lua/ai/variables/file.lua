@@ -47,15 +47,16 @@ FILE: %s
     end
 
     function S:get_keyword_pattern()
-      return [[#file:\S\+]]
+      return [[#file:\(\S\+\)]]
     end
 
     function S:complete(request, callback)
+      local keyword_pattern = self:get_keyword_pattern()
       local items = {}
       local base_path = vim.fn.getcwd()
 
-      local text = request.context.cursor_line or ''
-      local search = text:gsub('#file:?', '')
+      local line = request.context.cursor_line or ''
+      local search = vim.fn.matchlist(line, keyword_pattern)[2] or ''
 
       if search == '' then
         return {}

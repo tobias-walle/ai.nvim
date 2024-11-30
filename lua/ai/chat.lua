@@ -256,19 +256,18 @@ local function prepare_next_user_message_content(messages_before_send, bufnr)
   end
 
   if last_assistant_message and last_assistant_message.variables then
-    local request_assistant_variables =
-      vim.deepcopy(last_assistant_message.variables or {})
     -- Remove variables already defined by user
-    require('ai.variables').remove_duplicates(
-      request_assistant_variables,
-      last_assistant_message.variables
-    )
+    local request_assistant_variables =
+      require('ai.variables').remove_duplicates(
+        last_assistant_message.variables,
+        last_user_message_variable_uses
+      )
     -- Add a bit of space if there is already something in the message
     if #next_message_content_lines > 0 then
       table.insert(next_message_content_lines, '')
     end
     -- Add the variables
-    for _, variable in ipairs(last_assistant_message.variables) do
+    for _, variable in ipairs(request_assistant_variables) do
       -- Only add variables with parameters, other variables don't really make sense
       if variable.params then
         table.insert(next_message_content_lines, variable.raw)

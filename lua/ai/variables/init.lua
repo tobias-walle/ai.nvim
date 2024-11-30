@@ -90,6 +90,7 @@ end
 
 ---@param variable_uses VariableUse[]
 ---@param other_variable_uses? VariableUse[]
+---@return VariableUse[]
 function M.remove_duplicates(variable_uses, other_variable_uses)
   local unique_keys = {}
 

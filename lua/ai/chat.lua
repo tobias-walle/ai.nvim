@@ -17,7 +17,7 @@ local function move_cursor_to_end(bufnr)
   pcall(vim.api.nvim_win_set_cursor, 0, { line_count, 0 })
 end
 
-local function save_current_chat(bufnr)
+function M.save_current_chat(bufnr)
   local chat = get_chat_text(bufnr)
   Cache.save_chat(chat)
 end
@@ -25,17 +25,17 @@ end
 ---@param bufnr number
 ---@param messages AdapterMessage[]
 ---@param save? boolean
-local function update_messages(bufnr, messages, save)
+function M.update_messages(bufnr, messages, save)
   Buffer.render(bufnr, messages)
   if save then
-    save_current_chat(bufnr)
+    M.save_current_chat(bufnr)
   end
   move_cursor_to_end(bufnr)
 end
 
 ---@param bufnr number
 ---@param chat string
-local function set_chat_text(bufnr, chat)
+function M.set_chat_text(bufnr, chat)
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(chat, '\n'))
   move_cursor_to_end(bufnr)
 end
@@ -43,7 +43,7 @@ end
 ---@param ctx ChatContext
 ---@param buffer ParsedChatBuffer
 ---@return AdapterMessage[]
-local function create_messages(ctx, buffer)
+function M.create_messages(ctx, buffer)
   local config = require('ai.config').get()
 
   ---@type AdapterMessage[]
@@ -119,7 +119,10 @@ local function create_messages(ctx, buffer)
   return result
 end
 
-local function create_system_prompt(parsed)
+--- Create a system prompt for the chat based on parsed data.
+---@param parsed ParsedChatBuffer
+---@return string
+function M.create_system_prompt(parsed)
   local system_prompt_parts = {
     require('ai.prompts').system_prompt_chat,
   }
@@ -129,7 +132,7 @@ local function create_system_prompt(parsed)
   return vim.fn.join(system_prompt_parts, '\n\n---\n\n')
 end
 
-local function send_message(bufnr)
+function M.send_message(bufnr)
   local adapter = require('ai.config').get_chat_adapter()
   local parsed = Buffer.parse(bufnr)
   local messages_before_send = parsed.messages
@@ -163,14 +166,14 @@ local function send_message(bufnr)
       job:stop()
       vim.b[bufnr].running_job = nil
     end
-    update_messages(bufnr, messages_before_send, true)
+    M.update_messages(bufnr, messages_before_send, true)
   end, { buffer = bufnr, noremap = true })
 
   vim.g._ai_is_loading = true
   vim.b[bufnr].running_job = adapter:chat_stream({
     temperature = 0,
-    system_prompt = create_system_prompt(parsed),
-    messages = create_messages(ctx, parsed),
+    system_prompt = M.create_system_prompt(parsed),
+    messages = M.create_messages(ctx, parsed),
     tools = tool_definitions,
     on_update = function(update)
       local all_messages = vim.deepcopy(messages_before_send)
@@ -179,7 +182,7 @@ local function send_message(bufnr)
         content = update.response,
         tool_calls = update.tool_calls,
       })
-      update_messages(bufnr, all_messages, false)
+      M.update_messages(bufnr, all_messages, false)
     end,
     on_exit = function(data)
       Async.async(function()
@@ -215,7 +218,7 @@ local function send_message(bufnr)
             tool_calls = data.tool_calls,
           }
           table.insert(all_messages, assistant_message)
-          update_messages(bufnr, all_messages, true)
+          M.update_messages(bufnr, all_messages, true)
 
           -- Execute "real" tools
           local number_of_tool_results = 0
@@ -242,7 +245,7 @@ local function send_message(bufnr)
                 tool_call.result = result
                 tool_call.is_loading = false
                 number_of_tool_results = number_of_tool_results + 1
-                update_messages(bufnr, all_messages, true)
+                M.update_messages(bufnr, all_messages, true)
               end)
             end)
             :totable()
@@ -270,9 +273,9 @@ local function send_message(bufnr)
           end
 
           if should_trigger_agentic_workflow then
-            update_messages(bufnr, all_messages, true)
+            M.update_messages(bufnr, all_messages, true)
             -- If tools were executed, send the message again to allow agentic workflows
-            send_message(bufnr)
+            M.send_message(bufnr)
           else
             -- Otherwise it is the users turn again
 
@@ -328,7 +331,7 @@ local function send_message(bufnr)
               role = 'user',
               content = vim.fn.join(next_message_content_lines, '\n'),
             })
-            update_messages(bufnr, all_messages, true)
+            M.update_messages(bufnr, all_messages, true)
           end
         end
         ::on_exit_end::
@@ -346,14 +349,14 @@ local function send_message(bufnr)
         { role = 'assistant', content = err_msg }
       )
       vim.b[bufnr].running_job = nil
-      update_messages(bufnr, parsed.messages, true)
+      M.update_messages(bufnr, parsed.messages, true)
     end,
   })
 
-  update_messages(bufnr, parsed.messages, true)
+  M.update_messages(bufnr, parsed.messages, true)
 end
 
-local initial_msg = function()
+function M.get_initial_msg()
   return {
     role = 'user',
     content = vim.fn.join({
@@ -364,93 +367,25 @@ local initial_msg = function()
 end
 
 function M.toggle_chat()
-  local config = require('ai.config').get()
   local bufnr = Buffer.toggle()
 
   if bufnr ~= nil then
     vim.api.nvim_create_autocmd('BufLeave', {
       buffer = bufnr,
       callback = function()
-        save_current_chat(bufnr)
+        M.save_current_chat(bufnr)
       end,
     })
 
-    -- Set up keymaps
-    vim.keymap.set('n', config.mappings.chat.submit, function()
-      if not vim.b[bufnr].running_job then
-        send_message(bufnr)
-      end
-    end, { buffer = bufnr, noremap = true })
-
-    vim.keymap.set('n', config.mappings.chat.new_chat, function()
-      save_current_chat(bufnr)
-      Cache.new_chat()
-      update_messages(bufnr, {
-        initial_msg(),
-      })
-    end, { buffer = bufnr, noremap = true })
-
-    vim.keymap.set('n', config.mappings.chat.goto_next_chat, function()
-      save_current_chat(bufnr)
-      local chat = Cache.next_chat()
-      if chat then
-        set_chat_text(bufnr, chat)
-      end
-    end, { buffer = bufnr, noremap = true })
-
-    vim.keymap.set('n', config.mappings.chat.goto_prev_chat, function()
-      save_current_chat(bufnr)
-      local chat = Cache.previous_chat()
-      if chat then
-        set_chat_text(bufnr, chat)
-      end
-    end, { buffer = bufnr, noremap = true })
-
-    vim.keymap.set(
-      'n',
-      config.mappings.chat.goto_chat_with_tressitter,
-      function()
-        save_current_chat(bufnr)
-        Cache.search_chats({}, function()
-          local chat = Cache.load_chat()
-          if chat then
-            set_chat_text(bufnr, chat)
-          end
-        end)
-      end,
-      { buffer = bufnr, noremap = true }
-    )
-
-    vim.keymap.set('n', config.mappings.chat.delete_previous_msg, function()
-      save_current_chat(bufnr)
-      local messages = Buffer.parse(bufnr).messages
-      Cache.new_chat()
-      if #messages > 0 then
-        table.remove(messages, #messages) -- Remove the last message
-        while #messages > 0 and messages[#messages].role ~= 'user' do
-          table.remove(messages, #messages) -- Every message until the next user message
-        end
-        update_messages(bufnr, messages, true)
-      end
-    end, { buffer = bufnr, noremap = true })
-
-    vim.keymap.set('n', config.mappings.chat.copy_last_code_block, function()
-      local last_code_block = Buffer.parse_last_code_block(bufnr)
-      if last_code_block then
-        vim.fn.setreg('+', last_code_block)
-        vim.notify('Last code block copied to clipboard', vim.log.levels.INFO)
-      else
-        vim.notify('No code block found', vim.log.levels.WARN)
-      end
-    end, { buffer = bufnr, noremap = true })
+    require('ai.chat.keymaps').setup_chat_keymaps(bufnr)
 
     local existing_chat = Cache.load_chat()
     if existing_chat then
-      set_chat_text(bufnr, existing_chat)
+      M.set_chat_text(bufnr, existing_chat)
       move_cursor_to_end(bufnr)
     else
       -- Add initial message
-      update_messages(bufnr, { initial_msg() })
+      M.update_messages(bufnr, { M.get_initial_msg() })
     end
   end
 end
@@ -466,7 +401,7 @@ function M.debug_parsing()
   vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
   vim.cmd('vsplit')
   vim.api.nvim_win_set_buf(0, bufnr)
-  update_messages(bufnr, parsed.messages)
+  M.update_messages(bufnr, parsed.messages)
 end
 
 return M

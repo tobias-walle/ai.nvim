@@ -7,6 +7,7 @@ if #vim.api.nvim_list_uis() == 0 then
   -- Assumed that 'mini.nvim' is stored in 'deps/mini.nvim'
   vim.cmd('set rtp+=deps/mini.nvim')
   vim.cmd('set rtp+=deps/dressing.nvim')
+  vim.cmd('set rtp+=deps/cmp.nvim')
 
   -- Set up 'mini.test'
   require('mini.test').setup()

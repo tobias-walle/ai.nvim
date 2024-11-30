@@ -269,4 +269,42 @@ function M.rerender(bufnr)
   M.render(bufnr, M.parse(bufnr))
 end
 
+---Parse the last code block from the last assistant message
+---@param bufnr integer
+---@return string|nil code
+function M.parse_last_code_block(bufnr)
+  local parsed = M.parse(bufnr)
+
+  local last_assistant_message = vim
+    .iter(parsed.messages)
+    :filter(function(msg)
+      return msg.role == 'assistant'
+    end)
+    :last()
+
+  if not last_assistant_message then
+    return nil
+  end
+
+  local parser = vim.treesitter.get_parser(bufnr, 'markdown')
+  local tree = parser:parse()[1]
+  local root = tree:root()
+
+  local code_block_query = vim.treesitter.query.parse(
+    'markdown',
+    [[
+    (fenced_code_block
+      (info_string)
+      (code_fence_content) @code)
+    ]]
+  )
+
+  local last_code_block = nil
+  for _, captures, _ in code_block_query:iter_matches(root, bufnr, 0, -1) do
+    last_code_block = vim.treesitter.get_node_text(captures[1], bufnr)
+  end
+
+  return last_code_block
+end
+
 return M

@@ -10,7 +10,7 @@ local Config = {}
 ---@field new_chat? string
 ---@field goto_prev_chat? string
 ---@field goto_next_chat? string
----@field goto_chat_with_tressitter? string
+---@field goto_chat_with_telescope? string
 ---@field delete_previous_msg? string
 ---@field copy_last_code_block? string
 
@@ -63,7 +63,7 @@ Config.default_config = {
       new_chat = '<LocalLeader>x',
       goto_prev_chat = '<LocalLeader>p',
       goto_next_chat = '<LocalLeader>n',
-      goto_chat_with_tressitter = '<LocalLeader>s',
+      goto_chat_with_telescope = '<LocalLeader>s',
       delete_previous_msg = '<LocalLeader>d',
       copy_last_code_block = '<LocalLeader>y',
     },

@@ -474,13 +474,12 @@ function M.send_message(bufnr)
   M.update_messages(bufnr, parsed.messages, true)
 end
 
-function M.get_initial_msg()
+---@param content? string
+---@return {role: string, content: string}
+function M.get_initial_msg(content)
   return {
     role = 'user',
-    content = vim.fn.join({
-      '#buffer',
-      '@editor',
-    }, '\n'),
+    content = content or '',
   }
 end
 
@@ -535,8 +534,11 @@ function M.clear_highlight_selection(bufnr)
   )
 end
 
-function M.toggle_chat()
+function M.toggle_chat(cmd_opts)
   local bufnr = Buffer.toggle()
+  -- For simplicity sake we just expect something to be selected if there is any range
+  -- TODO: Use the correct range supplied by the user and add it to the ctx
+  local is_something_selected = cmd_opts.range == 2
 
   if bufnr ~= nil then
     vim.api.nvim_create_autocmd('BufLeave', {
@@ -554,13 +556,17 @@ function M.toggle_chat()
 
     require('ai.chat.keymaps').setup_chat_keymaps(bufnr)
 
-    local existing_chat = Cache.load_chat()
-    if existing_chat then
-      M.set_chat_text(bufnr, existing_chat)
-      move_cursor_to_end(bufnr)
+    if is_something_selected then
+      M.update_messages(bufnr, { M.get_initial_msg('#selection') })
     else
-      -- Add initial message
-      M.update_messages(bufnr, { M.get_initial_msg() })
+      local existing_chat = Cache.load_chat()
+      if existing_chat then
+        M.set_chat_text(bufnr, existing_chat)
+        move_cursor_to_end(bufnr)
+      else
+        -- Add initial message
+        M.update_messages(bufnr, { M.get_initial_msg() })
+      end
     end
 
     M.highlight_selection(bufnr)
@@ -568,7 +574,7 @@ function M.toggle_chat()
 end
 
 function M.setup()
-  vim.api.nvim_create_user_command('AiChat', M.toggle_chat, {})
+  vim.api.nvim_create_user_command('AiChat', M.toggle_chat, { range = true })
 end
 
 --- Parse the messages of the current buffer (0) and render them again in a split

@@ -36,7 +36,6 @@ FILE: %s
       ft,
       table.concat(lines, '\n')
     )
-    vim.print(result)
     return result
   end,
 }

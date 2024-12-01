@@ -17,7 +17,7 @@ function M.setup_chat_keymaps(bufnr)
     if not vim.b[bufnr].running_job then
       send_message(bufnr)
     end
-  end, { buffer = bufnr, noremap = true })
+  end, { desc = 'Submit the current chat', buffer = bufnr, noremap = true })
 
   vim.keymap.set('n', config.mappings.chat.new_chat, function()
     save_current_chat(bufnr)
@@ -25,7 +25,7 @@ function M.setup_chat_keymaps(bufnr)
     update_messages(bufnr, {
       get_initial_msg(),
     })
-  end, { buffer = bufnr, noremap = true })
+  end, { desc = 'Start a new chat session', buffer = bufnr, noremap = true })
 
   vim.keymap.set('n', config.mappings.chat.goto_next_chat, function()
     save_current_chat(bufnr)
@@ -33,17 +33,22 @@ function M.setup_chat_keymaps(bufnr)
     if chat then
       set_chat_text(bufnr, chat)
     end
-  end, { buffer = bufnr, noremap = true })
+  end, { desc = 'Go to the next chat session', buffer = bufnr, noremap = true })
 
-  vim.keymap.set('n', config.mappings.chat.goto_prev_chat, function()
-    save_current_chat(bufnr)
-    local chat = Cache.previous_chat()
-    if chat then
-      set_chat_text(bufnr, chat)
-    end
-  end, { buffer = bufnr, noremap = true })
+  vim.keymap.set(
+    'n',
+    config.mappings.chat.goto_prev_chat,
+    function()
+      save_current_chat(bufnr)
+      local chat = Cache.previous_chat()
+      if chat then
+        set_chat_text(bufnr, chat)
+      end
+    end,
+    { desc = 'Go to the previous chat session', buffer = bufnr, noremap = true }
+  )
 
-  vim.keymap.set('n', config.mappings.chat.goto_chat_with_tressitter, function()
+  vim.keymap.set('n', config.mappings.chat.goto_chat_with_telescope, function()
     save_current_chat(bufnr)
     Cache.search_chats({}, function()
       local chat = Cache.load_chat()
@@ -51,7 +56,11 @@ function M.setup_chat_keymaps(bufnr)
         set_chat_text(bufnr, chat)
       end
     end)
-  end, { buffer = bufnr, noremap = true })
+  end, {
+    desc = 'Search and go to a chat using telescope',
+    buffer = bufnr,
+    noremap = true,
+  })
 
   vim.keymap.set('n', config.mappings.chat.delete_previous_msg, function()
     save_current_chat(bufnr)
@@ -64,7 +73,7 @@ function M.setup_chat_keymaps(bufnr)
       end
       update_messages(bufnr, messages, true)
     end
-  end, { buffer = bufnr, noremap = true })
+  end, { desc = 'Delete the previous message', buffer = bufnr, noremap = true })
 
   vim.keymap.set('n', config.mappings.chat.copy_last_code_block, function()
     local last_code_block = Buffer.parse_last_code_block(bufnr)
@@ -77,7 +86,11 @@ function M.setup_chat_keymaps(bufnr)
     else
       vim.notify('No code block found', vim.log.levels.WARN)
     end
-  end, { buffer = bufnr, noremap = true })
+  end, {
+    desc = 'Copy the last code block to clipboard',
+    buffer = bufnr,
+    noremap = true,
+  })
 end
 
 return M

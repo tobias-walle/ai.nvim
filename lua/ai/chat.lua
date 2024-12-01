@@ -539,6 +539,7 @@ function M.toggle_chat(cmd_opts)
   -- For simplicity sake we just expect something to be selected if there is any range
   -- TODO: Use the correct range supplied by the user and add it to the ctx
   local is_something_selected = cmd_opts.range == 2
+  local initial_message = cmd_opts.args
 
   if bufnr ~= nil then
     vim.api.nvim_create_autocmd('BufLeave', {
@@ -556,8 +557,17 @@ function M.toggle_chat(cmd_opts)
 
     require('ai.chat.keymaps').setup_chat_keymaps(bufnr)
 
-    if is_something_selected then
-      M.update_messages(bufnr, { M.get_initial_msg('#selection') })
+    if is_something_selected or initial_message ~= '' then
+      local msg_lines = {}
+      if is_something_selected then
+        table.insert(msg_lines, '#selection')
+      end
+      if initial_message ~= '' then
+        msg_lines = vim.list_extend(msg_lines, vim.split(initial_message, '\n'))
+      end
+      M.update_messages(bufnr, {
+        M.get_initial_msg(table.concat(msg_lines, '\n')),
+      })
     else
       local existing_chat = Cache.load_chat()
       if existing_chat then
@@ -574,7 +584,10 @@ function M.toggle_chat(cmd_opts)
 end
 
 function M.setup()
-  vim.api.nvim_create_user_command('AiChat', M.toggle_chat, { range = true })
+  vim.api.nvim_create_user_command('AiChat', M.toggle_chat, {
+    nargs = '*',
+    range = true,
+  })
 end
 
 --- Parse the messages of the current buffer (0) and render them again in a split

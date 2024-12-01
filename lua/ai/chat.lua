@@ -568,6 +568,9 @@ function M.toggle_chat(cmd_opts)
       M.update_messages(bufnr, {
         M.get_initial_msg(table.concat(msg_lines, '\n')),
       })
+      if initial_message ~= '' then
+        M.send_message(bufnr)
+      end
     else
       local existing_chat = Cache.load_chat()
       if existing_chat then

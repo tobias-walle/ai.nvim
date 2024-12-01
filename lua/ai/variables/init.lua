@@ -12,6 +12,7 @@ local Regex = require('ai.utils.regex')
 ---@type VariableDefinition[]
 M.all = {
   require('ai.variables.buffer'),
+  require('ai.variables.selection'),
   require('ai.variables.diagnostics'),
   require('ai.variables.file'),
   require('ai.variables.files'),

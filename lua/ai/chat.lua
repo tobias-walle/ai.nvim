@@ -5,8 +5,16 @@ local Tools = require('ai.tools')
 local Cache = require('ai.utils.cache')
 local Async = require('ai.utils.async')
 
+---@class ChatContextSelection
+---@field line_start number
+---@field col_start number
+---@field line_end number
+---@field col_end number
+
 ---@class ChatContext
 ---@field chat_bufnr number
+---@field left_bufnr? number Bufnr of the associated code on the left side
+---@field left_buf_selection? ChatContextSelection
 
 local function get_chat_text(bufnr)
   return vim.fn.join(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
@@ -364,16 +372,55 @@ local function handle_chat_stream_error(
 end
 
 ---@param bufnr integer
+---@return ChatContext
+function M.get_chat_context(bufnr)
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  local leftmost_win = wins[1]
+  local left_bufnr
+  if leftmost_win ~= nil then
+    left_bufnr = vim.api.nvim_win_get_buf(leftmost_win)
+  end
+  local left_buf_selection
+  if left_bufnr ~= nil then
+    -- Get the line and column numbers of markers '<' and '>'
+    local line_start, col_start =
+      unpack(vim.api.nvim_buf_get_mark(left_bufnr, '<'))
+    local line_end, col_end = unpack(vim.api.nvim_buf_get_mark(left_bufnr, '>'))
+
+    -- Check if selection exists
+    if line_start ~= 0 and line_end ~= 0 then
+      if
+        line_start > line_end
+        or (line_start == line_end and col_start > col_end)
+      then
+        -- Ensure line_start is less than or equal to line_end
+        line_start, col_start, line_end, col_end =
+          line_end, col_end, line_start, col_start
+      end
+
+      left_buf_selection = {
+        line_start = line_start,
+        col_start = col_start,
+        line_end = line_end,
+        col_end = col_end,
+      }
+    end
+  end
+  return {
+    left_bufnr = left_bufnr,
+    chat_bufnr = bufnr,
+    left_buf_selection = left_buf_selection,
+  }
+end
+
+---@param bufnr integer
 function M.send_message(bufnr)
   local adapter = require('ai.config').get_chat_adapter()
   local parsed = Buffer.parse(bufnr)
   local messages_before_send = parsed.messages
   local last_message = messages_before_send[#messages_before_send]
 
-  ---@type ChatContext
-  local ctx = {
-    chat_bufnr = bufnr,
-  }
+  local ctx = M.get_chat_context(bufnr)
 
   if
     not last_message
@@ -437,6 +484,57 @@ function M.get_initial_msg()
   }
 end
 
+local visual_selection_highlight =
+  vim.api.nvim_create_namespace('highlight_between_markers')
+
+--- Highlight the selected text in the left buffer.
+---@param bufnr number
+function M.highlight_selection(bufnr)
+  local ctx = M.get_chat_context(bufnr)
+  local selection = ctx.left_buf_selection
+  if not selection then
+    return
+  end
+
+  local line_start = selection.line_start
+  local col_start = selection.col_start
+  local line_end = selection.line_end
+  local col_end = selection.col_end
+
+  -- Clear any existing highlights
+  vim.api.nvim_buf_clear_namespace(
+    ctx.left_bufnr,
+    visual_selection_highlight,
+    0,
+    -1
+  )
+
+  -- Highlight the selected lines
+  for line = line_start, line_end do
+    local start_col = (line == line_start) and col_start or 0
+    local end_col = (line == line_end) and col_end or -1
+    vim.api.nvim_buf_add_highlight(
+      ctx.left_bufnr,
+      visual_selection_highlight,
+      'Visual',
+      line - 1,
+      start_col,
+      end_col
+    )
+  end
+end
+
+---@param bufnr number
+function M.clear_highlight_selection(bufnr)
+  local ctx = M.get_chat_context(bufnr)
+  vim.api.nvim_buf_clear_namespace(
+    ctx.left_bufnr,
+    visual_selection_highlight,
+    0,
+    -1
+  )
+end
+
 function M.toggle_chat()
   local bufnr = Buffer.toggle()
 
@@ -445,7 +543,13 @@ function M.toggle_chat()
       buffer = bufnr,
       callback = function()
         M.save_current_chat(bufnr)
+        M.clear_highlight_selection(bufnr)
       end,
+    })
+
+    vim.api.nvim_create_autocmd('BufEnter', {
+      buffer = bufnr,
+      callback = M.highlight_selection,
     })
 
     require('ai.chat.keymaps').setup_chat_keymaps(bufnr)
@@ -458,6 +562,8 @@ function M.toggle_chat()
       -- Add initial message
       M.update_messages(bufnr, { M.get_initial_msg() })
     end
+
+    M.highlight_selection(bufnr)
   end
 end
 

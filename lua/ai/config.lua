@@ -51,6 +51,7 @@ Config.default_config = {
     anthropic = require('ai.adapters.anthropic'),
     openai = require('ai.adapters.openai'),
     azure = require('ai.adapters.azure'),
+    openrouter = require('ai.adapters.openrouter'),
   },
   mappings = {
     completion = {

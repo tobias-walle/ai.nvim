@@ -25,9 +25,9 @@ FILE: <path-relative-to-project-root>
 - FILE: <path> - Specifies the file. Required for the detection of the syntax. NEVER LEAVE IT OUT. NEVER ADD CODE BLOCK MARKERS ABOVE IT.
 - `````<language> - Start of the code block. Use five instead of three ticks to avoid conflicts with triple ticks inside the block.
 - <<<<<<< ORIGINAL - Marks the start of the original content block.
-- <original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE!
+- <original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE BY REPEATING A LARGE ENOUGH SECTION! NEVER LEAVE THIS BLOCK EMPTY IF THE FILE IS NOT EMPTY.
 - ======= - Marks the separator between old and new content.
-- <original-code> - The updated code. NEVER USE PLACEHOLDERS LIKE "...", "// Other Methods", etc. IN THE CODE, INSTEAD PROVIDE THE FULL UPDATED CODE.
+- <code-to-replace-original-code> - The updated code. NEVER USE PLACEHOLDERS LIKE "...", "// Other Methods", etc. IN THE CODE, INSTEAD PROVIDE THE FULL UPDATED CODE.
 - >>>>>>> UPDATED - Marks the end the new content declaration.
 - ````` - End of the code block
 
@@ -38,7 +38,7 @@ FILE: <path-relative-to-project-root>
 In the following section, examples are separated with "--- EXAMPLE START" and "--- EXAMPLE END".
 NEVER USE THESE SEPERATORS IN YOUR OUTPUT.
 
---- EXAMPLE START
+--- EXAMPLE START (Prompt: Add the firstName and lastName arguments)
 FILE: src/hello.ts
 `````typescript
 <<<<<<< ORIGINAL
@@ -54,7 +54,7 @@ function sayHello(firstName: string, lastName: string): void {
 `````
 --- EXAMPLE END
 
---- EXAMPLE START
+--- EXAMPLE START (Prompt: Replace logging with loguru)
 FILE: backend/logging.py
 `````python
 <<<<<<< ORIGINAL
@@ -74,6 +74,24 @@ logger.add(lambda msg: print(f"{grey}{msg}{reset}"), level="INFO", format="{leve
 >>>>>>> UPDATED
 `````
 --- EXAMPLE END
+
+--- EXAMPLE START (Prompt: Add the sub function)
+FILE: src/hello.ts
+`````typescript
+<<<<<<< ORIGINAL
+function add(a: number, b: number): number {
+  return a + b;
+}
+=======
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+function sub(a: number, b: number): number {
+  return a - b;
+}
+>>>>>>> UPDATED
+`````
 
 
 Here some example which logic to follow then applying changes:

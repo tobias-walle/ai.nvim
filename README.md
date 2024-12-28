@@ -38,7 +38,11 @@ Using [lazy.nvim](https://lazy.folke.io/):
   event = 'BufEnter',
   config = function()
     require('ai').setup({
-      -- Your options here
+      -- A list of all options is available in lua/ai/config.lua
+      default_models = {
+        default = 'openai:gpt-4o',
+        mini = 'openai:gpt-4o-mini',
+      }
     })
   end,
 }
@@ -48,6 +52,7 @@ Please set up the following environment variables, depending on which feature yo
 
 - `OPENAI_API_KEY`: API key for OpenAI if you want to use their models.
 - `ANTHROPIC_API_KEY`: API key for Anthropic if you want to use their models.
+- `OPENROUTER_API_KEY`: API key for OpenRouter if you want to use their models.
 - `PERPLEXITY_API_KEY`: API key for Perplexity if you want to use the @web tool.
 
 ## Development

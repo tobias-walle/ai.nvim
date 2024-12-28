@@ -32,7 +32,10 @@ function M.create_adapter_options(options)
   return {
     name = options.name,
     url = options.url,
-    headers = options.headers,
+    headers = vim.tbl_extend('force', {
+      ['HTTP-Referer'] = 'https://github.com/tobias-walle/ai.nvim',
+      ['X-Title'] = 'ai.nvim',
+    }, options.headers),
     default_model = options.default_model,
     handlers = {
       create_request_body = function(request)

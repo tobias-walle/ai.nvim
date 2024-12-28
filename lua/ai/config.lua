@@ -110,8 +110,15 @@ end
 
 ---@param config? AiConfig
 function Config.merge(config)
-  config = vim.tbl_deep_extend('force', Config.default_config, config or {})
-  Config.set(config)
+  if config then
+    -- Override the options that shouldn't be deep merged
+    config = vim.tbl_extend('force', Config.default_config, {
+      default_models = config.default_models,
+    })
+    -- Merge the rest of the options
+    config = vim.tbl_deep_extend('force', config, config)
+    Config.set(config)
+  end
 end
 
 ---@return AiConfig
@@ -121,6 +128,67 @@ function Config.get()
     error('[ai.nvim] You need run setup before using the plugin')
   end
   return config
+end
+
+local function stringify_model_mapping(model_mapping)
+  local string_value = model_mapping.default .. ' '
+  for key, value in pairs(model_mapping) do
+    if key ~= 'default' then
+      string_value = string_value .. key .. '=' .. value .. ' '
+    end
+  end
+  return vim.trim(string_value)
+end
+
+function Config.change_default_models()
+  local config = Config.get()
+  local currently_selected = stringify_model_mapping(config.default_models)
+  local options = vim
+    .iter(config.selectable_models)
+    :map(function(option)
+      local label = stringify_model_mapping(option)
+      if label == currently_selected then
+        label = '✅ ' .. label
+      end
+      return label
+    end)
+    :totable()
+
+  vim.ui.select(options, {
+    prompt = 'Select an AI model:',
+  }, function(selection, idx)
+    if selection then
+      Config.set(
+        vim.tbl_extend(
+          'force',
+          Config.get(),
+          { default_models = config.selectable_models[idx] }
+        )
+      )
+    end
+    vim.notify(
+      'Configured ' .. stringify_model_mapping(Config.get().default_models),
+      vim.log.levels.INFO
+    )
+  end)
+end
+
+---@return Adapter
+function Config.get_chat_adapter()
+  local config = Config.get()
+  return Config.parse_model_string(config.chat.model or 'default')
+end
+
+---@return Adapter
+function Config.get_command_adapter()
+  local config = Config.get()
+  return Config.parse_model_string(config.command.model or 'default')
+end
+
+---@return Adapter
+function Config.get_completion_adapter()
+  local config = Config.get()
+  return Config.parse_model_string(config.completion.model or 'default')
 end
 
 ---@param model_string ModelString
@@ -152,65 +220,4 @@ function Config.parse_model_string(model_string)
   adapter.model = model_name or adapter.model
   return adapter
 end
-
-local function stringify_model_mapping(model_mapping)
-  local string_value = model_mapping.default .. '\n'
-  for key, value in pairs(model_mapping) do
-    if key ~= 'default' then
-      string_value = string_value .. key .. '=' .. value .. '\n'
-    end
-  end
-  return vim.trim(string_value)
-end
-
-function Config.change_default_models()
-  local config = Config.get()
-  local currently_selected = stringify_model_mapping(config.default_models)
-  local options = vim
-    .iter(config.selectable_models)
-    :map(function(option)
-      local label = stringify_model_mapping(option)
-      if label == currently_selected then
-        label = label .. ' (Selected)'
-      end
-      return label
-    end)
-    :totable()
-
-  vim.ui.select(options, {
-    prompt = 'Select an AI model:',
-  }, function(_, idx)
-    Config.set(
-      vim.tbl_extend(
-        'force',
-        Config.get(),
-        { default_models = config.selectable_models[idx] }
-      )
-    )
-    vim.notify(
-      'Configured default models:\n'
-        .. stringify_model_mapping(Config.get().default_models),
-      vim.log.levels.INFO
-    )
-  end)
-end
-
----@return Adapter
-function Config.get_chat_adapter()
-  local config = Config.get()
-  return Config.parse_model_string(config.chat.model or 'default')
-end
-
----@return Adapter
-function Config.get_command_adapter()
-  local config = Config.get()
-  return Config.parse_model_string(config.command.model or 'default')
-end
-
----@return Adapter
-function Config.get_completion_adapter()
-  local config = Config.get()
-  return Config.parse_model_string(config.completion.model or 'default')
-end
-
 return Config

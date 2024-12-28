@@ -81,7 +81,6 @@ console.log(`Hello ${{{TOKEN_START}}{{TOKEN_END}}}`);
 local ns_id = vim.api.nvim_create_namespace('ai_completion')
 
 function M.trigger_completion()
-  local config = require('ai.config').get()
   local adapter = require('ai.config').get_completion_adapter()
   vim.notify(
     '[ai] Trigger completion with ' .. adapter.name .. ':' .. adapter.model,

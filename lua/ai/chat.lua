@@ -416,6 +416,10 @@ end
 ---@param bufnr integer
 function M.send_message(bufnr)
   local adapter = require('ai.config').get_chat_adapter()
+  vim.notify(
+    '[ai] Submit chat to ' .. adapter.name .. ':' .. adapter.model,
+    vim.log.levels.INFO
+  )
   local parsed = Buffer.parse(bufnr)
   local messages_before_send = parsed.messages
   local last_message = messages_before_send[#messages_before_send]
@@ -534,12 +538,13 @@ function M.clear_highlight_selection(bufnr)
   )
 end
 
+---@param cmd_opts table | nil
 function M.toggle_chat(cmd_opts)
   local bufnr = Buffer.toggle()
   -- For simplicity sake we just expect something to be selected if there is any range
   -- TODO: Use the correct range supplied by the user and add it to the ctx
-  local is_something_selected = cmd_opts.range == 2
-  local initial_message = cmd_opts.args
+  local is_something_selected = cmd_opts and cmd_opts.range == 2 or false
+  local initial_message = cmd_opts and cmd_opts.args or ''
 
   if bufnr ~= nil then
     vim.api.nvim_create_autocmd('BufLeave', {

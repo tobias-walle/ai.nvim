@@ -41,7 +41,7 @@ local setup = function()
   local tmp_dir = create_tmp_dir()
   ---@type AiConfig
   local options = {
-    default_model = 'openai:gpt-4o-mini',
+    default_models = { default = 'openai:gpt-4o-mini' },
     data_dir = tmp_dir,
   }
   child.lua(string.format("require('ai').setup(%s)", vim.inspect(options)))

@@ -49,8 +49,9 @@ Config.default_config = {
   default_model = 'openai:gpt-4o',
   adapters = {
     anthropic = require('ai.adapters.anthropic'),
-    openai = require('ai.adapters.openai'),
     azure = require('ai.adapters.azure'),
+    ollama = require('ai.adapters.ollama'),
+    openai = require('ai.adapters.openai'),
     openrouter = require('ai.adapters.openrouter'),
   },
   mappings = {

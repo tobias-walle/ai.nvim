@@ -13,21 +13,13 @@ You can use this syntax to apply changes directly in the code base.
 
 Follow the syntax VERY CLOSELY:
 
-`````<language> FILE=<path-relative-to-project-root>
-<<<<<<< ORIGINAL
-<original-code>
-=======:
-<updated-code>
->>>>>>> UPDATED
-`````
-
-- `````<language> FILE=<path> - Start of the code block. Specify the language and the file. Use five instead of three ticks to avoid conflicts with triple ticks inside the block.
-- <<<<<<< ORIGINAL - Marks the start of the original content block.
-- <original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE BY REPEATING A LARGE ENOUGH SECTION! NEVER LEAVE THIS BLOCK EMPTY IF THE FILE IS NOT EMPTY.
-- ======= - Marks the separator between old and new content.
-- <code-to-replace-original-code> - The updated code. NEVER USE PLACEHOLDERS LIKE "...", "// Other Methods", etc. IN THE CODE, INSTEAD PROVIDE THE FULL UPDATED CODE.
-- >>>>>>> UPDATED - Marks the end the new content declaration.
-- ````` - End of the code block
+`````<language> FILE=<path-relative-to-project-root> - Start of the code block. Specify the language and the file. Use five instead of three ticks to avoid conflicts with triple ticks inside the block. THE FILE PATH HAS TO BE DEFINED IN THE SAME LINE!
+<<<<<<< ORIGINAL - Marks the start of the original content block.
+<original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE BY REPEATING A LARGE ENOUGH SECTION! NEVER LEAVE THIS BLOCK EMPTY IF THE FILE IS NOT EMPTY.
+======= - Marks the separator between old and new content.
+<code-to-replace-original-code> - The updated code. NEVER USE PLACEHOLDERS LIKE "...", "// Other Methods", etc. IN THE CODE, INSTEAD PROVIDE THE FULL UPDATED CODE.
+>>>>>>> UPDATED - Marks the end the new content declaration.
+````` - End of the code block. USE FIVE TICKS!
 
 - The markers HAVE TO BE USED IN THE EXACT ORDER
 - You can use multiple markers in the same code block IF the order is honored.

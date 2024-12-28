@@ -13,8 +13,7 @@ You can use this syntax to apply changes directly in the code base.
 
 Follow the syntax VERY CLOSELY:
 
-FILE: <path-relative-to-project-root>
-`````<language>
+`````<language> FILE=<path-relative-to-project-root>
 <<<<<<< ORIGINAL
 <original-code>
 =======:
@@ -22,8 +21,7 @@ FILE: <path-relative-to-project-root>
 >>>>>>> UPDATED
 `````
 
-- FILE: <path> - Specifies the file. Required for the detection of the syntax. NEVER LEAVE IT OUT. NEVER ADD CODE BLOCK MARKERS ABOVE IT.
-- `````<language> - Start of the code block. Use five instead of three ticks to avoid conflicts with triple ticks inside the block.
+- `````<language> FILE=<path> - Start of the code block. Specify the language and the file. Use five instead of three ticks to avoid conflicts with triple ticks inside the block.
 - <<<<<<< ORIGINAL - Marks the start of the original content block.
 - <original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE BY REPEATING A LARGE ENOUGH SECTION! NEVER LEAVE THIS BLOCK EMPTY IF THE FILE IS NOT EMPTY.
 - ======= - Marks the separator between old and new content.
@@ -39,8 +37,7 @@ In the following section, examples are separated with "--- EXAMPLE START" and "-
 NEVER USE THESE SEPERATORS IN YOUR OUTPUT.
 
 --- EXAMPLE START (Prompt: Add the firstName and lastName arguments)
-FILE: src/hello.ts
-`````typescript
+`````typescript FILE=src/hello.ts
 <<<<<<< ORIGINAL
 function sayHello(): void {
   console.log('Hello World')
@@ -55,8 +52,7 @@ function sayHello(firstName: string, lastName: string): void {
 --- EXAMPLE END
 
 --- EXAMPLE START (Prompt: Replace logging with loguru)
-FILE: backend/logging.py
-`````python
+`````python FILE=backend/logging.py
 <<<<<<< ORIGINAL
 import logging
 =======
@@ -76,8 +72,7 @@ logger.add(lambda msg: print(f"{grey}{msg}{reset}"), level="INFO", format="{leve
 --- EXAMPLE END
 
 --- EXAMPLE START (Prompt: Add the sub function)
-FILE: src/hello.ts
-`````typescript
+`````typescript FILE=src/hello.ts
 <<<<<<< ORIGINAL
 function add(a: number, b: number): number {
   return a + b;
@@ -124,10 +119,9 @@ Post a emoji fitting the theme of the changes
       'markdown',
       [[
       (
-        (paragraph) @file_path
-        (#match? @file_path "FILE: .*")
         (fenced_code_block
-          (info_string (language) @lang)
+          (info_string (language)) @info
+          (#match? @info "FILE=.*")
           (code_fence_content) @code)+
       )
       ]]
@@ -136,72 +130,62 @@ Post a emoji fitting the theme of the changes
     local calls = {}
     local current_call = nil
 
-    for _, match, _ in
-      query:iter_matches(
-        parser:parse()[1]:root(),
-        message_content,
-        0,
-        -1,
-        { all = true }
-      )
+    for id, node, _, _ in
+      query:iter_captures(parser:parse()[1]:root(), message_content, 0, -1)
     do
-      for id, nodes in ipairs(match) do
-        for _, node in ipairs(nodes) do
-          local capture_name = query.captures[id]
-          local text = vim.treesitter.get_node_text(node, message_content)
+      local capture_name = query.captures[id]
+      local text = vim.treesitter.get_node_text(node, message_content)
 
-          if capture_name == 'file_path' then
-            local file = text:gsub('^FILE:%s*', '')
-            current_call = { file = vim.trim(file) }
-            table.insert(calls, current_call)
-          end
+      if capture_name == 'info' then
+        local file = text:gsub('^.*FILE=', '')
+        current_call = { file = vim.trim(file) }
+        table.insert(calls, current_call)
+      end
 
-          -- Parse the code content
-          if capture_name == 'code' and current_call then
-            -- If the call has markers, it is a replacement, otherwise an override
-            local has_replacement_markers = text:find('<<<<<<< ORIGINAL\n')
-              ~= nil
-            if has_replacement_markers then
-              current_call.type = 'replacement'
-            else
-              current_call.type = 'override'
+      -- Parse the code content
+      if capture_name == 'code' and current_call then
+        -- If the call has markers, it is a replacement, otherwise an override
+        local has_replacement_markers = text:find('<<<<<<< ORIGINAL\n') ~= nil
+        if has_replacement_markers then
+          current_call.type = 'replacement'
+        else
+          current_call.type = 'override'
+        end
+
+        if current_call.type == 'override' then
+          current_call.content = text
+        elseif current_call.type == 'replacement' then
+          local pos = 1
+          while true do
+            local original_start = text:find('<<<<<<< ORIGINAL\n', pos)
+            if not original_start then
+              break
             end
 
-            if current_call.type == 'override' then
-              current_call.content = text
-            elseif current_call.type == 'replacement' then
-              local pos = 1
-              while true do
-                local original_start = text:find('<<<<<<< ORIGINAL\n', pos)
-                if not original_start then
-                  break
-                end
+            local separator = text:find('\n=======\n', original_start)
+            local end_marker = text:find('\n>>>>>>> UPDATED', separator)
 
-                local separator = text:find('\n=======\n', original_start)
-                local end_marker = text:find('\n>>>>>>> UPDATED', separator)
-
-                if not separator or not end_marker then
-                  break
-                end
-
-                local original = text:sub(original_start + 17, separator - 1)
-                local updated = text:sub(separator + 9, end_marker - 1)
-
-                current_call.replacements = current_call.replacements or {}
-                table.insert(current_call.replacements, {
-                  search = original,
-                  replacement = updated,
-                })
-
-                pos = end_marker + 16
-              end
+            if not separator or not end_marker then
+              break
             end
+
+            local original = text:sub(original_start + 17, separator - 1)
+            local updated = text:sub(separator + 9, end_marker - 1)
+
+            current_call.replacements = current_call.replacements or {}
+            table.insert(current_call.replacements, {
+              search = original,
+              replacement = updated,
+            })
+
+            pos = end_marker + 16
           end
         end
       end
-      -- Reset current call as we're done processing it
-      current_call = nil
     end
+
+    -- Reset current call as we're done processing it
+    current_call = nil
 
     -- Group the results by file
     local calls_grouped_by_file = {}

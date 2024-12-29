@@ -96,6 +96,22 @@ Summarize in one short sentence what you want to do and which strategy you want 
 After you have done the changes:
 Post a emoji fitting the theme of the changes
 ]]),
+  reminder_prompt = vim.trim([[
+## Editor
+Use the editor syntax for all edits like this:
+
+`````typescript FILE=src/hello.ts
+<<<<<<< ORIGINAL
+function sayHello(): void {
+  console.log('Hello World')
+}
+=======
+function sayHello(firstName: string, lastName: string): void {
+  const fullName = `${firstName} ${lastName}`;
+  console.log(`Hello ${fullName}`);
+}
+>>>>>>> UPDATED
+  ]]),
 
   ---Parse editor tool calls from message content
   ---@param message_content string

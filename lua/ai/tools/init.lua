@@ -20,6 +20,7 @@ local M = {}
 ---@field is_fake true Always true if fake
 ---@field name string The name of the tool, used for parsing
 ---@field system_prompt string The prompt describing what the tool does and how it should be formatted in the buffer. The description needs to be as clear as possible and should contain one example. And also highlight which common mistakes to avoid.
+---@field reminder_prompt? string A prompt added directly before the user message to reminder the LLM about the capability
 ---@field parse fun(message_content: string): FakeToolCall[] Parse the fake tool calls out of an assistant message following the format described above. It is highly recommend to utilize treesitter for parsing.
 ---@field execute fun(ctx: ChatContext, params: table, callback: fun(): nil): nil Run the fake tool. Results are not supported yet.
 

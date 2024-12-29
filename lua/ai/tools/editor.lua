@@ -201,9 +201,17 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
       table.insert(calls_grouped_by_file[file], call)
     end
 
+    -- Create groups while keeping original order
     local groups = {}
-    for file, file_calls in pairs(calls_grouped_by_file) do
-      table.insert(groups, { file = file, calls = file_calls })
+    for _, call in ipairs(calls) do
+      local file = call.file
+      if calls_grouped_by_file[file] then
+        table.insert(
+          groups,
+          { file = file, calls = calls_grouped_by_file[file] }
+        )
+        calls_grouped_by_file[file] = nil
+      end
     end
 
     return groups

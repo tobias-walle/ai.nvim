@@ -3,12 +3,21 @@ local tool = {
   definition = {
     name = 'grep',
     description = vim.trim([[
-Use this tool to find files using a ripgrep search.
+Use this tool to find relevant files using a grep search.
 
-The command will be: rg --smart-case --heading <search>
+1. First a git grep search will be performed (git grep --show-function <search>)
+2. If the result is too big, a ripgrep search will be performed, to only get the filenames (rg --smart-case --files-with-matches <search>)
 
-Usecases:
-- You need to find relevant files in the project
+Keep the search term generic enough to get matches.
+
+## Examples
+Prompt: Add a service to talk with openai.
+
+Search 1: [Ss]ervice
+Reasoning: Search for other services to figure out general structure
+
+Search 2: [Oo]penai
+Reasoning: Find out if relevant code already exists
     ]]),
     parameters = {
       type = 'object',
@@ -33,7 +42,15 @@ Usecases:
       return callback('Error: ' .. error)
     end
 
-    local command = { 'rg', '--smart-case', '--heading', params.search }
+    local command = {
+      'git',
+      'grep',
+      '--show-function',
+      '--break',
+      '--line-number',
+      '--heading',
+      params.search,
+    }
 
     vim.system(
       command,

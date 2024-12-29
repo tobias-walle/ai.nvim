@@ -1,13 +1,41 @@
 ---@diagnostic disable-next-line: unused-local
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
 
-local T = MiniTest.new_set()
+local child = MiniTest.new_child_neovim()
+
+local U = require('ai.utils.testing').setup(child)
+
+local project_dir
+
+local T = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      -- Restart child process with custom 'init.lua' script
+      child.restart({ '-u', 'scripts/minimal_init.lua' })
+    end,
+    post_case = U.post_case_log_debug_info,
+    -- Stop once all test cases are finished
+    post_once = child.stop,
+  },
+})
+
+local setup = function()
+  project_dir = U.prepare_test_project()
+  child.cmd('cd ' .. project_dir)
+  local tmp_dir = U.create_tmp_dir()
+  ---@type AiConfig
+  local options = {
+    default_models = { default = 'openai:gpt-4o-mini' },
+    data_dir = tmp_dir,
+  }
+  child.lua(string.format("require('ai').setup(%s)", vim.inspect(options)))
+end
 
 T['parsing'] = MiniTest.new_set()
 
 T['parsing']['should parse simple replacements'] = function()
-  local Variables = require('ai.tools.editor')
-  local result = Variables.parse([[
+  local Editor = require('ai.tools.editor')
+  local result = Editor.parse([[
 Sure I will replace Hello with Hello World.
 
 `````typescript FILE=src/hello.lua
@@ -38,8 +66,8 @@ Sure I will replace Hello with Hello World.
 end
 
 T['parsing']['should parse multiple code blocks'] = function()
-  local Variables = require('ai.tools.editor')
-  local result = Variables.parse([[
+  local Editor = require('ai.tools.editor')
+  local result = Editor.parse([[
 Sure I will replace Hello with Hello World.
 
 `````typescript FILE=src/hello.lua
@@ -111,8 +139,8 @@ Sure I will replace Hello with Hello World.
 end
 
 T['parsing']['should parse replacements with content in between'] = function()
-  local Variables = require('ai.tools.editor')
-  local result = Variables.parse([[
+  local Editor = require('ai.tools.editor')
+  local result = Editor.parse([[
 `````typescript FILE=src/hello.lua
 local M = {}
 
@@ -155,8 +183,8 @@ return M
 end
 
 T['parsing']['should parse multiple replacements'] = function()
-  local Variables = require('ai.tools.editor')
-  local result = Variables.parse([[
+  local Editor = require('ai.tools.editor')
+  local result = Editor.parse([[
 `````typescript FILE=pkgs/client/src/utils/theme.ts
 <<<<<<< ORIGINAL
 default: '#FF0000',
@@ -298,6 +326,143 @@ successLight: '#FFC300',
         },
       },
     },
+  })
+end
+
+T['execution'] = MiniTest.new_set()
+
+T['execution']['should execute simple replacement'] = function()
+  setup()
+
+  local test_file = project_dir .. '/hello.lua'
+  child.cmd('edit ' .. test_file)
+
+  -- Create the editor tool call
+  local tool_call = {
+    file = 'hello.lua',
+    calls = {
+      {
+        type = 'replacement',
+        file = 'hello.lua',
+        replacements = {
+          {
+            search = "  print('Hello')",
+            replacement = "  print('Hello World')",
+          },
+        },
+      },
+    },
+  }
+
+  -- Execute the tool
+  child.lua(string.format('tool_call = %s', vim.inspect(tool_call)))
+  child.lua([[
+    local Editor = require('ai.tools.editor')
+    vim.g.callback_called = false
+    Editor.execute({}, tool_call)
+  ]])
+
+  child.type_keys(',a')
+
+  -- Verify the file content
+  local updated_content = vim.fn.readfile(test_file)
+  eq(updated_content, {
+    'local M = {}',
+    '',
+    'function M.say_hello()',
+    "  print('Hello World')",
+    'end',
+    '',
+    'return M',
+  })
+end
+
+T['execution']['should execute multiple replacements'] = function()
+  setup()
+
+  local test_file = project_dir .. '/hello.lua'
+  child.cmd('edit ' .. test_file)
+
+  -- Create the editor tool call
+  local tool_call = {
+    file = 'hello.lua',
+    calls = {
+      {
+        type = 'replacement',
+        file = 'hello.lua',
+        replacements = {
+          {
+            search = "  print('Hello')",
+            replacement = "  print('Hello Universe')",
+          },
+          {
+            search = 'function M.say_hello()',
+            replacement = 'function M.say_hello_universe()',
+          },
+        },
+      },
+    },
+  }
+
+  -- Execute the tool
+  child.lua(string.format('tool_call = %s', vim.inspect(tool_call)))
+  child.lua([[
+    local Editor = require('ai.tools.editor')
+    vim.g.callback_called = false
+    Editor.execute({}, tool_call)
+  ]])
+
+  child.type_keys(',a')
+
+  -- Verify the file content
+  local updated_content = vim.fn.readfile(test_file)
+  eq(updated_content, {
+    'local M = {}',
+    '',
+    'function M.say_hello_universe()',
+    "  print('Hello Universe')",
+    'end',
+    '',
+    'return M',
+  })
+end
+
+T['execution']['should create new file'] = function()
+  setup()
+
+  local test_file = project_dir .. '/new_file.lua'
+
+  -- Create the editor tool call
+  local tool_call = {
+    file = 'new_file.lua',
+    calls = {
+      {
+        type = 'replacement',
+        file = 'new_file.lua',
+        replacements = {
+          {
+            search = '',
+            replacement = 'print("New file")',
+          },
+        },
+      },
+    },
+  }
+
+  -- Execute the tool
+  child.lua(string.format('tool_call = %s', vim.inspect(tool_call)))
+  child.lua([[
+    local Editor = require('ai.tools.editor')
+    vim.g.callback_called = false
+    Editor.execute({}, tool_call)
+  ]])
+
+  child.type_keys(',a')
+
+  -- Verify the file content
+  local updated_content = vim.fn.readfile(test_file)
+  eq(updated_content, {
+    'print("New file")',
   })
 end
 

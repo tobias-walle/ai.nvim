@@ -88,6 +88,18 @@ function M.setup(child)
     return vim.trim(result)
   end
 
+  function U.post_case_log_debug_info()
+    if #MiniTest.current.case.exec.fails > 0 then
+      local formatted_debug_info = U.get_formatted_debug_info()
+      if formatted_debug_info then
+        MiniTest.add_note('\nDebugInfo:\n' .. formatted_debug_info)
+      end
+      -- Log screenshot after test
+      MiniTest.add_note('\nScreen:\n' .. tostring(child.get_screenshot()))
+    end
+    U.reset_debug_info()
+  end
+
   return U
 end
 

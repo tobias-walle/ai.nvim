@@ -21,6 +21,10 @@ M.system_prompt_chat = vim
   .trim([[
 {{system_prompt}}
 
+# Tools
+- The user might define tools (starting with @)
+- If defined, always reason about if you should use them (They added them for a reason!)
+
 # Variables
 - Special variables are speficed with #
 - You can request access to the following variables:

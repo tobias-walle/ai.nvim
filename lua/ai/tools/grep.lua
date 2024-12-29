@@ -16,7 +16,7 @@ Usecases:
       properties = {
         search = {
           type = 'string',
-          description = 'The search query or question to search on the web',
+          description = 'The search pattern you want to look for in the codebase',
         },
       },
     },

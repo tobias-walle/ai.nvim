@@ -215,7 +215,7 @@ local function execute_real_tools(bufnr, ctx, assistant_message, all_messages)
         tool_call.is_loading = true
 
         local execute = Async.wrap_2(tool.execute)
-        local result = Async.await(execute(ctx, tool_call.params))
+        local result = Async.await(execute(ctx, tool_call.params or {}))
         tool_call.result = result
         tool_call.is_loading = false
         number_of_tool_results = number_of_tool_results + 1

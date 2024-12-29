@@ -102,15 +102,13 @@ Use the editor syntax for all edits like this:
 
 `````typescript FILE=src/hello.ts
 <<<<<<< ORIGINAL
-function sayHello(): void {
   console.log('Hello World')
-}
 =======
-function sayHello(firstName: string, lastName: string): void {
   const fullName = `${firstName} ${lastName}`;
   console.log(`Hello ${fullName}`);
-}
 >>>>>>> UPDATED
+
+REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING WHITESPACE!
   ]]),
 
   ---Parse editor tool calls from message content

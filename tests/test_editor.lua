@@ -5,6 +5,155 @@ local T = MiniTest.new_set()
 
 T['parsing'] = MiniTest.new_set()
 
+T['parsing']['should parse simple replacements'] = function()
+  local Variables = require('ai.tools.editor')
+  local result = Variables.parse([[
+Sure I will replace Hello with Hello World.
+
+`````typescript FILE=src/hello.lua
+<<<<<<< ORIGINAL
+  print("Hello")
+=======
+  print("Hello World")
+>>>>>>> UPDATED
+`````
+  ]])
+  eq(result, {
+    {
+      file = 'src/hello.lua',
+      calls = {
+        {
+          type = 'replacement',
+          file = 'src/hello.lua',
+          replacements = {
+            {
+              replacement = '  print("Hello World")',
+              search = '  print("Hello")',
+            },
+          },
+        },
+      },
+    },
+  })
+end
+
+T['parsing']['should parse multiple code blocks'] = function()
+  local Variables = require('ai.tools.editor')
+  local result = Variables.parse([[
+Sure I will replace Hello with Hello World.
+
+`````typescript FILE=src/hello.lua
+<<<<<<< ORIGINAL
+  print("Hello")
+=======
+  print("Hello World")
+>>>>>>> UPDATED
+`````
+
+`````typescript FILE=src/hello.lua
+<<<<<<< ORIGINAL
+  function say_hello()
+=======
+  function say_hello_world()
+>>>>>>> UPDATED
+`````
+
+`````typescript FILE=src/hello2.lua
+<<<<<<< ORIGINAL
+  print("Hello 2")
+=======
+  print("Hello World 2")
+>>>>>>> UPDATED
+`````
+  ]])
+  eq(result, {
+    {
+      file = 'src/hello.lua',
+      calls = {
+        {
+          type = 'replacement',
+          file = 'src/hello.lua',
+          replacements = {
+            {
+              replacement = '  print("Hello World")',
+              search = '  print("Hello")',
+            },
+          },
+        },
+        {
+          type = 'replacement',
+          file = 'src/hello.lua',
+          replacements = {
+            {
+              replacement = '  function say_hello_world()',
+              search = '  function say_hello()',
+            },
+          },
+        },
+      },
+    },
+    {
+      file = 'src/hello2.lua',
+      calls = {
+        {
+          type = 'replacement',
+          file = 'src/hello2.lua',
+          replacements = {
+            {
+              replacement = '  print("Hello World 2")',
+              search = '  print("Hello 2")',
+            },
+          },
+        },
+      },
+    },
+  })
+end
+
+T['parsing']['should parse replacements with content in between'] = function()
+  local Variables = require('ai.tools.editor')
+  local result = Variables.parse([[
+`````typescript FILE=src/hello.lua
+local M = {}
+
+function M.say_hello()
+<<<<<<< ORIGINAL
+  print("Hello")
+=======
+  print("Hello World")
+>>>>>>> UPDATED
+end
+
+<<<<<<< ORIGINAL
+return T
+=======
+return M
+>>>>>>> UPDATED
+`````
+  ]])
+  eq(result, {
+    {
+      file = 'src/hello.lua',
+      calls = {
+        {
+          type = 'replacement',
+          file = 'src/hello.lua',
+          replacements = {
+            {
+              replacement = '  print("Hello World")',
+              search = '  print("Hello")',
+            },
+            {
+              replacement = 'return M',
+              search = 'return T',
+            },
+          },
+        },
+      },
+    },
+  })
+end
+
 T['parsing']['should parse multiple replacements'] = function()
   local Variables = require('ai.tools.editor')
   local result = Variables.parse([[

@@ -30,6 +30,8 @@ local M = {}
 M.all = {
   require('ai.tools.editor'),
   require('ai.tools.web'),
+  require('ai.tools.grep'),
+  require('ai.tools.file'),
 }
 
 ---@param tool ToolDefinition

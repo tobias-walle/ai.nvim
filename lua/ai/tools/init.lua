@@ -34,6 +34,11 @@ M.all = {
   require('ai.tools.file'),
 }
 
+M.aliases = {
+  all = { 'editor', 'grep', 'file', 'web' },
+  dev = { 'editor', 'grep', 'file' },
+}
+
 ---@param tool ToolDefinition
 ---@return string
 function M.get_tool_definition_name(tool)
@@ -52,13 +57,23 @@ function M.is_tool_definition_matching_name(tool, name)
 end
 
 ---@param name string
----@return RealToolDefinition | nil
-function M.find_real_tool_by_name(name)
+---@return ToolDefinition | nil
+function M.find_tool_by_name(name)
   for _, tool in ipairs(M.all) do
-    if not tool.is_fake and M.is_tool_definition_matching_name(tool, name) then
-      ---@cast tool RealToolDefinition
+    if M.is_tool_definition_matching_name(tool, name) then
       return tool
     end
+  end
+  return nil
+end
+
+---@param name string
+---@return RealToolDefinition | nil
+function M.find_real_tool_by_name(name)
+  local tool = M.find_tool_by_name(name)
+  if tool and not tool.is_fake then
+    ---@cast tool RealToolDefinition
+    return tool
   end
   return nil
 end

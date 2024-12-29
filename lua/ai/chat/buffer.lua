@@ -32,6 +32,9 @@ function M.create()
   for _, tool in ipairs(Tools.all) do
     vim.fn.matchadd('Special', '@' .. Tools.get_tool_definition_name(tool))
   end
+  for alias, _ in pairs(Tools.aliases) do
+    vim.fn.matchadd('Special', '@' .. alias)
+  end
 
   -- Configure variables highlight
   for _, variable in ipairs(Variables.all) do
@@ -192,24 +195,44 @@ function M.parse(bufnr)
       content = content_without_tool_calls
     end
 
+    -- Helper to add a tool by name
+    local function add_tool(name)
+      local tool = Tools.find_tool_by_name(name)
+      if not tool then
+        return
+      end
+
+      local tools_of_the_same_type
+      if tool.is_fake then
+        tools_of_the_same_type = fake_tools
+      else
+        tools_of_the_same_type = tools
+      end
+      if
+        not vim.iter(tools_of_the_same_type):find(function(existing_tool)
+          return Tools.is_tool_definition_matching_name(
+            existing_tool,
+            Tools.get_tool_definition_name(tool)
+          )
+        end)
+      then
+        table.insert(tools_of_the_same_type, tool)
+      end
+    end
+
     -- Find tool activations
     for _, tool in ipairs(Tools.all) do
-      if content:match('@' .. Tools.get_tool_definition_name(tool)) then
-        local tools_of_the_same_type
-        if tool.is_fake then
-          tools_of_the_same_type = fake_tools
-        else
-          tools_of_the_same_type = tools
-        end
-        if
-          not vim.iter(tools_of_the_same_type):find(function(existing_tool)
-            return Tools.is_tool_definition_matching_name(
-              existing_tool,
-              Tools.get_tool_definition_name(tool)
-            )
-          end)
-        then
-          table.insert(tools_of_the_same_type, tool)
+      local name = Tools.get_tool_definition_name(tool)
+      if content:match('@' .. name) then
+        add_tool(name)
+      end
+    end
+
+    -- Find tool alias activations
+    for alias, tool_names in pairs(Tools.aliases) do
+      if content:match('@' .. alias) then
+        for _, tool_name in ipairs(tool_names) do
+          add_tool(tool_name)
         end
       end
     end

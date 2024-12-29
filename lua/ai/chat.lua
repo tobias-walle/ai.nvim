@@ -71,12 +71,15 @@ function M.create_messages(ctx, buffer)
     .iter(buffer.messages)
     :map(function(m)
       local content = m.content
+
+      -- Remove fake tool calls to not confuse the llm
       for _, tool in ipairs(Tools.all) do
         if tool.is_fake then
           content =
             content:gsub('@' .. Tools.get_tool_definition_name(tool), '')
         end
       end
+
       local msg = {
         role = m.role,
         content = content,

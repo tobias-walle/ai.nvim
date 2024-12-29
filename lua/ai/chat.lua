@@ -117,12 +117,25 @@ function M.create_messages(ctx, buffer)
     end
   end
 
+  local reminder_message_parts = { require('ai.prompts').reminder_prompt_chat }
+
+  for _, tool in ipairs(buffer.fake_tools) do
+    if tool.reminder_prompt then
+      ---@cast tool FakeToolDefinition
+      table.insert(reminder_message_parts, tool.reminder_prompt)
+    end
+  end
+
   -- Merge all messages.
   local result = vim.fn.deepcopy(context_messages)
   for i = 1, #chat_messages - 1 do
     table.insert(result, chat_messages[i])
   end
   vim.list_extend(result, variable_messages)
+  table.insert(result, {
+    role = 'user',
+    content = table.concat(reminder_message_parts, '\n'),
+  })
   table.insert(result, chat_messages[#chat_messages])
   return result
 end
@@ -434,6 +447,7 @@ function M.send_message(bufnr)
     return
   end
 
+  ---@type Tool[]
   local tool_definitions = vim
     .iter(parsed.tools)
     :map(function(tool)

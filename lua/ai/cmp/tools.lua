@@ -15,11 +15,27 @@ function S:complete(request, callback)
 
   -- Add tool completions
   for _, tool in ipairs(require('ai.tools').all) do
+    local name = require('ai.tools').get_tool_definition_name(tool)
     table.insert(items, {
-      label = '@' .. require('ai.tools').get_tool_definition_name(tool),
+      label = '@' .. name,
       kind = cmp.lsp.CompletionItemKind.Function,
-      documentation = 'Tool: '
-        .. require('ai.tools').get_tool_definition_name(tool),
+      documentation = '@'
+        .. name
+        .. ' '
+        .. (tool.system_prompt or tool.definition.description),
+    })
+  end
+
+  for name, tools in pairs(require('ai.tools').aliases) do
+    table.insert(items, {
+      label = '@' .. name,
+      kind = cmp.lsp.CompletionItemKind.Function,
+      documentation = 'Alias for ' .. vim
+        .iter(tools)
+        :map(function(tool)
+          return '@' .. tool
+        end)
+        :join(' '),
     })
   end
 

@@ -38,7 +38,7 @@ T['parsing']['should parse simple replacements'] = function()
   local result = Editor.parse([[
 Sure I will replace Hello with Hello World.
 
-`````typescript FILE=src/hello.lua
+`````typescript src/hello.lua
 <<<<<<< ORIGINAL
   print("Hello")
 =======
@@ -70,7 +70,7 @@ T['parsing']['should parse multiple code blocks'] = function()
   local result = Editor.parse([[
 Sure I will replace Hello with Hello World.
 
-`````typescript FILE=src/hello.lua
+`````typescript src/hello.lua
 <<<<<<< ORIGINAL
   print("Hello")
 =======
@@ -78,7 +78,7 @@ Sure I will replace Hello with Hello World.
 >>>>>>> UPDATED
 `````
 
-`````typescript FILE=src/hello.lua
+`````typescript src/hello.lua
 <<<<<<< ORIGINAL
   function say_hello()
 =======
@@ -86,7 +86,7 @@ Sure I will replace Hello with Hello World.
 >>>>>>> UPDATED
 `````
 
-`````typescript FILE=src/hello2.lua
+`````typescript src/hello2.lua
 <<<<<<< ORIGINAL
   print("Hello 2")
 =======
@@ -141,7 +141,7 @@ end
 T['parsing']['should parse replacements with content in between'] = function()
   local Editor = require('ai.tools.editor')
   local result = Editor.parse([[
-`````typescript FILE=src/hello.lua
+`````typescript src/hello.lua
 local M = {}
 
 function M.say_hello()
@@ -185,7 +185,7 @@ end
 T['parsing']['should parse multiple replacements'] = function()
   local Editor = require('ai.tools.editor')
   local result = Editor.parse([[
-`````typescript FILE=pkgs/client/src/utils/theme.ts
+`````typescript pkgs/client/src/utils/theme.ts
 <<<<<<< ORIGINAL
 default: '#FF0000',
 light: transparentize(0.7, '#9edac7'),
@@ -463,6 +463,53 @@ T['execution']['should create new file'] = function()
   local updated_content = vim.fn.readfile(test_file)
   eq(updated_content, {
     'print("New file")',
+  })
+end
+
+T['execution']['should append to file if original block is empty (or only whitespace)'] = function()
+  setup()
+
+  local test_file = project_dir .. '/hello.lua'
+  child.cmd('edit ' .. test_file)
+
+  -- Create the editor tool call
+  local tool_call = {
+    file = 'hello.lua',
+    calls = {
+      {
+        type = 'replacement',
+        file = 'hello.lua',
+        replacements = {
+          {
+            search = '\n',
+            replacement = "print('Hello World')",
+          },
+        },
+      },
+    },
+  }
+
+  -- Execute the tool
+  child.lua(string.format('tool_call = %s', vim.inspect(tool_call)))
+  child.lua([[
+    local Editor = require('ai.tools.editor')
+    vim.g.callback_called = false
+    Editor.execute({}, tool_call)
+  ]])
+
+  child.type_keys(',a')
+
+  -- Verify the file content
+  local updated_content = vim.fn.readfile(test_file)
+  eq(updated_content, {
+    'local M = {}',
+    '',
+    'function M.say_hello()',
+    "  print('Hello')",
+    'end',
+    '',
+    'return M',
+    "print('Hello World')",
   })
 end
 

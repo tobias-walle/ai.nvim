@@ -2,111 +2,285 @@
 local tool = {
   is_fake = true,
   name = 'editor',
-  system_prompt = vim.trim([[
+  system_prompt = vim.trim(--[[ markdown ]] [[
 # Special Editor syntax
 You can use this syntax to apply changes directly in the code base.
 
 - You can use this syntax to replace sections in project files.
 - Make sure the original content is unique in the file to prevent unintended replacements.
-- Combine multiple replacements for more complex changes.
 - MAKE SURE TO ALWAYS USE REPLACEMENTS FOR EDITS. AVOID REPEATING THE WHOLE FILE CONTENT.
 
 Follow the syntax VERY CLOSELY:
 
-`````<language> FILE=<path-relative-to-project-root> - Start of the code block. Specify the language and the file. Use five instead of three ticks to avoid conflicts with triple ticks inside the block. THE FILE PATH HAS TO BE DEFINED IN THE SAME LINE!
+`````<language> <path-relative-to-project-root> - Start of the code block. Specify the language and the file. USE FIVE INSTEAD OF THREE TICKS to avoid conflicts with triple ticks inside the block. THE FILE PATH HAS TO BE DEFINED IN THE SAME LINE!
 <<<<<<< ORIGINAL - Marks the start of the original content block.
 <original-code> - The EXACT code to replace. MAKE SURE THE SECTION IS UNIQUE BY REPEATING A LARGE ENOUGH SECTION! NEVER LEAVE THIS BLOCK EMPTY IF THE FILE IS NOT EMPTY.
 ======= - Marks the separator between old and new content.
 <code-to-replace-original-code> - The updated code. NEVER USE PLACEHOLDERS LIKE "...", "// Other Methods", etc. IN THE CODE, INSTEAD PROVIDE THE FULL UPDATED CODE.
 >>>>>>> UPDATED - Marks the end the new content declaration.
-````` - End of the code block. USE FIVE TICKS!
+`````
 
 - The markers HAVE TO BE USED IN THE EXACT ORDER
-- You can use multiple markers in the same code block IF the order is honored.
-- Add no content between the markers
+- Never add content between the markers
+- Plan and reason about your changes before doing them.
+  Always consider all changes that might need to be done as an effect of the request.
+  Make your thought process transparent and ask the user questions if something is not clear.
+- After you have done your changes add a sentence referring to a meme + emoji to keep the motivation high! Some examples:
+  - Let's go!!! 💪
+  - Blazingly fast! 🚀
+  - It's Like Magic ✨
+- Afterwards add some CONCRETE suggestions what could be done next. Use formulations like `I would recommend...` or `Should I do...`.
 
-In the following section, examples are separated with "--- EXAMPLE START" and "--- EXAMPLE END".
-NEVER USE THESE SEPERATORS IN YOUR OUTPUT.
+## Examples
+For the following examples, expect the following files to exist:
 
---- EXAMPLE START (Prompt: Add the firstName and lastName arguments)
-`````typescript FILE=src/hello.ts
+`````typescript src/utils/array.ts
+export function deleteAll<T>(
+  array: T[],
+  toDelete: T[],
+  getId: (item: T) => string | number
+): T[] {
+  array = array.slice();
+  toDelete.forEach(elementToDelete => {
+    const idToDelete = getId(elementToDelete);
+    const index = array.findIndex(element => idToDelete === getId(element));
+    array.splice(index, 1);
+  });
+  return array;
+}
+
+export function setAt<T>(array: T[], i: number, value: T): T[] {
+  array = array.slice();
+  array[i] = value;
+  return array;
+}
+
+export function arrayToMap<T, K extends keyof any>(
+  array: T[],
+  getKey: (t: T) => K
+): Record<K, T> {
+  const result = {} as Record<K, T>;
+  array.forEach(value => {
+    result[getKey(value)] = value;
+  });
+  return result;
+}
+
+export function arrayToArrayMap<T, K extends keyof any>(
+  array: T[],
+  getKey: (t: T) => K
+): Record<K, T[]> {
+  const result = {} as Record<K, T[]>;
+  array.forEach(value => {
+    const key = getKey(value);
+    if (!result[key]) {
+      result[key] = [];
+    }
+
+    result[key].push(value);
+  });
+  return result;
+}
+`````
+
+### Example 1
+#### User
+Add a new flatMap function
+
+#### Assistant
+Sure! Let me think about the steps:
+
+1) Based on the given name and common practices, I think the `flatMap` function should map a given list of items and flattens the output
+2) I will use generics to make the new function reusable. I will use `T` for the incoming array and `R` (like Result) for the outgoing array items.
+3) I could implement it by combining the `map` and `flat` function.
+   But as the user seems to use a more restricted browser environment in which `flat` might not be available I will fallback to a for loop.
+   A for loop is appropriate as it reduces the memory overhead.
+4) I will add the new function under the `arrayToArrayMap` function.
+
+`````typescript src/utils/array.ts
 <<<<<<< ORIGINAL
-function sayHello(): void {
-  console.log('Hello World')
+export function arrayToArrayMap<T, K extends keyof any>(
+  array: T[],
+  getKey: (t: T) => K
+): Record<K, T[]> {
+  const result = {} as Record<K, T[]>;
+  array.forEach(value => {
+    const key = getKey(value);
+    if (!result[key]) {
+      result[key] = [];
+    }
+
+    result[key].push(value);
+  });
+  return result;
 }
 =======
-function sayHello(firstName: string, lastName: string): void {
-  const fullName = `${firstName} ${lastName}`;
-  console.log(`Hello ${fullName}`);
+export function arrayToArrayMap<T, K extends keyof any>(
+  array: T[],
+  getKey: (t: T) => K
+): Record<K, T[]> {
+  const result = {} as Record<K, T[]>;
+  array.forEach(value => {
+    const key = getKey(value);
+    if (!result[key]) {
+      result[key] = [];
+    }
+
+    result[key].push(value);
+  });
+  return result;
+}
+
+export function flatMap<T, R>(array: T[], map: (value: T) => R | R[]): R[] {
+  const result: R[] = [];
+  for (const value of array) {
+    const mapped = map(value);
+    if (Array.isArray(mapped)) {
+      result.push(...mapped);
+    } else {
+      result.push(mapped);
+    }
+  }
+  return result;
 }
 >>>>>>> UPDATED
 `````
---- EXAMPLE END
 
---- EXAMPLE START (Prompt: Replace logging with loguru)
-`````python FILE=backend/logging.py
+Much better 💪
+
+Please consider that `flatMap` is builtin in newer browser versions and you don't need to implement it yourself.
+
+### Example 2
+#### User
+Move the `setAt` function to a new file
+
+#### Assistant
+Should I do a reexport of `setAt` to prevent a breaking change?
+
+#### User
+y
+
+#### Assistant
+Sure! I will do the following:
+
+1) Create a new file `src/utils/setAt.ts` and move `setAt` into it.
+2) Replace `setAt` in `src/utils/array.ts` with an reexport of the new file to prevent a breaking change.
+
+`````typescript src/utils/setAt.ts
 <<<<<<< ORIGINAL
-import logging
 =======
-from loguru import logger
->>>>>>> UPDATED
-<<<<<<< ORIGINAL
-logging.basicConfig(
-    level=logging.INFO, format=f"{grey}%(levelname)s(%(name)s):{reset} %(message)s"
-)
-
-logger = logging.getLogger("backend")
-=======
-logger.remove()
-logger.add(lambda msg: print(f"{grey}{msg}{reset}"), level="INFO", format="{level}({name}): {message}", colorize=False)
->>>>>>> UPDATED
-`````
---- EXAMPLE END
-
---- EXAMPLE START (Prompt: Add the sub function)
-`````typescript FILE=src/hello.ts
-<<<<<<< ORIGINAL
-function add(a: number, b: number): number {
-  return a + b;
-}
-=======
-function add(a: number, b: number): number {
-  return a + b;
-}
-
-function sub(a: number, b: number): number {
-  return a - b;
+export function setAt<T>(array: T[], i: number, value: T): T[] {
+  array = array.slice();
+  array[i] = value;
+  return array;
 }
 >>>>>>> UPDATED
 `````
 
+`````typescript src/utils/array.ts
+<<<<<<< ORIGINAL
+export function setAt<T>(array: T[], i: number, value: T): T[] {
+  array = array.slice();
+  array[i] = value;
+  return array;
+}
+=======
+export * from './setAt';
+>>>>>>> UPDATED
+`````
 
-Here some example which logic to follow then applying changes:
-- A lot of small changes across the file -> Replace the changed content
-- Creation of new file -> Create the file by keep the ORIGINAL block empty and only specifying the UPDATED content.
-- One tiny change -> Replace the part of the file that needs to be changed
-- One change that also requires a new import -> Replace the part of the code that needs to be changed and use another replacement for adding the import
-- Extraction of some code part into a new file -> Create a the new file, update the imports in the original file using one replacement and use another replacement to remove the old code.
+Here we go ✨
 
-Remember that you HAVE to use the markers.
+To stay consistent I would recommend moving the other functions as well.
+1) Move `deleteAll` to `src/utils/deleteAll.ts`
+2) Move `arrayToMap` to `src/utils/arrayToMap.ts`
+3) Move `arrayToArrayMap` to `src/utils/arrayToArrayMap.ts`
 
-Before each strategy use:
-Summarize in one short sentence what you want to do and which strategy you want to use. Keep it short.
+### Example 3
+#### User
+Please replace all `forEach` loops with `for..of` loops
 
-After you have done the changes:
-Post a emoji fitting the theme of the changes
+#### Assistant
+Good idea! Using a `for..of` loop can be more performant.
+
+1) I will replace all occurrences of `forEach` with `for..of`
+2) I will make sure that each replacement is unique to avoid unintended changes
+
+`````typescript src/utils/array.ts
+<<<<<<< ORIGINAL
+  toDelete.forEach(elementToDelete => {
+    const idToDelete = getId(elementToDelete);
+    const index = array.findIndex(element => idToDelete === getId(element));
+    array.splice(index, 1);
+  });
+=======
+>>>>>>> UPDATED
+  for (const elementToDelete of toDelete) {
+    const idToDelete = getId(elementToDelete);
+    const index = array.findIndex(element => idToDelete === getId(element));
+    array.splice(index, 1);
+  }
+`````
+
+`````typescript src/utils/array.ts
+<<<<<<< ORIGINAL
+  array.forEach(value => {
+    result[getKey(value)] = value;
+  });
+=======
+>>>>>>> UPDATED
+  for (const value of array) {
+    result[getKey(value)] = value;
+  }
+`````
+
+`````typescript src/utils/array.ts
+<<<<<<< ORIGINAL
+  array.forEach(value => {
+    const key = getKey(value);
+    if (!result[key]) {
+      result[key] = [];
+    }
+
+    result[key].push(value);
+  });
+=======
+>>>>>>> UPDATED
+  for (const value of array) {
+    const key = getKey(value);
+    if (!result[key]) {
+      result[key] = [];
+    }
+
+    result[key].push(value);
+  }
+`````
+
+Blazingly fast! 🚀
+
+Do you like me to do one of the following other optimizations?
+1) Replace the nested loop in `deleteAll`
+2) ...
+
+---
+
+DO NOT TAKE THE EXAMPLE FILES ABOVE INTO ACCOUNT FROM THIS POINT ON!
 ]]),
-  reminder_prompt = vim.trim([[
+
+  reminder_prompt = vim.trim(--[[ markdown ]] [[
 ## Editor
 Use the editor syntax for all edits like this:
 
-`````typescript FILE=src/hello.ts
+`````typescript src/hello.ts
 <<<<<<< ORIGINAL
   console.log('Hello World')
 =======
   const fullName = `${firstName} ${lastName}`;
   console.log(`Hello ${fullName}`);
 >>>>>>> UPDATED
+`````
+
+Remember that you HAVE to use the markers.
 
 REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING WHITESPACE!
   ]]),
@@ -127,7 +301,7 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
       (
         (fenced_code_block
           (info_string (language)) @info
-          (#match? @info "FILE=.*")
+          (#match? @info "^.+\\s+.+$")
           (code_fence_content) @code)+
       )
       ]]
@@ -143,7 +317,7 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
       local text = vim.treesitter.get_node_text(node, message_content)
 
       if capture_name == 'info' then
-        local file = text:gsub('^.*FILE=', '')
+        local file = text:gsub('^.+%s+(.+)$', '%1')
         current_call = { file = vim.trim(file) }
         table.insert(calls, current_call)
       end
@@ -245,9 +419,17 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
 
         local new_buffer_text = buffer_text
         for _, rep in ipairs(replacements) do
-          local search = rep.search:gsub('%W', '%%%1')
-          local replacement = rep.replacement:gsub('%%', '%%%%')
-          new_buffer_text = new_buffer_text:gsub(search, replacement)
+          if vim.trim(rep.search) == '' then
+            if vim.trim(new_buffer_text) == '' then
+              new_buffer_text = rep.replacement
+            else
+              new_buffer_text = new_buffer_text .. '\n' .. rep.replacement
+            end
+          else
+            local search = rep.search:gsub('%W', '%%%1')
+            local replacement = rep.replacement:gsub('%%', '%%%%')
+            new_buffer_text = new_buffer_text:gsub(search, replacement)
+          end
         end
 
         vim.api.nvim_buf_set_lines(

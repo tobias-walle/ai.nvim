@@ -2,3 +2,4 @@
 - Add variable support to AiRewrite
 - Add selection support to chat
 - Record & repeat function
+- Update tool call syntax to use an actual markdown block

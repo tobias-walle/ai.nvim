@@ -2,7 +2,6 @@
 local M = {}
 
 local string_utils = require('ai.utils.strings')
-local ui = require('ai.ui')
 
 ---@class CommandDefinition
 ---@field name string
@@ -176,7 +175,7 @@ local function create_command(definition)
     elseif opts.args and opts.args ~= '' then
       return rewrite_with_instructions(definition, opts, opts.args)
     else
-      ui.input({ prompt = 'Instructions' }, function(instructions)
+      vim.ui.input({ prompt = 'Instructions' }, function(instructions)
         rewrite_with_instructions(definition, opts, instructions)
       end)
     end

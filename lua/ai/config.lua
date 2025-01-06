@@ -49,20 +49,22 @@ local Config = {}
 
 ---@type AiConfig
 Config.default_config = {
+  -- The model that is used per default.
+  -- The "mini" model is used for tasks which might use a lot of tokens or in which speed is especially important.
+  -- You can customize which model should be used for which task in the "chat", "command" or "completion" settings.
   default_models = {
-    default = 'openai:gpt-4o',
-    mini = 'openai:gpt-4o-mini',
+    default = 'anthropic:claude-3-5-sonnet-20241022',
+    mini = 'anthropic:claude-3-5-haiku-20241022',
   },
+  -- A list of model that can be easily switched between (using :AiChangeModels)
   selectable_models = {
-    { default = 'openai:gpt-4o', mini = 'openai:gpt-4o-mini' },
-    { default = 'azure:gpt-4o', mini = 'azure:gpt-4o-mini' },
     {
       default = 'anthropic:claude-3-5-sonnet-20241022',
       mini = 'anthropic:claude-3-5-haiku-20241022',
     },
-    { default = 'openrouter:deepseek/deepseek-chat' },
-    { default = 'ollama:qwen2.5-coder:32b' },
+    { default = 'openai:gpt-4o', mini = 'openai:gpt-4o-mini' },
   },
+  -- You can add custom adapters if you are missing a LLM provider.
   adapters = {
     anthropic = require('ai.adapters.anthropic'),
     azure = require('ai.adapters.azure'),
@@ -70,6 +72,23 @@ Config.default_config = {
     openai = require('ai.adapters.openai'),
     openrouter = require('ai.adapters.openrouter'),
   },
+  -- Customize which model is used for which task
+  -- You can pass the model name directly (like "openai:gpt-4o") or refer to one of the default models.
+  chat = {
+    model = 'default',
+  },
+  command = {
+    model = 'default',
+  },
+  completion = {
+    model = 'default:mini',
+  },
+  -- ai.nvim is looking for a context file at the root of your project and will load it into each prompt.
+  -- You can use it to define the code style or other information that could be improving the output of the tasks.
+  context_file = '.ai-context.md',
+  -- The data dir is used to save cached data (like the chat history)
+  data_dir = vim.fn.stdpath('data') .. '/ai',
+  -- Override the keymaps used by the plugin
   mappings = {
     completion = {
       accept_suggestion = '<Tab>',
@@ -89,17 +108,6 @@ Config.default_config = {
       accept_suggestion = '<LocalLeader>a',
       reject_suggestion = '<LocalLeader>r',
     },
-  },
-  data_dir = vim.fn.stdpath('data') .. '/ai',
-  context_file = '.ai-context.md',
-  chat = {
-    model = 'default',
-  },
-  command = {
-    model = 'default',
-  },
-  completion = {
-    model = 'default:mini',
   },
 }
 

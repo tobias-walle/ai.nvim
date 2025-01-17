@@ -46,6 +46,9 @@ Please set up the following environment variables, depending on which model or f
 - `ANTHROPIC_API_KEY`: API key for Anthropic if you want to use their models.
 - `OPENROUTER_API_KEY`: API key for OpenRouter if you want to use their models.
 - `PERPLEXITY_API_KEY`: API key for Perplexity if you want to use the @web tool.
+- `AZURE_API_BASE`: Base URL for the Azure API if you want to use Azure models. (Note: The model name will be used for the deployment)
+- `AZURE_API_VERSION`: API version for the Azure API.
+- `AZURE_API_KEY`: API key for the Azure API.
 
 ## Configuration
 

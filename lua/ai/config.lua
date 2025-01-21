@@ -120,12 +120,12 @@ end
 function Config.merge(config)
   if config then
     -- Override the options that shouldn't be deep merged
-    config = vim.tbl_extend('force', Config.default_config, {
+    local result = vim.tbl_extend('force', Config.default_config, {
       default_models = config.default_models,
     })
     -- Merge the rest of the options
-    config = vim.tbl_deep_extend('force', config, config)
-    Config.set(config)
+    result = vim.tbl_deep_extend('force', result, config)
+    Config.set(result)
   end
 end
 

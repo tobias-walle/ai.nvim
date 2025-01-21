@@ -77,7 +77,13 @@ function M.create_messages(ctx, buffer)
     end
   end
 
-  local reminder_message_parts = { require('ai.prompts').reminder_prompt_chat }
+  local reminder_message_parts = {}
+  if require('ai.prompts').reminder_prompt_chat ~= '' then
+    table.insert(
+      reminder_message_parts,
+      require('ai.prompts').reminder_prompt_chat
+    )
+  end
 
   for _, tool in ipairs(buffer.fake_tools) do
     if tool.reminder_prompt then
@@ -92,10 +98,12 @@ function M.create_messages(ctx, buffer)
     table.insert(result, chat_messages[i])
   end
   vim.list_extend(result, variable_messages)
-  table.insert(result, {
-    role = 'user',
-    content = table.concat(reminder_message_parts, '\n'),
-  })
+  if #reminder_message_parts > 0 then
+    table.insert(result, {
+      role = 'user',
+      content = table.concat(reminder_message_parts, '\n'),
+    })
+  end
   table.insert(result, chat_messages[#chat_messages])
   return result
 end

@@ -33,34 +33,6 @@ M.system_prompt_chat = vim
 ]])
   :gsub('{{(.-)}}', { system_prompt = M.system_prompt })
 
-M.reminder_prompt_chat = vim.trim([[
-# REMEMBER THE FOLLOWING THINGS!
-
-## Variables
-ALWAYS USE THE RIGHT SYNTAX WHEN YOU NEED ACCESS TO OTHER FILES!
-
-### Example
-#### User
-Files:
-- README.md
-- src/hello.ts
-
-Please update the hello function for me so it renders the result to the DOM.
-
-#### Assistant
-To update the hello function I need access to it:
-#file:`src/hello.ts`
-
-#### User
-```ts #file:`src/hello.ts`
-function hello() {
-  console.log('Hello World')
-}
-```
-
-#### Assistant
-Thank you! I will now update the hello function so it renders the result to the DOM.
---- Rest of the conversation skipped ---
-]])
+M.reminder_prompt_chat = vim.trim([[]])
 
 return M

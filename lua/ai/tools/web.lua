@@ -56,7 +56,7 @@ Sure! Before build a Google Search CLI tool in Rust I will research the APIs tha
     end
 
     local request_body = vim.json.encode({
-      model = 'llama-3.1-sonar-small-128k-online',
+      model = 'sonar',
       messages = {
         {
           role = 'system',

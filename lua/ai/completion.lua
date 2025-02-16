@@ -1,8 +1,7 @@
 -- Define a module
 local M = {}
 
-local TOKEN_START = '<|COMPLETION_START|>'
-local TOKEN_END = '<|COMPLETION_END|>'
+local TOKEN = '<|cursor_is_here|>'
 
 local system_prompt = vim
   .trim([[
@@ -10,48 +9,77 @@ You are an intelligent code auto-completion assistant.
 Your task is to provide accurate and context-aware code suggestions based on the given file content and cursor position.
 
 INPUT:
-- You are getting some code as input with the cursor position marked as {{TOKEN_START}}{{TOKEN_END}}.
+- You are getting some code as input with the cursor position marked as {{TOKEN}}.
 - Additional instructions might be added above the cursor as comments. If this is the case, try to solve the task in your completion.
 
 OUTPUT:
-- Complete the code between {{TOKEN_START}}{{TOKEN_END}}.
-- ALWAYS wrap your completion with {{TOKEN_START}} and {{TOKEN_END}}. NEVER OMIT THESE MARKERS.
+- Complete the code at {{TOKEN}}.
 - ONLY output your completion! NO SURROUNDING CODE!
-- If there is already an ident before {{TOKEN_START}}, do not repeat it!
-- Try to immitate the patterns and code style already existing in the file.
+- If there is already an ident before {{TOKEN}}, do not repeat it!
+- Immitate the patterns and code style already existing in the file.
 
-Provide clean, well-documented code completions without additional explanations.
+Provide clean code completions without additional explanations.
 
 ## Example 1
 <input>
 ```javascript
 function helloWorld() {
-  {{TOKEN_START}}{{TOKEN_END}}
+  {{TOKEN}}
 }
 ```
 </input>
 
 <output>
-  {{TOKEN_START}}console.log('Hello World'){{TOKEN_END}}
+```javascript
+console.log('Hello World');
+```
 </output>
 
 ## Example 2
 <input>
+```typescript
+function fizzBuzz(n: number): void {
+    for (let i = 1; i <= n; i++) {
+        {{TOKEN}}
+    }
+}
+```
+</input>
+
+Note: We skip the first indent, as it is already there, but we make sure the rest of the code has leading whitepace.
+<output>
+```typescript
+if (i % 15 === 0) {
+            console.log("FizzBuzz");
+        } else if (i % 3 === 0) {
+            console.log("Fizz");
+        } else if (i % 5 === 0) {
+            console.log("Buzz");
+        } else {
+            console.log(i);
+        }
+```
+</output>
+
+## Example 3
+<input>
 ```javascript
-function add({{TOKEN_START}}{{TOKEN_END}}) {
+function add({{TOKEN}}) {
   return a + b;
 }
 ```
 </input>
 
 <output>
-{{TOKEN_START}}a, b{{TOKEN_END}}
+```javascript
+a, b
+```
 </output>
 
-## Example 3
+## Example 4
 <input>
 ```lua
-{{TOKEN_START}}{{TOKEN_END}}
+{{TOKEN}}
 function say_hello(name)
   print("Hello " .. name)
 end
@@ -59,24 +87,28 @@ end
 </input>
 
 <output>
-{{TOKEN_START}}---Print "Hello <name>" to the console.
+```lua
+---Print "Hello <name>" to the console.
 ---@param name string
----@return nil{{TOKEN_END}}
+---@return nil
+```
 </output>
 
-## Example 4
+## Example 5
 <input>
 ```lua
 const firstName = "Karl"
-console.log(`Hello ${{{TOKEN_START}}{{TOKEN_END}}}`);
+console.log(`Hello ${{{TOKEN}}}`);
 ```
 </input>
 
 <output>
-{{TOKEN_START}}firstName{{TOKEN_END}}
+```lua
+firstName
+```
 </output>
 ]])
-  :gsub('{{(.-)}}', { TOKEN_START = TOKEN_START, TOKEN_END = TOKEN_END })
+  :gsub('{{(.-)}}', { TOKEN = TOKEN })
 
 local ns_id = vim.api.nvim_create_namespace('ai_completion')
 
@@ -101,7 +133,7 @@ function M.trigger_completion()
   local cursor_line = lines[row]
   local before = cursor_line:sub(1, col)
   local after = cursor_line:sub(col + 1)
-  lines[row] = before .. TOKEN_START .. TOKEN_END .. after
+  lines[row] = before .. TOKEN .. after
 
   table.insert(lines, 1, '```' .. lang)
   table.insert(lines, '```')
@@ -151,36 +183,18 @@ function M.trigger_completion()
           return
         end
         response_content = update.response or ''
-        -- Extract content between tokens
-        suggestion = string.match(
-          response_content,
-          TOKEN_START .. '(.-)' .. TOKEN_END
-        ) or ''
-        -- If <|END|> is not found, extract content to the end of the line
-        if suggestion == '' then
-          suggestion = string.match(response_content, TOKEN_START .. '(.-)\n')
-            or ''
-        end
-        if suggestion == '' then
-          suggestion = string.match(response_content, '(.-)' .. TOKEN_END) or ''
-        end
+        -- Remove code block if present
+        suggestion = require('ai.utils.treesitter').extract_code(
+          response_content
+        ) or response_content
+        suggestion = vim.trim(suggestion)
         render_ghost_text(suggestion or '...')
       end,
       on_exit = function()
         if cancelled then
           return
         end
-        if vim.trim(suggestion) == '' then
-          -- Remove code block if present
-          local fallback = require('ai.utils.treesitter').extract_code(
-            response_content
-          ) or response_content
-          -- Remove tokens if present
-          fallback = fallback:gsub(TOKEN_START, ''):gsub(TOKEN_END, '')
-          render_ghost_text(fallback)
-        else
-          render_ghost_text(suggestion)
-        end
+        render_ghost_text(suggestion)
       end,
     })
   end

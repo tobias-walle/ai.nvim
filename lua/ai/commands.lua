@@ -124,6 +124,18 @@ local function rewrite_with_instructions(definition, opts, instructions)
   )
 
   local new_end_line = start_line
+  local function render_response(code)
+    local code_lines = vim.split(code, '\n')
+    vim.api.nvim_buf_set_lines(
+      diff_bufnr,
+      start_line - 1,
+      new_end_line,
+      false,
+      code_lines
+    )
+    new_end_line = start_line - 1 + #code_lines
+  end
+  local code
   job = adapter:chat_stream({
     system_prompt = require('ai.prompts').system_prompt,
     messages = {
@@ -137,20 +149,14 @@ local function rewrite_with_instructions(definition, opts, instructions)
       if cancelled then
         return
       end
-      local code = vim.trim(
-        require('ai.utils.treesitter').extract_code(update.response) or ''
-      )
-      local code_lines = vim.split(code, '\n')
-      vim.api.nvim_buf_set_lines(
-        diff_bufnr,
-        start_line - 1,
-        new_end_line,
-        false,
-        code_lines
-      )
-      new_end_line = start_line - 1 + #code_lines
+
+      code = require('ai.utils.treesitter').extract_code(update.response) or ''
+      -- Remove trailing line break
+      code = code:gsub('\n$', '')
+      render_response(code .. ' ⏳')
     end,
     on_exit = function(data)
+      render_response(code)
       vim.notify(
         '[ai] Input Tokens: '
           .. data.input_tokens

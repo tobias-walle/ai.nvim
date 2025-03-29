@@ -24,8 +24,7 @@ local options = {
     ['anthropic-version'] = '2023-06-01',
     ['anthropic-beta'] = 'prompt-caching-2024-07-31',
   },
-  default_model = 'claude-3-5-sonnet-20241022',
-  -- default_model = 'claude-3-5-haiku-20241022',
+  default_model = 'claude-3-7-sonnet-latest',
   handlers = {
     create_request_body = function(request)
       local messages = {}

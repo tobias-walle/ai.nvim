@@ -120,6 +120,19 @@ function M.create_adapter_options(options)
           }
         end
       end,
+      get_error = function(response)
+        if
+          response
+          and response.choices
+          and response.choices[1]
+          and response.choices[1].finish_reason == 'error'
+        then
+          return 'Error from Model. Reason: '
+            .. (response.choices[1].native_finish_reason or '<unknown reason>')
+        else
+          return nil
+        end
+      end,
       get_delta = function(response)
         if not (response.choices and response.choices[1]) then
           return nil

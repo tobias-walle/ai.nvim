@@ -59,6 +59,7 @@ local requests = require('ai.utils.requests')
 ---@field is_done fun(response: any): boolean -- Return true if the response is completed
 ---@field get_tokens fun(response: any): { input: integer | nil, input_cached: integer | nil, output: integer | nil } | nil
 ---@field get_delta fun(response: any): AdapterDelta | nil -- Get the text from the response
+---@field get_error fun(response: any): string | nil -- Get an error from the response if it exists
 
 ---@class AdapterOptions
 ---@field name string
@@ -167,6 +168,12 @@ function Adapter:chat_stream(options)
       local data = self.handlers.parse_response(raw_response)
       if data == nil then
         return
+      end
+
+      -- Check and log error
+      local error = self.handlers.get_error and self.handlers.get_error(data)
+      if error ~= nil then
+        vim.notify(error, vim.log.levels.ERROR)
       end
 
       -- Check if done

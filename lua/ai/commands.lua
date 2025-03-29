@@ -135,7 +135,7 @@ local function rewrite_with_instructions(definition, opts, instructions)
     )
     new_end_line = start_line - 1 + #code_lines
   end
-  local code
+  local code = ''
   job = adapter:chat_stream({
     system_prompt = require('ai.prompts').system_prompt,
     messages = {

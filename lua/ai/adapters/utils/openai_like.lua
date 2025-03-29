@@ -121,13 +121,16 @@ function M.create_adapter_options(options)
         end
       end,
       get_error = function(response)
+        if response.error then
+          return 'Error: ' .. vim.inspect(response.error)
+        end
         if
           response
           and response.choices
           and response.choices[1]
           and response.choices[1].finish_reason == 'error'
         then
-          return 'Error from Model. Reason: '
+          return 'Error: '
             .. (response.choices[1].native_finish_reason or '<unknown reason>')
         else
           return nil

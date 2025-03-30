@@ -123,6 +123,33 @@ require('ai').setup({
 })
 ```
 
+## blink.cmp
+
+This plugin supports completing built-in tools and variables in the chat buffer using [blink.cmp](https://github.com/Saghen/blink.cmp).
+
+Please update your `blink.cmp` configuration to use our completion source.
+
+```lua
+return {
+  'saghen/blink.cmp',
+  opts = {
+    -- ...
+    sources = {
+      default = {
+        -- ...
+        'ai_chat',
+      },
+      providers = {
+        -- ...
+        ai_chat = { module = 'ai.cmp.chat' }
+      }
+    }
+  }
+}
+```
+
+See also [Chat](#chat).
+
 ## Features
 
 ### Autocompletion

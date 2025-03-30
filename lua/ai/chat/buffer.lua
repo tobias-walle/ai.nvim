@@ -44,9 +44,6 @@ function M.create()
     )
   end
 
-  -- Load cmp source if cmp is installed
-  require('ai.cmp').setup_buffer()
-
   return bufnr
 end
 

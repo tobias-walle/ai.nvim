@@ -125,56 +125,25 @@ URL: %s
       pandocResult.stdout
     )
   end,
-  cmp_source = function()
-    local S = {}
+  cmp_items = function(cmp_ctx, callback)
+    --- @type lsp.CompletionItem[]
+    local items = {}
 
-    local cmp = require('cmp')
+    local web_urls = load_web_urls_from_cache()
 
-    S.new = function()
-      return setmetatable({}, { __index = S })
+    -- Sort URLs by recency
+    table.sort(web_urls, function(a, b)
+      return a.lastUsed > b.lastUsed
+    end)
+
+    for _, entry in ipairs(web_urls) do
+      table.insert(items, {
+        label = '#web:`' .. entry.url .. '`',
+        kind = require('blink.cmp.types').CompletionItemKind.Variable,
+        documentation = 'URL: ' .. entry.url,
+      })
     end
 
-    function S:get_keyword_pattern()
-      return [[#web:\(\S*\)]]
-    end
-
-    function S:complete(request, callback)
-      local items = {}
-
-      local web_urls = load_web_urls_from_cache()
-
-      local keyword_pattern = self:get_keyword_pattern()
-      local line = request.context.cursor_line or ''
-      local search = vim.fn.matchlist(line, keyword_pattern)[2] or ''
-      local pattern = search:gsub('(.)', '%1.*')
-
-      web_urls = vim
-        .iter(web_urls)
-        :filter(function(entry)
-          return entry.url:match(pattern)
-        end)
-        :totable()
-
-      -- Sort URLs by recency
-      table.sort(web_urls, function(a, b)
-        return a.lastUsed > b.lastUsed
-      end)
-
-      for _, entry in ipairs(web_urls) do
-        table.insert(items, {
-          label = '#web:`' .. entry.url .. '`',
-          kind = cmp.lsp.CompletionItemKind.Text,
-          documentation = 'URL: ' .. entry.url,
-        })
-      end
-
-      callback({ items = items, isIncomplete = true })
-    end
-
-    function S:get_debug_name()
-      return 'ai-variable-web'
-    end
-
-    return S
+    callback(items)
   end,
 }

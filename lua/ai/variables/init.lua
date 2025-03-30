@@ -7,7 +7,7 @@ local Regex = require('ai.utils.regex')
 ---@field resolve fun(ctx: ChatContext, params: table): string
 ---@field min_params? integer
 ---@field max_params? integer
----@field cmp_source? fun(): table An optional cmp_source to provide autocompletion for this variable
+---@field cmp_items? fun(cmp_ctx: any, callback: fun(items: lsp.CompletionItem[])): nil Optional completions for the chat blink.cmp source
 
 ---@type VariableDefinition[]
 M.all = {

@@ -37,56 +37,33 @@ FILE: %s
       text
     )
   end,
-  cmp_source = function()
-    local S = {}
+  cmp_items = function(cmp_ctx, callback)
+    --- @type lsp.CompletionItem[]
+    local items = {}
+    local base_path = vim.fn.getcwd()
+    vim.system(
+      { 'fd', '--type', 'f', '--full-path', base_path },
+      {},
+      function(result)
+        local stdout = result.stdout or ''
+        local paths = {}
+        for _, line in ipairs(vim.split(stdout, '\n')) do
+          line = vim.trim(line)
+          if line ~= '' then
+            table.insert(paths, line)
+          end
+        end
 
-    local cmp = require('cmp')
+        for _, relative_path in ipairs(paths) do
+          table.insert(items, {
+            label = '#file:`' .. relative_path .. '`',
+            kind = require('blink.cmp.types').CompletionItemKind.File,
+            documentation = 'File: ' .. relative_path,
+          })
+        end
 
-    S.new = function()
-      return setmetatable({}, { __index = S })
-    end
-
-    function S:get_keyword_pattern()
-      return [[#file:\(\S\+\)]]
-    end
-
-    function S:complete(request, callback)
-      local keyword_pattern = self:get_keyword_pattern()
-      local items = {}
-      local base_path = vim.fn.getcwd()
-
-      local line = request.context.cursor_line or ''
-      local search = vim.fn.matchlist(line, keyword_pattern)[2] or ''
-
-      if search == '' then
-        return {}
+        callback(items)
       end
-
-      -- Add .* between each char of search
-      local pattern = search:gsub('(.)', '%1.*')
-      local paths = {}
-      local stdout = vim
-        .system({ 'fd', '--type', 'f', '--full-path', pattern, base_path })
-        :wait().stdout or ''
-      for _, line in ipairs(vim.split(stdout, '\n')) do
-        table.insert(paths, line:sub(#base_path + 2)) -- make relative
-      end
-
-      for _, relative_path in ipairs(paths) do
-        table.insert(items, {
-          label = '#file:`' .. relative_path .. '`',
-          kind = cmp.lsp.CompletionItemKind.File,
-          documentation = 'File: ' .. relative_path,
-        })
-      end
-
-      callback({ items = items, isIncomplete = true })
-    end
-
-    function S:get_debug_name()
-      return 'ai-variable-file'
-    end
-
-    return S
+    )
   end,
 }

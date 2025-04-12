@@ -7,7 +7,10 @@ function M.render(tool)
   local lines = {}
 
   -- Render tool header
-  table.insert(lines, string.format('#### Tool Call: %s (%s)', tool.tool, tool.id))
+  table.insert(
+    lines,
+    string.format('#### Tool Call: %s (%s)', tool.tool, tool.id)
+  )
 
   -- Render params or loading state
   if tool.params and next(tool.params) ~= nil then
@@ -79,13 +82,22 @@ function M.parse(content)
   local current_tool = nil
 
   for _, match, _ in query:iter_matches(parser:parse()[1]:root(), content) do
-    for id, node in pairs(match) do
-      local text = vim.treesitter.get_node_text(node, content)
+    for id, nodes in pairs(match) do
       local capture_name = query.captures[id]
+      if #nodes ~= 1 then
+        vim.notify(
+          'Error parsing tool call: expected 1 node for capture '
+            .. capture_name,
+          vim.log.levels.ERROR
+        )
+      end
+      local node = nodes[1]
+      local text = vim.treesitter.get_node_text(node, content)
 
       if capture_name == 'tool_header' then
         -- Extract tool name and id from header
-        local tool_name, tool_id = text:match('Tool Call: ([^%(]+)%s*%(([^%)]+)%)')
+        local tool_name, tool_id =
+          text:match('Tool Call: ([^%(]+)%s*%(([^%)]+)%)')
         if tool_name and tool_id then
           current_tool = {
             tool = vim.trim(tool_name),
@@ -128,8 +140,8 @@ function M.parse(content)
       end
     end
 
-    local start_row, _, _, _ = vim.treesitter.get_node_range(match[1])
-    local _, _, end_row, _ = vim.treesitter.get_node_range(match[#match])
+    local start_row, _, _, _ = vim.treesitter.get_node_range(match[1][1])
+    local _, _, end_row, _ = vim.treesitter.get_node_range(match[#match][1])
     for row = previous_row_end, start_row, 1 do
       local current_line_value = vim.trim(lines[row])
       local previous_line =

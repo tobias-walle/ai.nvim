@@ -167,14 +167,12 @@ function M.parse(bufnr)
         return vim.treesitter.get_node_text(c, source)
       end)
       :filter(function(v)
-        return v
+        return v and v ~= ''
       end)
       :join(delim or '')
   end
 
-  for _, matches, _ in
-    section_query:iter_matches(root, bufnr, 0, -1, { all = true })
-  do
+  for _, matches, _ in section_query:iter_matches(root, bufnr) do
     local role_matches = matches[1]
     local content_matches = matches[2] or {}
     local content = get_text(content_matches, bufnr, '\n\n')

@@ -310,9 +310,8 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
     local calls = {}
     local current_call = nil
 
-    for id, node, _, _ in
-      query:iter_captures(parser:parse()[1]:root(), message_content, 0, -1)
-    do
+    local tree = parser:parse()[1]
+    for id, node, metadata in query:iter_captures(tree:root(), message_content) do
       local capture_name = query.captures[id]
       local text = vim.treesitter.get_node_text(node, message_content)
 

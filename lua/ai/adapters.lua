@@ -224,7 +224,6 @@ function Adapter:chat_stream(options)
         end
       elseif delta.type == 'tool_call_end' then
         if active_tool_call then
-          active_tool_call.is_loading = false
           finalize_active_tool_call_if_present()
           active_tool_call = nil
         end

@@ -287,25 +287,19 @@ function M.parse_last_code_block(bufnr)
     return nil
   end
 
-  local parser = vim.treesitter.get_parser(bufnr, 'markdown')
-  local tree = parser:parse()[1]
-  local root = tree:root()
-
-  local code_block_query = vim.treesitter.query.parse(
+  local query = vim.treesitter.query.parse(
     'markdown',
     [[
     (fenced_code_block
       (info_string)
       (code_fence_content) @code)
-    ]]
+  ]]
   )
-
-  local last_code_block = nil
-  for _, captures, _ in code_block_query:iter_matches(root, bufnr, 0, -1) do
-    last_code_block = vim.treesitter.get_node_text(captures[1], bufnr)
+  local tree = vim.treesitter.get_parser(bufnr):parse()[1]
+  for id, node, metadata in query:iter_captures(tree:root(), 0) do
+    return vim.treesitter.get_node_text(node, bufnr)
   end
-
-  return last_code_block
+  return nil
 end
 
 return M

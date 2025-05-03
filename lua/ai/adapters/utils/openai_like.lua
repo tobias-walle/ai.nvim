@@ -29,6 +29,7 @@ end
 ---@params OpenAiLikeAdapterOptions options
 ---@return AdapterOptions
 function M.create_adapter_options(options)
+  ---@type AdapterOptions
   return {
     name = options.name,
     url = options.url,
@@ -88,6 +89,7 @@ function M.create_adapter_options(options)
             request.tools
           ) or nil,
           messages = messages,
+          prediction = request.prediction,
         }
       end,
       parse_response = function(chunk)
@@ -113,10 +115,16 @@ function M.create_adapter_options(options)
         if response.usage then
           return {
             input = response.usage.prompt_tokens or 0,
+            output = response.usage.completion_tokens or 0,
             input_cached = response.usage.prompt_tokens_details
                 and response.usage.prompt_tokens_details.cached_tokens
               or 0,
-            output = response.usage.completion_tokens or 0,
+            accepted_prediction_tokens = response.usage.completion_tokens_details
+                and response.usage.completion_tokens_details.accepted_prediction_tokens
+              or 0,
+            reasoning_tokens = response.usage.completion_tokens_details
+                and response.usage.completion_tokens_details.reasoning_tokens
+              or 0,
           }
         end
       end,

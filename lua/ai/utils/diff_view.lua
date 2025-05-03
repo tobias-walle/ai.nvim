@@ -11,7 +11,6 @@ function M.render_diff_view(opts)
   local config = require('ai.config').get()
   local bufnr = opts.bufnr
   local callback = opts.callback
-  local window_before_diff = vim.api.nvim_get_current_win()
 
   -- Create temporary
   local temp_bufnr = vim.api.nvim_create_buf(false, true)
@@ -42,8 +41,6 @@ function M.render_diff_view(opts)
       pcall(vim.api.nvim_win_close, win, true)
       pcall(vim.api.nvim_win_close, temp_win, true)
       pcall(vim.api.nvim_buf_delete, temp_bufnr, { force = true })
-      -- Navigate back to original window
-      vim.api.nvim_set_current_win(window_before_diff)
       if callback then
         callback(result)
       end

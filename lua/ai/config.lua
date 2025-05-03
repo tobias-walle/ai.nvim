@@ -194,6 +194,11 @@ function Config.get_command_adapter()
 end
 
 ---@return Adapter
+function Config.get_editor_adapter()
+  return Config.parse_model_string('default:mini')
+end
+
+---@return Adapter
 function Config.get_completion_adapter()
   local config = Config.get()
   return Config.parse_model_string(config.completion.model or 'default')

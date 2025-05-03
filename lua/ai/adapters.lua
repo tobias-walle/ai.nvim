@@ -27,12 +27,17 @@ local requests = require('ai.utils.requests')
 ---@field tool_calls? AdapterMessageToolCall[]
 ---@field tool_call_results? AdapterMessageToolCallResult[]
 
+---@class AdapterPrediction
+---@field type string
+---@field content string
+
 ---@class AdapterRequestOptions
 ---@field model string
 ---@field messages AdapterMessage[]
+---@field prediction AdapterPrediction
 ---@field system_prompt? string
 ---@field max_tokens? integer
----@field temperature? float
+---@field temperature? number
 ---@field tools? Tool[] List of tools that can be used by the model
 
 ---@class AdapterMessageDelta
@@ -53,11 +58,18 @@ local requests = require('ai.utils.requests')
 
 ---@alias AdapterDelta (AdapterMessageDelta | AdapterToolCallStart | AdapterToolCallDelta | AdapterToolCallEnd)
 
+---@class AdapterTokenInfo
+---@field input integer | nil
+---@field input_cached integer | nil
+---@field output integer | nil
+---@field accepted_prediction_tokens integer | nil
+---@field reasoning_tokens integer | nil
+
 ---@class AdapterHandlers
 ---@field create_request_body fun(request: AdapterRequestOptions): table -- Create the request body for the API
 ---@field parse_response fun(raw_response: string): any -- Parse the response so they can be used by the following function
 ---@field is_done fun(response: any): boolean -- Return true if the response is completed
----@field get_tokens fun(response: any): { input: integer | nil, input_cached: integer | nil, output: integer | nil } | nil
+---@field get_tokens fun(response: any): AdapterTokenInfo | nil
 ---@field get_delta fun(response: any): AdapterDelta | nil -- Get the text from the response
 ---@field get_error fun(response: any): string | nil -- Get an error from the response if it exists
 
@@ -93,23 +105,21 @@ end
 ---@field delta string
 ---@field response string
 ---@field tool_calls AdapterToolCall[]
----@field input_tokens integer
----@field output_tokens integer
+---@field tokens AdapterTokenInfo
 
 ---@class AdapterStreamExitData
 ---@field response string
 ---@field tool_calls AdapterToolCall[]
----@field input_tokens integer
----@field input_tokens_cached integer
----@field output_tokens integer
+---@field tokens AdapterTokenInfo
 ---@field exit_code integer
 ---@field cancelled boolean
 
 ---@class AdapterStreamOptions
 ---@field messages AdapterMessage[]
+---@field prediction? AdapterPrediction
 ---@field system_prompt? string
 ---@field max_tokens? integer
----@field temperature? float
+---@field temperature? number
 ---@field tools? Tool[] List of tools that can be used by the model
 ---@field on_update fun(update: AdapterStreamUpdate): nil
 ---@field on_exit? fun(data: AdapterStreamExitData): nil
@@ -147,9 +157,8 @@ function Adapter:chat_stream(options)
     active_tool_call = nil
   end
 
-  local input_tokens = 0
-  local input_tokens_cached = 0
-  local output_tokens = 0
+  --- @type AdapterTokenInfo
+  local tokens_total = {}
   local request_body = self.handlers.create_request_body({
     model = self.model,
     messages = options.messages,
@@ -157,6 +166,7 @@ function Adapter:chat_stream(options)
     max_tokens = options.max_tokens,
     temperature = options.temperature,
     tools = options.tools,
+    prediction = options.prediction,
   })
 
   local url = self.url:gsub('{{model}}', self.model)
@@ -185,9 +195,9 @@ function Adapter:chat_stream(options)
       -- Update tokens
       local tokens = self.handlers.get_tokens(data)
       if tokens then
-        input_tokens = input_tokens + (tokens.input or 0)
-        input_tokens_cached = input_tokens_cached + (tokens.input_cached or 0)
-        output_tokens = output_tokens + (tokens.output or 0)
+        for key, value in pairs(tokens) do
+          tokens_total[key] = (tokens_total[key] or 0) + (value or 0)
+        end
       end
 
       -- Get delta
@@ -231,9 +241,7 @@ function Adapter:chat_stream(options)
       options.on_update({
         response = response,
         delta = delta_content,
-        input_tokens = input_tokens,
-        input_tokens_cached = input_tokens_cached,
-        output_tokens = output_tokens,
+        tokens = tokens_total,
         tool_calls = tool_calls,
       })
     end,
@@ -243,9 +251,7 @@ function Adapter:chat_stream(options)
         options.on_exit({
           response = response,
           tool_calls = tool_calls,
-          input_tokens = input_tokens,
-          input_tokens_cached = input_tokens_cached,
-          output_tokens = output_tokens,
+          tokens = tokens_total,
           exit_code = exit_code,
           cancelled = cancelled,
         })

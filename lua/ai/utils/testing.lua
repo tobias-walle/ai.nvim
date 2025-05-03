@@ -20,6 +20,24 @@ function M.setup(child)
     end
   end
 
+  function U.before_each()
+    -- Patch vim.notify to get logs
+    child.lua([[
+      _G.logs = {}
+      local capture_log = function(...)
+        table.insert(_G.logs, {...})
+      end
+      vim.notify = capture_log
+      vim.print = capture_log
+      print = capture_log
+    ]])
+  end
+
+  ---@return string
+  function U.get_logs()
+    return vim.iter(child.lua_get('_G.logs')):map(vim.inspect):join('\n')
+  end
+
   ---@param bufnr integer|nil
   function U.buffer_content_normalized(bufnr)
     bufnr = bufnr or 0
@@ -89,6 +107,7 @@ function M.setup(child)
   end
 
   function U.post_case_log_debug_info()
+    MiniTest.add_note('\nLogs:\n' .. U.get_logs())
     if #MiniTest.current.case.exec.fails > 0 then
       local formatted_debug_info = U.get_formatted_debug_info()
       if formatted_debug_info then

@@ -14,6 +14,29 @@ function M.setup(config)
     require('ai.config').change_default_models()
   end, { nargs = 0 })
 
+  vim.api.nvim_create_user_command('AiEdit', function()
+    require('ai.agents.editor').apply_edits({
+      bufnr = vim.fn.bufnr('%'),
+      patch = [[
+// …
+    local mapped_tools = vim.iter(tools)
+    :map(function(tool)
+      return {
+        type = 'function',
+        ['function'] = {
+          name = tool.name,
+          description = tool.description,
+          parameters = tool.parameters,
+        },
+      }
+    end)
+    :totable()
+  return mapped_tools
+// …
+      ]],
+    })
+  end, { nargs = 0 })
+
   M.did_setup = true
 end
 

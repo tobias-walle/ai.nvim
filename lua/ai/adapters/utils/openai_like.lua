@@ -143,12 +143,12 @@ function M.create_adapter_options(options)
         local delta = response.choices[1].delta
 
         -- Handle regular message content
-        if delta.content then
+        if delta and delta.content then
           return { type = 'message', content = delta.content }
         end
 
         -- Handle function calls
-        if delta.tool_calls then
+        if delta and delta.tool_calls then
           for _, tool_call in ipairs(delta.tool_calls) do
             -- Start of tool call
             if

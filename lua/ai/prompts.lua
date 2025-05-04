@@ -106,4 +106,67 @@ M.prediction_editor = vim.trim([[
 ```
 ]])
 
+M.commands_selection = vim.trim([[
+<selection>
+{{filename}}[{{start_line}}-{{end_line}}]
+```{{language}}
+{{selection_content}}
+```
+</selection>
+]])
+
+M.commands_edit_file = vim.trim([[
+<file>
+```{{language}} {{filename}}
+{{content}}
+```
+</file>
+{{selection}}
+<instructions>
+{{intructions}}
+</instructions>
+
+- Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
+- Always wrap the response in a code block with the filename in the header.
+- Preserve leading whitespace
+- Only reply with the changed code. Use placeholder comments like `…` to hide unchanged code, but keep important sourrounding context like function signatures.
+- Keep your response as short as possible and avoid repeating code that doesn't need to change!
+- Avoid comments explaining your changes
+
+Example:
+```typescript src/updatedFile.ts
+// …
+export interface EventsApi {
+  // …
+  updateEvents(events: EventInput[]): Promise<void>;
+}
+// …
+function createEventsApi(client: Client): EventsApi {
+  // …
+  return {
+    // …
+    updateEvents: (events) => client.patch('events', { json: events }).json(),
+  };
+}
+// …
+```typescript
+
+]])
+
+M.commands_edit_selection = vim.trim([[
+<file>
+```{{language}} {{filename}}
+{{content}}
+```
+</file>
+{{selection}}
+<instructions>
+{{intructions}}
+</instructions>
+
+- Follow the <instructions> and respond with the code replacing ONLY the <selection> content in the code block!
+- Preserve leading whitespace
+- Avoid comments explaining your changes
+]])
+
 return M

@@ -37,8 +37,6 @@ function M.apply_edits(options, callback)
     end,
   })
 
-  -- Render original content in diff first
-  vim.api.nvim_buf_set_lines(diff_bufnr, 0, -1, false, content_lines)
   vim.api.nvim_buf_set_option(diff_bufnr, 'foldlevel', 0)
 
   local notify_options = {
@@ -59,7 +57,6 @@ function M.apply_edits(options, callback)
       vim.log.levels.INFO,
       notify_options
     )
-    vim.api.nvim_buf_set_option(diff_bufnr, 'foldlevel', 0)
   end
 
   job = adapter:chat_stream({

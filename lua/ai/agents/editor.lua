@@ -5,7 +5,7 @@ local string_utils = require('ai.utils.strings')
 ---@param options { bufnr: number, patch: string }
 ---@param callback? fun(): nil
 function M.apply_edits(options, callback)
-  local adapter = require('ai.config').get_editor_adapter()
+  local adapter = require('ai.config').parse_model_string('default:nano')
   vim.notify(
     '[ai] Trigger edit with ' .. adapter.name .. ':' .. adapter.model,
     vim.log.levels.INFO
@@ -17,34 +17,26 @@ function M.apply_edits(options, callback)
   local original_content = table.concat(content_lines, '\n')
   local language = vim.api.nvim_buf_get_option(bufnr, 'filetype')
 
-  local job
-  local start_time = vim.uv.hrtime()
-
-  local cancelled = false
-  local function cleanup()
-    cancelled = true
-    job:stop()
+  local function on_completion()
     if callback then
       callback()
     end
   end
 
-  local diff_bufnr = require('ai.utils.diff_view').render_diff_view({
-    bufnr = bufnr,
-    callback = function()
-      -- Cleanup after result was either rejected or accepted
-      cleanup()
-    end,
-  })
-
-  vim.api.nvim_buf_set_option(diff_bufnr, 'foldlevel', 0)
-
   local notify_options = {
     id = 'ai_edit',
     title = 'AI Editor',
   }
-  local function render_response(code, override)
-    -- Remove trailing line break
+
+  local diff_bufnr
+  local function render_response(update, override)
+    if not diff_bufnr then
+      vim.notify('Missing diff_bufnr', vim.log.levels.ERROR)
+      return
+    end
+
+    local code = require('ai.utils.treesitter').extract_code(update.response)
+      or ''
     code = code:gsub('\n$', '')
     local code_lines = vim.split(code, '\n')
     if override == true then
@@ -59,53 +51,22 @@ function M.apply_edits(options, callback)
     )
   end
 
-  job = adapter:chat_stream({
-    system_prompt = require('ai.prompts').system_prompt_editor,
-    messages = {
-      {
-        role = 'user',
-        content = string_utils.replace_placeholders(
-          require('ai.prompts').user_prompt_editor,
-          {
-            language = language,
-            original_content = original_content,
-            patch_content = patch,
-          }
-        ),
-      },
-    },
-    prediction = {
-      type = 'content',
-      content = string_utils.replace_placeholders(
-        require('ai.prompts').prediction_editor,
-        {
-          language = language,
-          original_content = original_content,
-        }
-      ),
-    },
-    temperature = 0,
-    on_update = function(update)
-      if cancelled then
-        return
-      end
-
-      local code = require('ai.utils.treesitter').extract_code(update.response)
-        or ''
-      render_response(code .. ' ⏳')
+  local chat = require('ai.utils.chat'):new({
+    adapter = adapter,
+    on_chat_start = function() end,
+    on_chat_update = function(update)
+      render_response(update, false)
     end,
-    on_exit = function(data)
-      local code = require('ai.utils.treesitter').extract_code(data.response)
-        or ''
-      render_response(code, true)
-      local elapsed_time = (vim.uv.hrtime() - start_time) / 1e9
+    on_chat_exit = function(data)
+      render_response(data, true)
+      local elapsed_time = (vim.uv.hrtime() - vim.uv.hrtime()) / 1e9
       vim.notify(
         '[ai] Input Tokens: '
-          .. data.tokens.input
+          .. (data.tokens and data.tokens.input or '')
           .. '; Output Tokens: '
-          .. data.tokens.output
+          .. (data.tokens and data.tokens.output or '')
           .. '; Prediction Tokens: '
-          .. data.tokens.accepted_prediction_tokens
+          .. (data.tokens and data.tokens.accepted_prediction_tokens or '')
           .. '; Time: '
           .. string.format('%.2f', elapsed_time)
           .. 's',
@@ -113,9 +74,59 @@ function M.apply_edits(options, callback)
         notify_options
       )
       vim.api.nvim_buf_set_option(diff_bufnr, 'foldlevel', 0)
-      cleanup()
+      on_completion()
     end,
   })
+
+  ---@param msg string
+  local function send(msg)
+    chat:send({
+      system_prompt = require('ai.prompts').system_prompt_editor,
+      messages = {
+        {
+          role = 'user',
+          content = msg,
+        },
+      },
+      prediction = {
+        type = 'content',
+        content = string_utils.replace_placeholders(
+          require('ai.prompts').prediction_editor,
+          {
+            language = language,
+            original_content = original_content,
+          }
+        ),
+      },
+      temperature = 0,
+    })
+  end
+
+  diff_bufnr = require('ai.utils.diff_view').render_diff_view({
+    bufnr = bufnr,
+    on_retry = function()
+      vim.ui.input({ prompt = 'Retry' }, function(retry_prompt)
+        if retry_prompt then
+          send('Try again! ' .. retry_prompt)
+        end
+      end)
+    end,
+    callback = function()
+      on_completion()
+    end,
+  })
+  vim.api.nvim_buf_set_option(diff_bufnr, 'foldlevel', 0)
+
+  send(
+    string_utils.replace_placeholders(
+      require('ai.prompts').user_prompt_editor,
+      {
+        language = language,
+        original_content = original_content,
+        patch_content = patch,
+      }
+    )
+  )
 end
 
 return M

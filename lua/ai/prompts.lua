@@ -38,11 +38,13 @@ Act as a very detail oriented text & code editor.
 You are getting a patch and the original code and are outputting the FULL code with changes applied.
 
 - ONLY apply the specified changes
-- Always output the FULL UPDATED FILE. Preserve everything, including import.
+- Replace ALL occurences of `… Unchanged …` with the original code. NEVER include `… Unchanged …` comments in your output.
+- Always output the FULL UPDATED FILE. DO NOT remove anything if not otherwise specified!
+- ALWAYS REPLACE ALL `… Unchanged …` comments with the original code!
 
 --- EXAMPLE ---
 # User
-## ORIGINAL
+<original>
 ```typescript
 export type EnterEventHandler = (event: KeyboardEvent) => void;
 
@@ -57,22 +59,30 @@ export function whenEnter(
   };
 }
 ```
+</original>
 
-## PATCH
+<patch>
 ```typescript
+// … Unchanged …
 export type OnEnter = (event: KeyboardEvent) => void;
-// …
+
 export function whenEnter(
   event: KeyboardEvent,
   onEnter: EnterEventHandler,
 ): OnEnter {
-// …
+  // … Unchanged …
       onEnter(event);
-// …
-```
+  // … Unchanged …
+}
 
-# Assitant (You)
+// … Unchanged …
+```
+<patch>
+
+# Assistant
 ```typescript
+import { KeyboardEvent } from 'events';
+
 export type OnEnter = (event: KeyboardEvent) => void;
 
 export function whenEnter(
@@ -85,19 +95,32 @@ export function whenEnter(
     }
   };
 }
+
+export function whenLeave(
+  event: KeyboardEvent,
+  onLeave: OnEnter,
+): OnEnter {
+  return (event) => {
+    if (event.key === 'Leave') {
+      onLeave(event);
+    }
+  };
+}
 ```
 ]])
 
 M.user_prompt_editor = vim.trim([[
-## ORIGINAL
+<original>
 ```{{language}}
 {{original_content}}
 ```
+</original>
 
-## PATCH
+<patch>
 ```{{language}}
 {{patch_content}}
 ```
+</patch>
 ]])
 
 M.prediction_editor = vim.trim([[
@@ -126,31 +149,34 @@ M.commands_edit_file = vim.trim([[
 {{intructions}}
 </instructions>
 
+{{custom_rules}}
+
 - Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
+- If a selection is provided, focus your changes on the selection, but still do related changed outside of it, like updating references.
 - Always wrap the response in a code block with the filename in the header.
 - Preserve leading whitespace
-- Only reply with the changed code. Use placeholder comments like `…` to hide unchanged code, but keep important sourrounding context like function signatures.
+- Only reply with the changed code.  Use the placeholder comments `… Unchanged …` to hide unchanged code, but keep important sourrounding context like function signatures.
 - Keep your response as short as possible and avoid repeating code that doesn't need to change!
-- Avoid comments explaining your changes
+- Before outputting the code, shortly explain your changes.
+- ONLY EDIT THE CURRENT FILE. You cannot create new files.
 
 Example:
-```typescript src/updatedFile.ts
-// …
+```typescript src/events.ts
+// … Unchanged …
 export interface EventsApi {
-  // …
+  // … Unchanged …
   updateEvents(events: EventInput[]): Promise<void>;
 }
-// …
+
 function createEventsApi(client: Client): EventsApi {
-  // …
+  // … Unchanged …
   return {
-    // …
+    // … Unchanged …
     updateEvents: (events) => client.patch('events', { json: events }).json(),
   };
 }
-// …
+// … Unchanged …
 ```typescript
-
 ]])
 
 M.commands_edit_selection = vim.trim([[
@@ -163,6 +189,8 @@ M.commands_edit_selection = vim.trim([[
 <instructions>
 {{intructions}}
 </instructions>
+
+{{custom_rules}}
 
 - Follow the <instructions> and respond with the code replacing ONLY the <selection> content in the code block!
 - Preserve leading whitespace

@@ -64,16 +64,22 @@ require('ai').setup({
   -- The "mini" model is used for tasks which might use a lot of tokens or in which speed is especially important.
   -- You can customize which model should be used for which task in the "chat", "command" or "completion" settings.
   default_models = {
-    default = 'anthropic:claude-3-5-sonnet-20241022',
-    mini = 'anthropic:claude-3-5-haiku-20241022',
+    default = 'anthropic:claude-3-5-sonnet-latest',
+    mini = 'anthropic:claude-3-5-haiku-latest',
+    nano = 'openai:gpt-4.1-nano',
   },
   -- A list of model that can be easily switched between (using :AiChangeModels)
   selectable_models = {
     {
-      default = 'anthropic:claude-3-5-sonnet-20241022',
-      mini = 'anthropic:claude-3-5-haiku-20241022',
+      default = 'anthropic:claude-3-5-sonnet-latest',
+      mini = 'anthropic:claude-3-5-haiku-latest',
+      nano = 'openai:gpt-4.1-nano',
     },
-    { default = 'openai:gpt-4o', mini = 'openai:gpt-4o-mini' },
+    {
+      default = 'openai:gpt-4.1',
+      mini = 'openai:gpt-4.1-mini',
+      nano = 'openai:gpt-4.1-nano',
+    },
   },
   -- You can add custom adapters if you are missing a LLM provider.
   adapters = {
@@ -92,11 +98,11 @@ require('ai').setup({
     model = 'default',
   },
   completion = {
-    model = 'default:mini',
+    model = 'default',
   },
-  -- ai.nvim is looking for a context file at the root of your project and will load it into each prompt.
+  -- ai.nvim is looking for a rules file at the root of your project and will load it into each prompt.
   -- You can use it to define the code style or other information that could be improving the output of the tasks.
-  context_file = '.ai-context.md',
+  rules_file = '.ai-rules.md',
   -- The data dir is used to save cached data (like the chat history)
   data_dir = vim.fn.stdpath('data') .. '/ai',
   -- Override the keymaps used by the plugin
@@ -115,9 +121,10 @@ require('ai').setup({
       delete_previous_msg = '<LocalLeader>d',
       copy_last_code_block = '<LocalLeader>y',
     },
-    diff = {
+    buffers = {
       accept_suggestion = '<LocalLeader>a',
-      reject_suggestion = '<LocalLeader>r',
+      cancel = '<LocalLeader>q',
+      retry = '<LocalLeader>r',
     },
   },
 })

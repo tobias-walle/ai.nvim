@@ -121,7 +121,7 @@ end
 ---@field max_tokens? integer
 ---@field temperature? number
 ---@field tools? Tool[] List of tools that can be used by the model
----@field on_update fun(update: AdapterStreamUpdate): nil
+---@field on_update? fun(update: AdapterStreamUpdate): nil
 ---@field on_exit? fun(data: AdapterStreamExitData): nil
 --- @field on_error (fun(error: string): nil)?
 
@@ -238,15 +238,25 @@ function Adapter:chat_stream(options)
           active_tool_call = nil
         end
       end
-      options.on_update({
-        response = response,
-        delta = delta_content,
-        tokens = tokens_total,
-        tool_calls = tool_calls,
-      })
+      if options.on_update then
+        options.on_update({
+          response = response,
+          delta = delta_content,
+          tokens = tokens_total,
+          tool_calls = tool_calls,
+        })
+      end
     end,
     on_error = options.on_error,
     on_exit = function(exit_code, cancelled)
+      if options.on_update then
+        options.on_update({
+          response = response,
+          delta = '',
+          tokens = tokens_total,
+          tool_calls = tool_calls,
+        })
+      end
       if options.on_exit then
         options.on_exit({
           response = response,

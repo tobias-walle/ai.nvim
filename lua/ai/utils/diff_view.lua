@@ -3,6 +3,7 @@ local M = {}
 ---@class AiRenderDiffViewOptions
 ---@field bufnr integer File to modify
 ---@field callback? fun(result: "ACCEPTED" | "REJECTED") A function to be executed after the diff view is closed.
+---@field on_retry? fun() It defined, allow the user to retry
 
 ---Renders a diff view for comparing two buffers.
 ---@param opts AiRenderDiffViewOptions
@@ -63,7 +64,7 @@ function M.render_diff_view(opts)
   local keymap_opts = { buffer = true, silent = true }
 
   -- Accept changes
-  vim.keymap.set('n', config.mappings.diff.accept_suggestion, function()
+  vim.keymap.set('n', config.mappings.buffers.accept_suggestion, function()
     local lines = vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     vim.api.nvim_buf_call(bufnr, function()
@@ -78,8 +79,18 @@ function M.render_diff_view(opts)
   end, keymap_opts)
 
   -- Reject changes
-  vim.keymap.set('n', config.mappings.diff.reject_suggestion, function()
+  vim.keymap.set('n', config.mappings.buffers.cancel, function()
     close_tab('REJECTED')
+  end, keymap_opts)
+
+  -- Retry (if defined)
+  vim.keymap.set('n', config.mappings.buffers.retry, function()
+    if opts.on_retry then
+      vim.notify('Retry', vim.log.levels.INFO)
+      opts.on_retry()
+    else
+      vim.notify('No retry defined', vim.log.levels.INFO)
+    end
   end, keymap_opts)
 
   return temp_bufnr

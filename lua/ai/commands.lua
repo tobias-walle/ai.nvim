@@ -32,6 +32,7 @@ local function execute_ai_command(definition, opts, instructions)
   local selection_content =
     table.concat(vim.list_slice(lines, start_line, end_line), '\n')
   local placeholders = {
+    custom_rules = require('ai.utils.rules').load_custom_rules() or '',
     filename = filename,
     content = content,
     selection_content = selection_content,

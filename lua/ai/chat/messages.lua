@@ -6,18 +6,15 @@ local Tools = require('ai.tools')
 ---@param buffer ParsedChatBuffer
 ---@return AdapterMessage[]
 function M.create_messages(ctx, buffer)
-  local config = require('ai.config').get()
-
   ---@type AdapterMessage[]
   local context_messages = {}
 
-  if vim.fn.filereadable(config.context_file) == 1 then
-    local project_context_lines = vim.fn.readfile(config.context_file)
-    local project_context = table.concat(project_context_lines, '\n')
+  local custom_rules = require('ai.utils.rules').load_custom_rules()
+  if custom_rules then
     table.insert(context_messages, {
       role = 'user',
-      content = 'Please consider the following project context instructions, defined by the developers:\n\n'
-        .. project_context,
+      content = 'Please consider the following project rules instructions, defined by the developers:\n\n'
+        .. custom_rules,
     })
   end
 

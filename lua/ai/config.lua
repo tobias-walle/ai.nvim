@@ -14,16 +14,17 @@ local Config = {}
 ---@field delete_previous_msg? string
 ---@field copy_last_code_block? string
 
----@class AiKeyMapDiff
+---@class AiKeyMapBuffers
 ---@field accept_suggestion? string
----@field reject_suggestion? string
+---@field cancel? string
+---@field retry? string
 
 ---@class AiKeyMap
 ---@field completion? AiKeyMapCompletion
 ---@field chat? AiKeyMapChat
----@field diff? AiKeyMapDiff
+---@field buffers? AiKeyMapBuffers
 
----@alias ModelMapping table<'default' | 'mini' | string, ModelString>
+---@alias ModelMapping table<'default' | 'mini' | 'nano' | string, ModelString>
 
 ---@class AiConfig
 ---@field default_models? ModelMapping The default models to use in the format [adapter]:[model] e.g., openai:gpt-4
@@ -31,7 +32,7 @@ local Config = {}
 ---@field adapters? table<string, AdapterOptions>
 ---@field data_dir? string Folder in which chats and other data is stored
 ---@field mappings? AiKeyMap Key mappings
----@field context_file? string Name of an optional file relative to the opened projects to define custom context for the LLM.
+---@field rules_file? string Name of an optional file relative to the opened projects to define custom rules for the LLM.
 ---@field chat? AiChatConfig
 ---@field command? AiCommandConfig
 ---@field completion? AiCommandConfig
@@ -53,16 +54,22 @@ Config.default_config = {
   -- The "mini" model is used for tasks which might use a lot of tokens or in which speed is especially important.
   -- You can customize which model should be used for which task in the "chat", "command" or "completion" settings.
   default_models = {
-    default = 'anthropic:claude-3-5-sonnet-20241022',
-    mini = 'anthropic:claude-3-5-haiku-20241022',
+    default = 'anthropic:claude-3-5-sonnet-latest',
+    mini = 'anthropic:claude-3-5-haiku-latest',
+    nano = 'openai:gpt-4.1-nano',
   },
   -- A list of model that can be easily switched between (using :AiChangeModels)
   selectable_models = {
     {
-      default = 'anthropic:claude-3-5-sonnet-20241022',
-      mini = 'anthropic:claude-3-5-haiku-20241022',
+      default = 'anthropic:claude-3-5-sonnet-latest',
+      mini = 'anthropic:claude-3-5-haiku-latest',
+      nano = 'openai:gpt-4.1-nano',
     },
-    { default = 'openai:gpt-4o', mini = 'openai:gpt-4o-mini' },
+    {
+      default = 'openai:gpt-4.1',
+      mini = 'openai:gpt-4.1-mini',
+      nano = 'openai:gpt-4.1-nano',
+    },
   },
   -- You can add custom adapters if you are missing a LLM provider.
   adapters = {
@@ -81,11 +88,11 @@ Config.default_config = {
     model = 'default',
   },
   completion = {
-    model = 'default:mini',
+    model = 'default',
   },
-  -- ai.nvim is looking for a context file at the root of your project and will load it into each prompt.
+  -- ai.nvim is looking for a rules file at the root of your project and will load it into each prompt.
   -- You can use it to define the code style or other information that could be improving the output of the tasks.
-  context_file = '.ai-context.md',
+  rules_file = '.ai-rules.md',
   -- The data dir is used to save cached data (like the chat history)
   data_dir = vim.fn.stdpath('data') .. '/ai',
   -- Override the keymaps used by the plugin
@@ -104,9 +111,10 @@ Config.default_config = {
       delete_previous_msg = '<LocalLeader>d',
       copy_last_code_block = '<LocalLeader>y',
     },
-    diff = {
+    buffers = {
       accept_suggestion = '<LocalLeader>a',
-      reject_suggestion = '<LocalLeader>r',
+      cancel = '<LocalLeader>q',
+      retry = '<LocalLeader>r',
     },
   },
 }
@@ -191,11 +199,6 @@ end
 function Config.get_command_adapter()
   local config = Config.get()
   return Config.parse_model_string(config.command.model or 'default')
-end
-
----@return Adapter
-function Config.get_editor_adapter()
-  return Config.parse_model_string('default:mini')
 end
 
 ---@return Adapter

@@ -2,9 +2,11 @@
 local M = {}
 
 local string_utils = require('ai.utils.strings')
+local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 
 ---@class CommandDefinition
 ---@field name string
+---@field input_prompt? string
 ---@field instructions? string
 ---@field only_replace_selection? boolean
 
@@ -84,9 +86,12 @@ local function create_command(definition)
     elseif opts.args and opts.args ~= '' then
       return execute_ai_command(definition, opts, opts.args)
     else
-      vim.ui.input({ prompt = 'Instructions' }, function(instructions)
-        execute_ai_command(definition, opts, instructions)
-      end)
+      open_prompt_input(
+        { prompt = definition.input_prompt or definition.name },
+        function(instructions)
+          execute_ai_command(definition, opts, instructions)
+        end
+      )
     end
   end
 
@@ -100,23 +105,28 @@ end
 function M.setup()
   create_command({
     name = 'Rewrite',
+    input_prompt = 'AI Rewrite',
   })
   create_command({
     name = 'RewriteSelection',
+    input_prompt = 'AI Rewrite Selection',
     only_replace_selection = true,
   })
   create_command({
     name = 'SpellCheck',
+    input_prompt = 'AI Spell Check',
     instructions = 'Fix all grammar and spelling errors without changing the meaning of the text.',
     only_replace_selection = true,
   })
   create_command({
     name = 'Translate',
+    input_prompt = 'AI Translate',
     instructions = 'Translate all foreign words to english.',
     only_replace_selection = true,
   })
   create_command({
     name = 'Fix',
+    input_prompt = 'AI Fix',
     instructions = 'Fix any bugs you find. Add a comment above the fixes, explaining your reasoning.',
     only_replace_selection = true,
   })

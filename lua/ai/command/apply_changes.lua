@@ -1,5 +1,7 @@
 local M = {}
 
+local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
+
 ---@class ApplyChangesStrategyOptions
 ---@field bufnr number
 ---@field prompt string
@@ -53,7 +55,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
       chat:cancel()
     end,
     on_retry = function()
-      vim.ui.input({ prompt = 'Retry' }, function(retry_prompt)
+      open_prompt_input({ prompt = 'Retry' }, function(retry_prompt)
         if retry_prompt then
           send('Try again! ' .. retry_prompt)
         end
@@ -149,7 +151,7 @@ function M.apply_changes_with_replace_selection_strategy(options)
       chat:cancel()
     end,
     on_retry = function()
-      vim.ui.input({ prompt = 'Retry' }, function(retry_prompt)
+      open_prompt_input({ prompt = 'Retry' }, function(retry_prompt)
         if retry_prompt then
           send('Try again! ' .. retry_prompt)
         end

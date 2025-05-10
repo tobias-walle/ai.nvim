@@ -1,5 +1,9 @@
 local M = {}
 
+M.history = {
+  'test',
+}
+
 ---@class PromptInputOptions
 ---@field prompt string
 
@@ -11,6 +15,10 @@ function M.open_prompt_input(opts, callback)
   vim.api.nvim_set_option_value('filetype', 'markdown', { buf = bufnr })
 
   local maximize = false
+
+  -- History navigation state
+  local history_index = nil
+  local original_lines = nil
 
   --- @return vim.api.keyset.win_config
   local function get_win_options()
@@ -54,13 +62,51 @@ function M.open_prompt_input(opts, callback)
   local function confirm()
     vim.api.nvim_win_close(win, true)
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
-    callback(table.concat(lines, '\n'))
+    local prompt = table.concat(lines, '\n')
+    table.insert(M.history, prompt)
+    callback(prompt)
   end
 
   local keymap_opts = { buffer = bufnr, silent = true }
   vim.keymap.set('n', '<ESC>', cancel, keymap_opts)
   vim.keymap.set('n', '<CR>', confirm, keymap_opts)
+  vim.keymap.set('i', '<S-CR>', confirm, keymap_opts)
   vim.keymap.set('n', ',m', toggle_maximize, keymap_opts)
+
+  local function set_buffer_lines(lines)
+    local split_lines = vim.split(lines, '\n')
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, split_lines)
+    local last_line = #split_lines
+    local last_col = #split_lines[#split_lines] or 0
+    vim.api.nvim_win_set_cursor(win, { last_line, last_col })
+  end
+
+  local function history_up()
+    if #M.history == 0 then
+      return
+    end
+    if history_index == nil then
+      original_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
+      history_index = #M.history
+    elseif history_index > 1 then
+      history_index = history_index - 1
+    end
+    set_buffer_lines(M.history[history_index])
+  end
+
+  local function history_down()
+    if history_index ~= nil and history_index < #M.history then
+      history_index = history_index + 1
+      set_buffer_lines(M.history[history_index])
+    else
+      -- Restore original input
+      vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, original_lines or { '' })
+      history_index = nil
+    end
+  end
+
+  vim.keymap.set({ 'n', 'i' }, '<Up>', history_up, keymap_opts)
+  vim.keymap.set({ 'n', 'i' }, '<Down>', history_down, keymap_opts)
 end
 
 return M

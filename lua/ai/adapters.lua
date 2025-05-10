@@ -128,6 +128,7 @@ end
 ---@param options AdapterStreamOptions
 ---@return Job
 function Adapter:chat_stream(options)
+  local config = require('ai.config').get()
   local is_done = false
   local response = ''
   ---@type AdapterToolCall[]
@@ -168,11 +169,21 @@ function Adapter:chat_stream(options)
     tools = options.tools,
     prediction = options.prediction,
   })
+  local headers = self.headers
+
+  local adapter_model_string = self.name .. ':' .. self.model
+  for pattern, overrides in pairs(config.model_overrides or {}) do
+    if adapter_model_string:match(pattern) then
+      request_body =
+        vim.tbl_extend('force', {}, request_body, overrides.request or {})
+      headers = vim.tbl_extend('force', {}, headers, overrides.headers or {})
+    end
+  end
 
   local url = self.url:gsub('{{model}}', self.model)
   return requests.stream({
     url = url,
-    headers = self.headers,
+    headers = headers,
     json_body = request_body,
     on_data = function(raw_response)
       local data = self.handlers.parse_response(raw_response)

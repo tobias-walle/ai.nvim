@@ -1,8 +1,10 @@
 local M = {}
 
 local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
+local ThinkingAnimation = require('ai.utils.thinking_animation')
 
 ---@class ApplyChangesStrategyOptions
+---@field adapter Adapter
 ---@field bufnr number
 ---@field prompt string
 ---@field start_line number
@@ -10,7 +12,9 @@ local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 
 ---@param options ApplyChangesStrategyOptions
 function M.apply_changes_with_fast_edit_strategy(options)
-  local adapter = require('ai.config').get_command_adapter()
+  local adapter = options.adapter
+  local adapter_thinking =
+    require('ai.config').parse_model_string('default:thinking')
 
   local bufnr = options.bufnr
   local prompt = options.prompt
@@ -18,6 +22,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
   ---@type ResponsePreviewResult
   local preview_popup
 
+  local thinking_animation
   local chat = require('ai.utils.chat'):new({
     adapter = adapter,
     on_chat_start = function()
@@ -25,18 +30,31 @@ function M.apply_changes_with_fast_edit_strategy(options)
         preview_popup ~= nil,
         'preview_popup must be initialized before chat starts'
       )
-      -- Reset view
-      vim.api.nvim_buf_set_lines(preview_popup.bufnr, 0, -1, false, {})
+      -- Reset view with animation
+      if thinking_animation then
+        thinking_animation:stop()
+      end
+      thinking_animation = ThinkingAnimation:new(preview_popup.bufnr)
+      thinking_animation:start()
     end,
     on_chat_update = function(update)
+      if thinking_animation then
+        thinking_animation:stop()
+        thinking_animation = nil
+      end
       local code_lines = vim.split(update.response, '\n')
       vim.api.nvim_buf_set_lines(preview_popup.bufnr, 0, -1, false, code_lines)
+      local last_row = #code_lines
+      local last_col = #code_lines > 0 and #code_lines[last_row] or 0
+      vim.api.nvim_win_set_cursor(0, { last_row, last_col })
     end,
   })
 
   ---@param msg string
-  local function send(msg)
+  ---@param override_adapter? Adapter
+  local function send(msg, override_adapter)
     chat:send({
+      adapter = override_adapter,
       system_prompt = require('ai.prompts').system_prompt,
       temperature = 0.1,
       messages = {
@@ -55,9 +73,15 @@ function M.apply_changes_with_fast_edit_strategy(options)
       chat:cancel()
     end,
     on_retry = function()
-      open_prompt_input({ prompt = 'Retry' }, function(retry_prompt)
+      open_prompt_input({
+        prompt = 'Retry',
+        enable_thinking_option = true,
+      }, function(retry_prompt, flags)
         if retry_prompt then
-          send(retry_prompt == '' and 'Try again!' or retry_prompt)
+          send(
+            retry_prompt == '' and 'Try again!' or retry_prompt,
+            flags.model == 'thinking' and adapter_thinking or nil
+          )
         end
       end)
     end,
@@ -76,7 +100,7 @@ end
 
 ---@param options ApplyChangesStrategyOptions
 function M.apply_changes_with_replace_selection_strategy(options)
-  local adapter = require('ai.config').get_command_adapter()
+  local adapter = options.adapter
 
   local bufnr = options.bufnr
   local prompt = options.prompt

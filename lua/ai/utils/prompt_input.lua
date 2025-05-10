@@ -2,9 +2,13 @@ local M = {}
 
 ---@class PromptInputOptions
 ---@field prompt string
+---@field enable_thinking_option? boolean
+
+---@class PromptInputFlags
+---@field model? 'default' | 'thinking'
 
 ---@param opts PromptInputOptions
----@param callback fun(input: string)
+---@param callback fun(input: string, flags: PromptInputFlags)
 ---@return nil
 function M.open_prompt_input(opts, callback)
   M.load_history()
@@ -18,6 +22,9 @@ function M.open_prompt_input(opts, callback)
   local history_index = nil
   local original_lines = nil
 
+  ---@type PromptInputFlags
+  local flags = { model = nil }
+
   --- @return vim.api.keyset.win_config
   local function get_win_options()
     local screen_width = vim.o.columns
@@ -26,6 +33,9 @@ function M.open_prompt_input(opts, callback)
     local width = maximize and screen_width - 6 or 50
     local height = maximize and screen_height - 6 - win_row or 10
     local win_col = math.floor((screen_width - width) / 2)
+    local get_footer_highlight = function(model)
+      return model == (flags.model or 'default') and 'Special' or nil
+    end
     return {
       relative = 'editor',
       width = width,
@@ -38,6 +48,12 @@ function M.open_prompt_input(opts, callback)
       border = 'rounded',
       focusable = true,
       zindex = 100,
+      footer = opts.enable_thinking_option and {
+        { 'default', get_footer_highlight('default') },
+        { ' | ' },
+        { 'thinking', get_footer_highlight('thinking') },
+      } or nil,
+      footer_pos = opts.enable_thinking_option and 'center' or nil,
     }
   end
 
@@ -46,6 +62,15 @@ function M.open_prompt_input(opts, callback)
 
   local function refresh_options()
     vim.api.nvim_win_set_config(win, get_win_options())
+  end
+
+  local function cycle_model()
+    if flags.model == nil or flags.model == 'default' then
+      flags.model = 'thinking'
+    else
+      flags.model = 'default'
+    end
+    refresh_options()
   end
 
   local function toggle_maximize()
@@ -63,14 +88,18 @@ function M.open_prompt_input(opts, callback)
     local prompt = table.concat(lines, '\n')
     table.insert(M.history, prompt)
     M.save_history()
-    callback(prompt)
+    callback(prompt, flags)
   end
 
   local keymap_opts = { buffer = bufnr, silent = true }
   vim.keymap.set('n', '<ESC>', cancel, keymap_opts)
   vim.keymap.set('n', '<CR>', confirm, keymap_opts)
-  vim.keymap.set('i', '<S-CR>', confirm, keymap_opts)
-  vim.keymap.set('n', ',m', toggle_maximize, keymap_opts)
+  vim.keymap.set({ 'n', 'i' }, '<S-CR>', confirm, keymap_opts)
+  vim.keymap.set('n', '<localleader>m', toggle_maximize, keymap_opts)
+
+  if opts.enable_thinking_option then
+    vim.keymap.set('n', '<tab>', cycle_model, keymap_opts)
+  end
 
   local function set_buffer_lines(lines)
     local split_lines = vim.split(lines, '\n')

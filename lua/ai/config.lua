@@ -24,11 +24,16 @@ local Config = {}
 ---@field chat? AiKeyMapChat
 ---@field buffers? AiKeyMapBuffers
 
----@alias ModelMapping table<'default' | 'mini' | 'nano' | string, ModelString>
+---@alias ModelMapping table<'default' | 'mini' | 'nano' | 'thinking' | string, ModelString>
+
+---@class AiModelOverrideOptions
+---@field request? table
+---@field headers? table
 
 ---@class AiConfig
 ---@field default_models? ModelMapping The default models to use in the format [adapter]:[model] e.g., openai:gpt-4
 ---@field selectable_models? ModelMapping[] Models that can be selected from via change_default_models
+---@field model_overrides? table<string, AiModelOverrideOptions> Override request options for specific model lua patterns
 ---@field adapters? table<string, AdapterOptions>
 ---@field data_dir? string Folder in which chats and other data is stored
 ---@field mappings? AiKeyMap Key mappings
@@ -54,21 +59,32 @@ Config.default_config = {
   -- The "mini" model is used for tasks which might use a lot of tokens or in which speed is especially important.
   -- You can customize which model should be used for which task in the "chat", "command" or "completion" settings.
   default_models = {
-    default = 'anthropic:claude-3-5-sonnet-latest',
+    default = 'anthropic:claude-3-7-sonnet-latest',
     mini = 'anthropic:claude-3-5-haiku-latest',
     nano = 'openai:gpt-4.1-nano',
+    thinking = 'openai:o4-mini',
   },
   -- A list of model that can be easily switched between (using :AiChangeModels)
   selectable_models = {
     {
-      default = 'anthropic:claude-3-5-sonnet-latest',
+      default = 'anthropic:claude-3-7-sonnet-latest',
       mini = 'anthropic:claude-3-5-haiku-latest',
       nano = 'openai:gpt-4.1-nano',
+      thinking = 'openai:o4-mini',
     },
     {
       default = 'openai:gpt-4.1',
       mini = 'openai:gpt-4.1-mini',
       nano = 'openai:gpt-4.1-nano',
+      thinking = 'openai:o4-mini',
+    },
+  },
+  -- Special request options for specific models
+  model_overrides = {
+    ['.*:o4%-mini'] = {
+      request = {
+        temperature = 1,
+      },
     },
   },
   -- You can add custom adapters if you are missing a LLM provider.
@@ -82,9 +98,6 @@ Config.default_config = {
   -- Customize which model is used for which task
   -- You can pass the model name directly (like "openai:gpt-4o") or refer to one of the default models.
   chat = {
-    model = 'default',
-  },
-  command = {
     model = 'default',
   },
   completion = {
@@ -193,12 +206,6 @@ end
 function Config.get_chat_adapter()
   local config = Config.get()
   return Config.parse_model_string(config.chat.model or 'default')
-end
-
----@return Adapter
-function Config.get_command_adapter()
-  local config = Config.get()
-  return Config.parse_model_string(config.command.model or 'default')
 end
 
 ---@return Adapter

@@ -264,7 +264,7 @@ function M.search_chats(opts, callback)
       }),
       sorter = conf.generic_sorter(opts),
       previewer = previewer,
-      attach_mappings = function(prompt_bufnr, map)
+      attach_mappings = function(prompt_bufnr)
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           M.save_state({ current_chat_file = selection.filename })

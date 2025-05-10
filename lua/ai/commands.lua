@@ -9,6 +9,7 @@ local get_diagnostics = require('ai.utils.diagnostics').get_diagnostics
 ---@field name string
 ---@field input_prompt? string
 ---@field instructions? string
+---@field model? string
 ---@field only_replace_selection? boolean
 
 ---@param definition CommandDefinition
@@ -59,6 +60,8 @@ local function execute_ai_command(definition, opts, instructions)
   end
   placeholders.selection = selection
 
+  local adapter =
+    require('ai.config').parse_model_string(definition.model or 'default')
   if definition.only_replace_selection then
     local prompt = string_utils.replace_placeholders(
       require('ai.prompts').commands_edit_selection,
@@ -69,6 +72,7 @@ local function execute_ai_command(definition, opts, instructions)
       prompt = prompt,
       start_line = start_line,
       end_line = end_line,
+      adapter = adapter,
     })
   else
     local prompt = string_utils.replace_placeholders(
@@ -80,6 +84,7 @@ local function execute_ai_command(definition, opts, instructions)
       prompt = prompt,
       start_line = start_line,
       end_line = end_line,
+      adapter = adapter,
     })
   end
 end
@@ -92,12 +97,17 @@ local function create_command(definition)
     elseif opts.args and opts.args ~= '' then
       return execute_ai_command(definition, opts, opts.args)
     else
-      open_prompt_input(
-        { prompt = definition.input_prompt or definition.name },
-        function(instructions)
-          execute_ai_command(definition, opts, instructions)
+      open_prompt_input({
+        prompt = definition.input_prompt or definition.name,
+        enable_thinking_option = true,
+      }, function(instructions, flags)
+        if flags.model then
+          definition = vim.fn.copy(definition)
+          definition.model = flags.model == 'thinking' and 'default:thinking'
+            or 'default'
         end
-      )
+        execute_ai_command(definition, opts, instructions)
+      end)
     end
   end
 

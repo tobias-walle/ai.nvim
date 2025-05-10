@@ -130,7 +130,14 @@ function M.apply_edits(options, callback)
   })
   vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
 
-  send(prompt, adapter_nano)
+  local placeholder = require('ai.prompts').unchanged_placeholder
+  local has_placeholders = patch:find(placeholder) ~= nil
+  if has_placeholders then
+    send(prompt, adapter_nano)
+  else
+    -- If there are no placeholders we can just apply the patch directly
+    vim.api.nvim_buf_set_lines(diff_bufnr, 0, -1, false, vim.split(patch, '\n'))
+  end
 end
 
 return M

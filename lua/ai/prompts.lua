@@ -32,6 +32,8 @@ M.system_prompt_chat = vim
 
 M.reminder_prompt_chat = vim.trim([[]])
 
+M.unchanged_placeholder = '… Unchanged …'
+
 M.system_prompt_editor = vim.trim([[
 Act as a very detail oriented text & code editor.
 

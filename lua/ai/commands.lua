@@ -104,7 +104,7 @@ local function create_command(definition)
         local updated_definition = definition
         if flags.model then
           ---@diagnostic disable-next-line: missing-fields
-          updated_definition = vim.tbl_extend('force', {}, {
+          updated_definition = vim.tbl_extend('force', {}, definition, {
             model = flags.model == 'thinking' and 'default:thinking'
               or 'default',
           })

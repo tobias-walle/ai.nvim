@@ -161,17 +161,15 @@ M.commands_edit_file = vim.trim([[
 - Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
 - Only fix the <diagnostics> if explicitly instructed
 - If a selection is provided, focus your changes on the selection, but still do related changes outside of it, like updating references.
-- Always wrap the response in a code block with the filename in the header.
 - Preserve leading whitespace
-- Only reply with the changed code. Use the placeholder comments `… Unchanged …` to hide unchanged code, but keep important surrounding context like function signatures.
-- Keep your response as short as possible and avoid repeating code that doesn't need to change!
 - Before outputting the code, briefly explain your changes.
 - ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
-- NEVER use diff markers like `+` or `-`, only use the placeholders like descriped above
+- ONLY REPLY WITH THE MINIMAL CHANGED CODE. Use the placeholder `… Unchanged …` as a comment to hide unchanged code.
 
 Example:
 ```typescript src/events.ts
 // … Unchanged …
+
 export interface EventsApi {
   // … Unchanged …
   updateEvents(events: EventInput[]): Promise<void>;
@@ -184,6 +182,7 @@ function createEventsApi(client: Client): EventsApi {
     updateEvents: (events) => client.patch('events', { json: events }).json(),
   };
 }
+
 // … Unchanged …
 ```typescript
 ]])

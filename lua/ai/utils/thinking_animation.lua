@@ -3,6 +3,7 @@
 ---@field timer uv.uv_timer_t?
 ---@field frames string[]
 ---@field i number
+---@field started_at number?
 local ThinkingAnimation = {}
 ThinkingAnimation.__index = ThinkingAnimation
 
@@ -21,12 +22,14 @@ function ThinkingAnimation:new(bufnr)
       '💡 Thinking…',
     },
     i = 1,
+    started_at = nil,
   }, self)
   return obj
 end
 
 function ThinkingAnimation:start()
   self:stop()
+  self.started_at = vim.loop.hrtime()
   self.timer = vim.uv.new_timer()
   self.timer:start(
     0,
@@ -37,11 +40,18 @@ function ThinkingAnimation:start()
         return
       end
       local frame = self.frames[self.i]
+      local seconds = 0
+      if self.started_at then
+        seconds = math.floor((vim.loop.hrtime() - self.started_at) / 1e9)
+      end
+      local frame_with_time = frame .. ' (' .. seconds .. 's)'
       local win = vim.fn.bufwinid(self.bufnr)
       local width = vim.api.nvim_win_get_width(win)
-      local pad =
-        math.max(0, math.floor((width - vim.fn.strdisplaywidth(frame)) / 2))
-      local centered = string.rep(' ', pad) .. frame
+      local pad = math.max(
+        0,
+        math.floor((width - vim.fn.strdisplaywidth(frame_with_time)) / 2)
+      )
+      local centered = string.rep(' ', pad) .. frame_with_time
 
       -- compute vertical padding for full centering
       local height = vim.api.nvim_win_get_height(win)
@@ -68,6 +78,7 @@ function ThinkingAnimation:stop()
     self.timer:close()
     self.timer = nil
   end
+  self.started_at = nil
 end
 
 return ThinkingAnimation

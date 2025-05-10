@@ -23,6 +23,7 @@ function M.open_response_preview(opts)
   local win_col = math.floor((screen_width - width) / 2)
   local bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', 'markdown', { buf = bufnr })
+  vim.api.nvim_set_option_value('wrap', true, { win = 0 })
   local win = vim.api.nvim_open_win(bufnr, true, {
     relative = 'editor',
     width = width,

@@ -2,6 +2,36 @@ local M = {}
 
 local string_utils = require('ai.utils.strings')
 
+---@param bufnr number
+---@param blocks MarkdownCodeBlock[]
+function M.apply_markdown_code_blocks(bufnr, blocks)
+  local current_buf_filename = vim.api.nvim_buf_get_name(bufnr)
+  for _, block in ipairs(blocks) do
+    local absolute_block_filename = block.file
+        and vim.fn.fnamemodify(block.file, ':p')
+      or current_buf_filename
+
+    local bufnr_to_edit = vim.fn.bufnr(absolute_block_filename, false)
+    if bufnr_to_edit == -1 then
+      bufnr_to_edit = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_name(bufnr_to_edit, absolute_block_filename)
+      local filetype = vim.filetype.match({ filename = absolute_block_filename })
+        or 'text'
+      vim.api.nvim_set_option_value(
+        'filetype',
+        filetype,
+        { buf = bufnr_to_edit }
+      )
+    end
+    local code_lines = block.lines
+    local code = vim.fn.join(code_lines, '\n')
+    require('ai.agents.editor').apply_edits({
+      bufnr = bufnr_to_edit,
+      patch = code,
+    })
+  end
+end
+
 ---@param options { bufnr: number, patch: string }
 ---@param callback? fun(): nil
 function M.apply_edits(options, callback)
@@ -33,10 +63,9 @@ function M.apply_edits(options, callback)
       return
     end
 
-    local code = require('ai.utils.treesitter').extract_code(update.response)
-      or ''
-    code = code:gsub('\n$', '')
-    local code_lines = vim.split(code, '\n')
+    local extracted = require('ai.utils.markdown').extract_code(update.response)
+    local code_lines = extracted[#extracted] and extracted[#extracted].lines
+      or vim.split(update.response, '\n')
     if override == true then
       vim.api.nvim_buf_set_lines(diff_bufnr, 0, -1, false, code_lines)
     else

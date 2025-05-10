@@ -15,6 +15,8 @@ function M.render_diff_view(opts)
 
   -- Create temporary
   local temp_bufnr = vim.api.nvim_create_buf(false, true)
+  local filename = vim.api.nvim_buf_get_name(bufnr)
+  vim.api.nvim_buf_set_name(temp_bufnr, filename .. ' [AI]')
   local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
   vim.api.nvim_buf_set_option(temp_bufnr, 'filetype', filetype)
 

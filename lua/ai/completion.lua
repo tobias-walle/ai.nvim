@@ -184,9 +184,10 @@ function M.trigger_completion()
         end
         response_content = update.response or ''
         -- Remove code block if present
-        suggestion = require('ai.utils.treesitter').extract_code(
-          response_content
-        ) or response_content
+        local extracted =
+          require('ai.utils.markdown').extract_code(response_content)
+        suggestion = extracted[#extracted] and extracted[#extracted].code
+          or response_content
         suggestion = vim.trim(suggestion)
         render_ghost_text(suggestion or '...')
       end,

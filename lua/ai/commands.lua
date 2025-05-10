@@ -101,12 +101,15 @@ local function create_command(definition)
         prompt = definition.input_prompt or definition.name,
         enable_thinking_option = true,
       }, function(instructions, flags)
+        local updated_definition = definition
         if flags.model then
-          definition = vim.fn.copy(definition)
-          definition.model = flags.model == 'thinking' and 'default:thinking'
-            or 'default'
+          ---@diagnostic disable-next-line: missing-fields
+          updated_definition = vim.tbl_extend('force', {}, {
+            model = flags.model == 'thinking' and 'default:thinking'
+              or 'default',
+          })
         end
-        execute_ai_command(definition, opts, instructions)
+        execute_ai_command(updated_definition, opts, instructions)
       end)
     end
   end

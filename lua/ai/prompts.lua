@@ -160,13 +160,14 @@ M.commands_edit_file = vim.trim([[
 
 - Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
 - Only fix the <diagnostics> if explicitly instructed
-- If a selection is provided, focus your changes on the selection, but still do related changed outside of it, like updating references.
+- If a selection is provided, focus your changes on the selection, but still do related changes outside of it, like updating references.
 - Always wrap the response in a code block with the filename in the header.
 - Preserve leading whitespace
-- Only reply with the changed code.  Use the placeholder comments `… Unchanged …` to hide unchanged code, but keep important sourrounding context like function signatures.
+- Only reply with the changed code. Use the placeholder comments `… Unchanged …` to hide unchanged code, but keep important surrounding context like function signatures.
 - Keep your response as short as possible and avoid repeating code that doesn't need to change!
-- Before outputting the code, shortly explain your changes.
-- ONLY EDIT THE CURRENT FILE. You cannot create new files.
+- Before outputting the code, briefly explain your changes.
+- ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
+- NEVER use diff markers like `+` or `-`, only use the placeholders like descriped above
 
 Example:
 ```typescript src/events.ts

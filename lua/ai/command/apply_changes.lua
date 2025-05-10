@@ -87,11 +87,8 @@ function M.apply_changes_with_fast_edit_strategy(options)
     end,
     on_confirm = function(response_lines)
       local response = table.concat(response_lines, '\n')
-      local code = require('ai.utils.treesitter').extract_code(response) or ''
-      require('ai.agents.editor').apply_edits({
-        bufnr = bufnr,
-        patch = code,
-      })
+      local blocks = require('ai.utils.markdown').extract_code(response)
+      require('ai.agents.editor').apply_markdown_code_blocks(bufnr, blocks)
     end,
   })
 
@@ -113,10 +110,8 @@ function M.apply_changes_with_replace_selection_strategy(options)
       vim.notify('Missing diff_bufnr', vim.log.levels.ERROR)
       return
     end
-    local code = require('ai.utils.treesitter').extract_code(response) or ''
-    -- Replace trailing newline
-    code = code:gsub('\n$', '')
-    local code_lines = vim.split(code, '\n')
+    local extracted = require('ai.utils.markdown').extract_code(response)
+    local code_lines = extracted[#extracted].lines
     vim.api.nvim_buf_set_lines(
       diff_bufnr,
       start_line - 1,

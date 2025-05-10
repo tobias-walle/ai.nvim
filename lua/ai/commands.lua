@@ -10,6 +10,39 @@ local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 ---@field instructions? string
 ---@field only_replace_selection? boolean
 
+---@param bufnr integer
+---@param line_start? integer
+---@param line_end? integer
+local function get_diagnostics(bufnr, line_start, line_end)
+  return vim
+    .iter(vim.diagnostic.get(bufnr))
+    :map(function(item)
+      local data = item.user_data.lsp
+      if not data then
+        return nil
+      end
+
+      -- Only consider range if defined
+      local start_line = data.range.start.line
+      local end_line = data.range['end'].line
+      if line_start and line_end then
+        if start_line + 1 < line_start or end_line + 1 > line_end then
+          return nil
+        end
+      end
+
+      local diag_lines = 'Line ' .. start_line
+      if start_line ~= end_line then
+        diag_lines = diag_lines .. '-' .. end_line
+      end
+      return diag_lines .. ' | ' .. data.code .. ' | ' .. data.message
+    end)
+    :filter(function(item)
+      return item ~= nil
+    end)
+    :join('\n')
+end
+
 ---@param definition CommandDefinition
 ---@param opts table
 ---@param instructions string
@@ -31,6 +64,9 @@ local function execute_ai_command(definition, opts, instructions)
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local content = table.concat(lines, '\n')
 
+  local diagnostics = get_diagnostics(bufnr)
+  local diagnostics_selection = get_diagnostics(bufnr, start_line, end_line)
+
   local selection_content =
     table.concat(vim.list_slice(lines, start_line, end_line), '\n')
   local placeholders = {
@@ -42,6 +78,8 @@ local function execute_ai_command(definition, opts, instructions)
     intructions = instructions,
     start_line = start_line,
     end_line = end_line,
+    diagnostics = diagnostics,
+    diagnostics_selection = diagnostics_selection,
   }
 
   local selection = ''

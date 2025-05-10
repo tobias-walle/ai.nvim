@@ -139,6 +139,11 @@ M.commands_selection = vim.trim([[
 ]])
 
 M.commands_edit_file = vim.trim([[
+<diagnostics>
+```
+{{diagnostics}}
+```
+</diagnostics>
 <file>
 ```{{language}} {{filename}}
 {{content}}
@@ -152,6 +157,7 @@ M.commands_edit_file = vim.trim([[
 {{custom_rules}}
 
 - Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
+- Only fix the <diagnostics> if explicitly instructed
 - If a selection is provided, focus your changes on the selection, but still do related changed outside of it, like updating references.
 - Always wrap the response in a code block with the filename in the header.
 - Preserve leading whitespace
@@ -180,6 +186,12 @@ function createEventsApi(client: Client): EventsApi {
 ]])
 
 M.commands_edit_selection = vim.trim([[
+<diagnostics>
+```
+{{diagnostics_selection}}
+```
+</diagnostics>
+
 <file>
 ```{{language}} {{filename}}
 {{content}}
@@ -193,6 +205,7 @@ M.commands_edit_selection = vim.trim([[
 {{custom_rules}}
 
 - Follow the <instructions> and respond with the code replacing ONLY the <selection> content in the code block!
+- Only fix the <diagnostics> if explicitly instructed
 - Preserve leading whitespace
 - Avoid comments explaining your changes
 ]])

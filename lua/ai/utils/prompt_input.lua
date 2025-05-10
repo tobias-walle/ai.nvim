@@ -1,9 +1,5 @@
 local M = {}
 
-M.history = {
-  'test',
-}
-
 ---@class PromptInputOptions
 ---@field prompt string
 
@@ -11,6 +7,8 @@ M.history = {
 ---@param callback fun(input: string)
 ---@return nil
 function M.open_prompt_input(opts, callback)
+  M.load_history()
+
   local bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', 'markdown', { buf = bufnr })
 
@@ -64,6 +62,7 @@ function M.open_prompt_input(opts, callback)
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
     local prompt = table.concat(lines, '\n')
     table.insert(M.history, prompt)
+    M.save_history()
     callback(prompt)
   end
 
@@ -107,6 +106,33 @@ function M.open_prompt_input(opts, callback)
 
   vim.keymap.set({ 'n', 'i' }, '<Up>', history_up, keymap_opts)
   vim.keymap.set({ 'n', 'i' }, '<Down>', history_down, keymap_opts)
+end
+
+M.history = {}
+
+---@return string
+local function get_history_file()
+  local config = require('ai.config').get()
+  return config.data_dir .. '/prompt_input_history.json'
+end
+
+function M.save_history()
+  local ok, encoded = pcall(vim.fn.json_encode, M.history)
+  if ok and encoded then
+    vim.fn.writefile({ encoded }, get_history_file())
+  end
+end
+
+function M.load_history()
+  if vim.fn.filereadable(get_history_file()) == 1 then
+    local lines = vim.fn.readfile(get_history_file())
+    if lines and #lines > 0 then
+      local ok, decoded = pcall(vim.fn.json_decode, table.concat(lines, ''))
+      if ok and type(decoded) == 'table' then
+        M.history = decoded
+      end
+    end
+  end
 end
 
 return M

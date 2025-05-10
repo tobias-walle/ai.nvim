@@ -4,6 +4,7 @@ local M = {}
 ---@param line_start? integer
 ---@param line_end? integer
 function M.get_diagnostics(bufnr, line_start, line_end)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
   return vim
     .iter(vim.diagnostic.get(bufnr))
     :map(function(item)
@@ -21,16 +22,24 @@ function M.get_diagnostics(bufnr, line_start, line_end)
         end
       end
 
+      local code = lines[start_line]
       local diag_lines = 'Line ' .. start_line
       if start_line ~= end_line then
         diag_lines = diag_lines .. '-' .. end_line
+        code = code .. '\n...\n' .. lines[end_line]
       end
-      return diag_lines .. ' | ' .. data.code .. ' | ' .. data.message
+      return diag_lines
+        .. '\n'
+        .. code
+        .. '\n^^ '
+        .. data.code
+        .. ' | '
+        .. data.message
     end)
     :filter(function(item)
       return item ~= nil
     end)
-    :join('\n')
+    :join('\n\n')
 end
 
 return M

@@ -57,7 +57,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
     on_retry = function()
       open_prompt_input({ prompt = 'Retry' }, function(retry_prompt)
         if retry_prompt then
-          send('Try again! ' .. retry_prompt)
+          send(retry_prompt == '' and 'Try again!' or retry_prompt)
         end
       end)
     end,
@@ -153,7 +153,7 @@ function M.apply_changes_with_replace_selection_strategy(options)
     on_retry = function()
       open_prompt_input({ prompt = 'Retry' }, function(retry_prompt)
         if retry_prompt then
-          send('Try again! ' .. retry_prompt)
+          send(retry_prompt == '' and 'Try again!' or retry_prompt)
         end
       end)
     end,

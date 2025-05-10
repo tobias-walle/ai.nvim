@@ -7,7 +7,7 @@ local M = {}
 
 ---Renders a diff view for comparing two buffers.
 ---@param opts AiRenderDiffViewOptions
----@return integer diff_bufnr The buffer to apply the changes to
+---@return integer diff_bufnr, integer win
 function M.render_diff_view(opts)
   local config = require('ai.config').get()
   local bufnr = opts.bufnr
@@ -93,7 +93,7 @@ function M.render_diff_view(opts)
     end
   end, keymap_opts)
 
-  return temp_bufnr
+  return temp_bufnr, win
 end
 
 return M

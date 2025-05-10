@@ -27,9 +27,13 @@ end
 ---@param self Chat
 function Chat:send(options)
   assert(options ~= nil, 'Chat:send requires options')
-  local adapter = self.adapter or options.adapter
+  local adapter = options.adapter or self.adapter
   self.cancelled = false
   vim.list_extend(self.messages, options.messages)
+
+  if self.on_chat_start then
+    self.on_chat_start()
+  end
   self.job = adapter:chat_stream(vim.tbl_extend('force', {}, options, {
     messages = self.messages,
     on_update = function(update)
@@ -66,6 +70,11 @@ end
 function Chat:cancel()
   self.job:stop()
   self.cancelled = true
+end
+
+---@param self Chat
+function Chat:clear()
+  self.messages = {}
 end
 
 return Chat

@@ -216,9 +216,8 @@ function Config.parse_model_string(model_string)
   local adapter_name, model_name = model_string:match(model_string_pattern)
 
   if adapter_name == 'default' then
-    local default_model_default = 'default'
-    model_string = config.default_models[model_name or default_model_default]
-      or config.default_models[default_model_default]
+    model_string = config.default_models[model_name or 'default']
+      or config.default_models.default
     adapter_name, model_name = model_string:match(model_string_pattern)
   end
 

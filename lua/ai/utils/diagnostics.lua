@@ -14,10 +14,10 @@ function M.get_diagnostics(bufnr, line_start, line_end)
       end
 
       -- Only consider range if defined
-      local start_line = data.range.start.line
-      local end_line = data.range['end'].line
+      local start_line = (data.range.start.line or 0) + 1
+      local end_line = (data.range['end'].line or 0) + 1
       if line_start and line_end then
-        if start_line + 1 < line_start or end_line + 1 > line_end then
+        if start_line < line_start or end_line > line_end then
           return nil
         end
       end
@@ -28,13 +28,7 @@ function M.get_diagnostics(bufnr, line_start, line_end)
         diag_lines = diag_lines .. '-' .. end_line
         code = code .. '\n...\n' .. lines[end_line]
       end
-      return diag_lines
-        .. '\n'
-        .. code
-        .. '\n^^ '
-        .. data.code
-        .. ' | '
-        .. data.message
+      return diag_lines .. '\n' .. code .. '\n^^ ' .. data.message
     end)
     :filter(function(item)
       return item ~= nil

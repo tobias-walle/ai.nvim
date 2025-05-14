@@ -1,8 +1,11 @@
 local M = {}
 
+local FilesContext = require('ai.utils.files_context')
+
 ---@class PromptInputOptions
 ---@field prompt string
 ---@field enable_thinking_option? boolean
+---@field enable_files_context_option? boolean
 
 ---@class PromptInputFlags
 ---@field model? 'default' | 'thinking'
@@ -33,8 +36,16 @@ function M.open_prompt_input(opts, callback)
     local width = maximize and screen_width - 6 or 50
     local height = maximize and screen_height - 6 - win_row or 10
     local win_col = math.floor((screen_width - width) / 2)
-    local get_footer_highlight = function(model)
-      return model == (flags.model or 'default') and 'Special' or nil
+    local footer_items = {}
+    if opts.enable_thinking_option then
+      table.insert(footer_items, flags.model or 'default')
+    end
+    if opts.enable_files_context_option then
+      local files_label = FilesContext.enabled and #FilesContext.get_files() or '-'
+      table.insert(
+        footer_items,
+        files_label .. ' '
+      )
     end
     return {
       relative = 'editor',
@@ -48,14 +59,10 @@ function M.open_prompt_input(opts, callback)
       border = 'rounded',
       focusable = true,
       zindex = 100,
-      footer = opts.enable_thinking_option and {
-        { ' ' },
-        { 'default', get_footer_highlight('default') },
-        { ' | ' },
-        { 'thinking', get_footer_highlight('thinking') },
-        { ' ' },
-      } or nil,
-      footer_pos = opts.enable_thinking_option and 'center' or nil,
+      footer = #footer_items > 0
+          and ' ' .. table.concat(footer_items, ' | ') .. ' '
+        or nil,
+      footer_pos = #footer_items > 0 and 'center' or nil,
     }
   end
 
@@ -64,6 +71,19 @@ function M.open_prompt_input(opts, callback)
 
   local function refresh_options()
     vim.api.nvim_win_set_config(win, get_win_options())
+  end
+
+  local autocmd_id = vim.api.nvim_create_autocmd('User', {
+    group = vim.api.nvim_create_augroup(
+      'PromptInputFilesContext',
+      { clear = true }
+    ),
+    pattern = 'AiFilesContextChanged',
+    callback = refresh_options,
+  })
+
+  local function cleanup_autocmds()
+    pcall(vim.api.nvim_del_autocmd, autocmd_id)
   end
 
   local function cycle_model()
@@ -81,10 +101,12 @@ function M.open_prompt_input(opts, callback)
   end
 
   local function cancel()
+    cleanup_autocmds()
     vim.api.nvim_win_close(win, true)
   end
 
   local function confirm()
+    cleanup_autocmds()
     vim.api.nvim_win_close(win, true)
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
     local prompt = table.concat(lines, '\n')
@@ -159,7 +181,7 @@ function M.load_history()
     local lines = vim.fn.readfile(get_history_file())
     if lines and #lines > 0 then
       local ok, decoded = pcall(vim.fn.json_decode, table.concat(lines, ''))
-      if ok and type(decoded) == 'table' then
+      if ok and type(decoded) =='table' then
         M.history = decoded
       end
     end

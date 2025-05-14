@@ -4,6 +4,7 @@ local M = {}
 local string_utils = require('ai.utils.strings')
 local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 local get_diagnostics = require('ai.utils.diagnostics').get_diagnostics
+local FilesContext = require('ai.utils.files_context')
 
 ---@class CommandDefinition
 ---@field name string
@@ -49,6 +50,7 @@ local function execute_ai_command(definition, opts, instructions)
     end_line = end_line,
     diagnostics = diagnostics,
     diagnostics_selection = diagnostics_selection,
+    files_context = FilesContext.get_prompt(),
   }
 
   local selection = ''
@@ -100,6 +102,7 @@ local function create_command(definition)
       open_prompt_input({
         prompt = definition.input_prompt or definition.name,
         enable_thinking_option = true,
+        enable_files_context_option = true,
       }, function(instructions, flags)
         local updated_definition = definition
         if flags.model then

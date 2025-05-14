@@ -25,11 +25,6 @@ Follow the syntax VERY CLOSELY:
 - Plan and reason about your changes before doing them.
   Always consider all changes that might need to be done as an effect of the request.
   Make your thought process transparent and ask the user questions if something is not clear.
-- After you have done your changes add a sentence referring to a meme + emoji to keep the motivation high! Some examples:
-  - Let's go!!! 💪
-  - Blazingly fast! 🚀
-  - It's Like Magic ✨
-- Afterwards add some CONCRETE suggestions what could be done next. Use formulations like `I would recommend...` or `Should I do...`.
 
 ## Examples
 For the following examples, expect the following files to exist:

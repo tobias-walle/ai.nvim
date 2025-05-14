@@ -111,7 +111,8 @@ function M.apply_changes_with_replace_selection_strategy(options)
       return
     end
     local extracted = require('ai.utils.markdown').extract_code(response)
-    local code_lines = extracted[#extracted].lines
+    local code_lines = extracted[#extracted] and extracted[#extracted].lines
+      or {}
     vim.api.nvim_buf_set_lines(
       diff_bufnr,
       start_line - 1,

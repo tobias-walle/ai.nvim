@@ -140,9 +140,23 @@ M.commands_selection = vim.trim([[
 </selection>
 ]])
 
-M.commands_edit_file = vim.trim([[
-<diagnostics>
+M.files_context_single_file = vim.trim([[
+```{{language}} {{filename}}
+{{content}}
 ```
+]])
+
+M.files_context = vim.trim([[
+<files_context>
+The following files were selected by me and might be relevant for the tasks.
+{{files}}
+</files_context>
+]])
+
+M.commands_edit_file = vim.trim([[
+{{files_context}}
+<diagnostics>
+``` {{filename}}
 {{diagnostics}}
 ```
 </diagnostics>
@@ -165,6 +179,7 @@ M.commands_edit_file = vim.trim([[
 - Before outputting the code, briefly explain your changes.
 - ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
 - ONLY REPLY WITH THE MINIMAL CHANGED CODE. Use the placeholder `… Unchanged …` as a comment to hide unchanged code.
+- AVOID REPEATING BIG PORTIONS OF THE FILE IF NOT NECESSARY TO SAVE TOKENS!!!
 
 Example:
 ```typescript src/events.ts

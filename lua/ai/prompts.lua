@@ -176,12 +176,16 @@ M.commands_edit_file = vim.trim([[
 - Only fix the <diagnostics> if explicitly instructed
 - If a selection is provided, focus your changes on the selection, but still do related changes outside of it, like updating references.
 - Preserve leading whitespace
-- Before outputting the code, briefly explain your changes.
+- Before outputting the code EXPLAIN YOUR CHANGES.
 - ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
-- ONLY REPLY WITH THE MINIMAL CHANGED CODE. Use the placeholder `… Unchanged …` as a comment to hide unchanged code.
+- Use the placeholder `… Unchanged …` as a comment to hide unchanged code.
 - AVOID REPEATING BIG PORTIONS OF THE FILE IF NOT NECESSARY TO SAVE TOKENS!!!
 
 Example:
+Changes:
+- Update the EventApi interface with the new endpoint
+- Implementing a new function in createEventsApi
+
 ```typescript src/events.ts
 // … Unchanged …
 

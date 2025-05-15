@@ -7,6 +7,7 @@ Chat.__index = Chat
 
 ---@class Chat.Options
 ---@field adapter Adapter
+---@field tools? Tool[]
 ---@field on_chat_start? fun()
 ---@field on_chat_update? fun(update: AdapterStreamUpdate): nil
 ---@field on_chat_exit? fun(data: AdapterStreamExitData): nil
@@ -16,8 +17,14 @@ Chat.__index = Chat
 function Chat:new(options)
   local chat = setmetatable(options, self)
   self.messages = {}
+  self.tools = options.tools or {}
   ---@cast chat Chat
   return chat
+end
+
+---@param tool Tool
+function Chat:add_tool(tool)
+  table.insert(self.tools, tool)
 end
 
 ---@class Chat.SendOptions: AdapterStreamOptions
@@ -34,7 +41,10 @@ function Chat:send(options)
   if self.on_chat_start then
     self.on_chat_start()
   end
-  self.job = adapter:chat_stream(vim.tbl_extend('force', {}, options, {
+
+  ---@type Chat.SendOptions
+  local custom_options = {
+    tools = self.tools,
     messages = self.messages,
     on_update = function(update)
       if self.cancelled then
@@ -63,7 +73,10 @@ function Chat:send(options)
         self.on_chat_exit(data)
       end
     end,
-  }))
+  }
+
+  self.job =
+    adapter:chat_stream(vim.tbl_extend('force', {}, options, custom_options))
 end
 
 ---@param self Chat
@@ -75,6 +88,7 @@ end
 ---@param self Chat
 function Chat:clear()
   self.messages = {}
+  self.tools = {}
 end
 
 return Chat

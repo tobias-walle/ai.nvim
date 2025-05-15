@@ -2,29 +2,9 @@
 local tool = {
   definition = {
     name = 'web',
-    description = vim.trim([[
-Use this tool to search on the web.
-You can provide a search term or question to look for and will get as a result a string providing a summary of the findings.
-Perplexity will be used for the search.
-
-Always search the web if you relying on current information, like:
-- Documentation of libraries
-- Facts and News
-
-Try to formulate your queries generic enough to find common knowledge.
-Avoid searching for a very specific combination.
-
-## Example
-### User
-Build a Google Search CLI tool in Rust.
-
-### Assistant
-Sure! Before build a Google Search CLI tool in Rust I will research the APIs that I will need to use.
-
-- @web tool call 1: { "query": "How to parse cli arguments in rust?" }
-- @web tool call 2: { "query": "How to use the Google search api (using rust)?" }
-- @web tool call 3: { "query": "How to send a request in rust?" }
-    ]]),
+    description = vim.trim(
+      [[Use this tool to search on the web. Please use it to find relevant documentation of api and libraries you want to use]]
+    ),
     parameters = {
       type = 'object',
       required = { 'query' },
@@ -207,17 +187,7 @@ As sources prioritize (In this order!)
           and response.choices[1].message
           and response.choices[1].message.content
 
-        local citations = response.citations or {}
-        local citation_text = ''
-        if #citations > 0 then
-          citation_text = 'Citations:\n'
-          for i, citation in ipairs(citations) do
-            citation_text = citation_text
-              .. string.format('[%d] %s\n', i, citation)
-          end
-        end
-
-        callback(citation_text .. '\n\n' .. search_result)
+        callback(search_result or '')
       end)
     )
   end,

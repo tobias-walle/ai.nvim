@@ -23,6 +23,10 @@ function M.apply_changes_with_fast_edit_strategy(options)
   local preview_popup
 
   local thinking_animation
+  local last_response_lines = {}
+  local function get_tool_call_line(index)
+    return #last_response_lines - 2 + index
+  end
   local chat = require('ai.utils.chat'):new({
     adapter = adapter,
     on_chat_start = function()
@@ -42,11 +46,36 @@ function M.apply_changes_with_fast_edit_strategy(options)
         thinking_animation:stop()
         thinking_animation = nil
       end
-      local code_lines = vim.split(update.response, '\n')
-      vim.api.nvim_buf_set_lines(preview_popup.bufnr, 0, -1, false, code_lines)
-      local last_row = #code_lines
-      local last_col = #code_lines > 0 and #code_lines[last_row] or 0
+      local response_lines = vim.split(update.response, '\n')
+      last_response_lines = response_lines
+      vim.api.nvim_buf_set_lines(
+        preview_popup.bufnr,
+        0,
+        -1,
+        false,
+        response_lines
+      )
+      local last_row = #response_lines
+      local last_col = #response_lines > 0 and #response_lines[last_row] or 0
       vim.api.nvim_win_set_cursor(0, { last_row, last_col })
+    end,
+    on_tool_call_start = function(tool_call, index)
+      vim.api.nvim_buf_set_lines(
+        preview_popup.bufnr,
+        get_tool_call_line(index),
+        get_tool_call_line(index) + 1,
+        false,
+        { '⏳ Using tool "' .. tool_call.tool .. '"' }
+      )
+    end,
+    on_tool_call_finish = function(tool_call, _, index)
+      vim.api.nvim_buf_set_lines(
+        preview_popup.bufnr,
+        get_tool_call_line(index),
+        get_tool_call_line(index) + 1,
+        false,
+        { '✅ Using tool "' .. tool_call.tool .. '"' }
+      )
     end,
   })
 

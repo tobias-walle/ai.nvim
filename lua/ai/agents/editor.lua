@@ -78,35 +78,16 @@ function M.apply_edits(options, callback)
     )
   end
 
-  local start_time
-  local chat = require('ai.utils.chat'):new({
-    adapter = adapter_nano,
-    on_chat_start = function()
-      start_time = vim.uv.hrtime()
-    end,
-    on_chat_update = function(update)
-      render_response(update, false)
-    end,
-    on_chat_exit = function(data)
-      render_response(data, true)
-      local elapsed_time = (vim.uv.hrtime() - start_time) / 1e9
-      vim.notify(
-        '[ai] Input Tokens: '
-          .. (data.tokens and data.tokens.input or '')
-          .. '; Output Tokens: '
-          .. (data.tokens and data.tokens.output or '')
-          .. '; Prediction Tokens: '
-          .. (data.tokens and data.tokens.accepted_prediction_tokens or '')
-          .. '; Time: '
-          .. string.format('%.2f', elapsed_time)
-          .. 's',
-        vim.log.levels.INFO,
-        notify_options
-      )
-      vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
-      on_completion()
-    end,
-  })
+  local prompt = string_utils.replace_placeholders(
+    require('ai.prompts').editor_user_prompt,
+    {
+      language = language,
+      original_content = original_content,
+      patch_content = patch,
+    }
+  )
+
+  local chat
 
   ---@param msg string
   ---@param adapter Adapter
@@ -117,17 +98,14 @@ function M.apply_edits(options, callback)
     )
     chat:send({
       adapter = adapter,
-      system_prompt = require('ai.prompts').system_prompt_editor,
+      system_prompt = require('ai.prompts').editor_system_prompt,
       messages = {
-        {
-          role = 'user',
-          content = msg,
-        },
+        { role = 'user', content = msg },
       },
       prediction = {
         type = 'content',
         content = string_utils.replace_placeholders(
-          require('ai.prompts').prediction_editor,
+          require('ai.prompts').editor_predicted_output,
           {
             language = language,
             original_content = original_content,
@@ -138,28 +116,58 @@ function M.apply_edits(options, callback)
     })
   end
 
-  local prompt = string_utils.replace_placeholders(
-    require('ai.prompts').user_prompt_editor,
-    {
-      language = language,
-      original_content = original_content,
-      patch_content = patch,
-    }
-  )
+  local function retry()
+    chat:clear()
+    -- Use an upgraded model
+    send(prompt, adapter_mini)
+  end
+
+  local placeholder = require('ai.prompts').placeholder_unchanged
+
+  local start_time
+  chat = require('ai.utils.chat'):new({
+    adapter = adapter_nano,
+    on_chat_start = function()
+      start_time = vim.uv.hrtime()
+    end,
+    on_chat_update = function(update)
+      render_response(update, false)
+    end,
+    on_chat_exit = function(data)
+      render_response(data, true)
+      local has_still_placeholders = data.response:find(placeholder) ~= nil
+      if has_still_placeholders then
+        retry()
+      else
+        local elapsed_time = (vim.uv.hrtime() - start_time) / 1e9
+        vim.notify(
+          '[ai] Input Tokens: '
+            .. (data.tokens and data.tokens.input or '')
+            .. '; Output Tokens: '
+            .. (data.tokens and data.tokens.output or '')
+            .. '; Prediction Tokens: '
+            .. (data.tokens and data.tokens.accepted_prediction_tokens or '')
+            .. '; Time: '
+            .. string.format('%.2f', elapsed_time)
+            .. 's',
+          vim.log.levels.INFO,
+          notify_options
+        )
+        vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
+        on_completion()
+      end
+    end,
+  })
 
   diff_bufnr, diff_win = require('ai.utils.diff_view').render_diff_view({
     bufnr = bufnr,
-    on_retry = function()
-      chat:clear()
-      send(prompt, adapter_mini)
-    end,
+    on_retry = retry,
     callback = function()
       on_completion()
     end,
   })
   vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
 
-  local placeholder = require('ai.prompts').unchanged_placeholder
   local has_placeholders = patch:find(placeholder) ~= nil
   if has_placeholders then
     send(prompt, adapter_nano)

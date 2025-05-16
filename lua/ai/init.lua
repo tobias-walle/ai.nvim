@@ -8,7 +8,6 @@ function M.setup(config)
   config = require('ai.config').get()
 
   require('ai.commands').setup()
-  require('ai.chat').setup()
 
   vim.system({ 'mkdir', '-p', config.data_dir }):wait()
 

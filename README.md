@@ -185,36 +185,6 @@ Other commands:
 - `:AiTranslate <lang>` - Translate the selection to another language
 - `:AiFix` - Fix bugs in the selection
 
-### Chat
-
-You can open a chat on the side with `:AiChat`.
-
-The chat supports a lot of special variables (starting with `#`) to give the LLM more context:
-
-- `#buffer` - Gives the AI access to the file on the left to the chat window.
-- `#selection` - Your last selection in the buffer.
-- `#diagnostics` - All errors and warnings in the buffer.
-- `#sh` - Runs a command and provides the output as context.
-- `#file:"src/utils.ts"` - A file in your codebase.
-- `#web:"https://google.de"` - The content of a website (Note: You need `pandoc` and `curl` for this feature).
-
-Additionally, you can give access to tools, which the LLM can use to interact with the outside world. These start with `@`.
-
-- `@editor` - Allows the LLM to edit any file in the project.
-- `@grep` - With this tool, the codebase can be grepped by specific keywords.
-- `@web` - Perform web searches using Perplexity (You need to configure `PERPLEXITY_API_KEY` for this).
-- `@file` - Allow the LLM to read files.
-
-These tools can trigger feedback loops (agentic workflows). For example, the LLM might decide to research an API before applying the changes.
-
-You can always force the LLM to cancel by pressing `q`.
-
-More tools to run commands or get diagnostics automatically will be added soon.
-
-> [!CAUTION]
-> The tools are still a subject of change.
-> I need to gather more experience to really get it right, so expect breaking changes in the future.
-
 ## Similar Plugins
 
 There are several other plugins with similar goals.

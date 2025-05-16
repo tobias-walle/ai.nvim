@@ -1,5 +1,10 @@
 local M = {}
 
+local build_prompt = require('ai.utils.prompt_builder').build_prompt
+local replace_placeholders = require('ai.utils.strings').replace_placeholders
+
+M.placeholder_unchanged = '… Unchanged …'
+
 M.system_prompt = vim.trim([[
 Act as an expert software developer. You are very articulate and follow instructions very closely.
 
@@ -12,123 +17,6 @@ Act as an expert software developer. You are very articulate and follow instruct
 
 # Formatting
 - Create a new line after each sentence.
-]])
-
-M.system_prompt_chat = vim
-  .trim([[
-{{system_prompt}}
-
-# Tools
-- The user might define tools (starting with @)
-- If defined, always reason about if you should use them (They added them for a reason!)
-
-# Variables
-- Special variables are speficed with #
-- You can request access to the following variables:
-  - #file:`<path-to-file>` (Get the content of a file) (e.g. #file:`src/utils/casing.ts`)
-  - #web:`<url>` (Get the content of a website, make sure the site exists) (e.g. #web:`https://neovim.io/doc/user/quickref.html`)
-]])
-  :gsub('{{(.-)}}', { system_prompt = M.system_prompt })
-
-M.reminder_prompt_chat = vim.trim([[]])
-
-M.unchanged_placeholder = '… Unchanged …'
-
-M.system_prompt_editor = vim.trim([[
-Act as a very detail oriented text & code editor.
-
-You are getting a patch and the original code and are outputting the FULL code with changes applied.
-
-- ONLY apply the specified changes
-- Replace ALL occurences of `… Unchanged …` with the original code. NEVER include `… Unchanged …` comments in your output.
-- Always output the FULL UPDATED FILE. DO NOT remove anything if not otherwise specified!
-- ALWAYS REPLACE ALL `… Unchanged …` comments with the original code!
-
---- EXAMPLE ---
-# User
-<original>
-```typescript
-export type EnterEventHandler = (event: KeyboardEvent) => void;
-
-export function whenEnter(
-  event: KeyboardEvent,
-  handler: EnterEventHandler,
-): EnterEventHandler {
-  return (event) => {
-    if (event.key === 'Enter') {
-      handler(event);
-    }
-  };
-}
-```
-</original>
-
-<patch>
-```typescript
-// … Unchanged …
-export type OnEnter = (event: KeyboardEvent) => void;
-
-export function whenEnter(
-  event: KeyboardEvent,
-  onEnter: EnterEventHandler,
-): OnEnter {
-  // … Unchanged …
-      onEnter(event);
-  // … Unchanged …
-}
-
-// … Unchanged …
-```
-<patch>
-
-# Assistant
-```typescript
-import { KeyboardEvent } from 'events';
-
-export type OnEnter = (event: KeyboardEvent) => void;
-
-export function whenEnter(
-  event: KeyboardEvent,
-  onEnter: OnEnter,
-): OnEnter {
-  return (event) => {
-    if (event.key === 'Enter') {
-      onEnter(event);
-    }
-  };
-}
-
-export function whenLeave(
-  event: KeyboardEvent,
-  onLeave: OnEnter,
-): OnEnter {
-  return (event) => {
-    if (event.key === 'Leave') {
-      onLeave(event);
-    }
-  };
-}
-```
-]])
-
-M.user_prompt_editor = vim.trim([[
-<original>
-```{{language}}
-{{original_content}}
-```
-</original>
-
-<patch>
-```{{language}}
-{{patch_content}}
-```
-</patch>
-]])
-
-M.prediction_editor = vim.trim([[
-```{{language}}
-{{original_content}}
-```
 ]])
 
 M.commands_selection = vim.trim([[
@@ -238,5 +126,119 @@ M.commands_edit_selection = vim.trim([[
 - Preserve leading whitespace
 - Avoid comments explaining your changes
 ]])
+
+M.editor_user_prompt = build_prompt({
+  [[
+<original>
+```{{language}}
+{{original_content}}
+```
+</original>
+
+<patch>
+```{{language}}
+{{patch_content}}
+```
+</patch>
+  ]],
+}, { placeholder_unchanged = M.placeholder_unchanged })
+
+M.editor_example_user = replace_placeholders(M.editor_user_prompt, {
+  language = 'typescript',
+  original_content = vim.trim([[
+export type EnterEventHandler = (event: KeyboardEvent) => void;
+
+export function whenEnter(
+  event: KeyboardEvent,
+  handler: EnterEventHandler,
+): EnterEventHandler {
+  return (event) => {
+    if (event.key === 'Enter') {
+      handler(event);
+    }
+  };
+}
+  ]]),
+  patch_content = vim.trim([[
+// {{placeholder_unchanged}}
+export type OnEnter = (event: KeyboardEvent) => void;
+
+export function whenEnter(
+  event: KeyboardEvent,
+  onEnter: EnterEventHandler,
+): OnEnter {
+  // {{placeholder_unchanged}}
+      onEnter(event);
+  // {{placeholder_unchanged}}
+}
+
+// {{placeholder_unchanged}}
+  ]]),
+  placeholder_unchanged = M.placeholder_unchanged,
+})
+
+M.editor_example_assistant_response = build_prompt({
+  [[
+```typescript
+import { KeyboardEvent } from 'events';
+
+export type OnEnter = (event: KeyboardEvent) => void;
+
+export function whenEnter(
+  event: KeyboardEvent,
+  onEnter: OnEnter,
+): OnEnter {
+  return (event) => {
+    if (event.key === 'Enter') {
+      onEnter(event);
+    }
+  };
+}
+
+export function whenLeave(
+  event: KeyboardEvent,
+  onLeave: OnEnter,
+): OnEnter {
+  return (event) => {
+    if (event.key === 'Leave') {
+      onLeave(event);
+    }
+  };
+}
+```
+  ]],
+}, { placeholder_unchanged = M.placeholder_unchanged })
+
+M.editor_predicted_output = build_prompt({
+  [[
+```{{language}}
+{{original_content}}
+```
+  ]],
+})
+
+M.editor_system_prompt = build_prompt({
+  [[
+<example>
+# User
+{{example_user}}
+# Assistant
+{{example_assistant}}
+</example>
+
+Act as a very detail oriented text & code editor.
+
+You are getting a patch and the original code and are outputting the FULL code with changes applied.
+
+- Replace ALL placeholders like `{{placeholder_unchanged}}` with the original code
+- Always output the FULLY UPDATED FILE. DO NOT remove anything if not otherwise specified!
+- ALWAYS REPLACE EVERY, SINGLE OCCURENCE of `// {{placeholder_unchanged}}`, `# {{placeholder_unchanged}}` or `-- {{placeholder_unchanged`. ALWAYS!!!
+```
+  ]],
+}, {
+  placeholder_unchanged = M.placeholder_unchanged,
+  example_user = M.editor_example_user,
+  example_assistant = M.editor_example_assistant_response,
+})
 
 return M

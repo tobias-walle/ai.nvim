@@ -154,37 +154,17 @@ The following files were selected by me and might be relevant for the tasks.
 ]])
 
 M.commands_edit_file = vim.trim([[
-{{files_context}}
-<diagnostics>
-``` {{filename}}
-{{diagnostics}}
-```
-</diagnostics>
-<file>
-```{{language}} {{filename}}
-{{content}}
-```
-</file>
-{{selection}}
+# Example
+## User
 <instructions>
-{{intructions}}
-</instructions>
+Add a new function to update events.
+</instructions
 
-{{custom_rules}}
-
-- Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
-- Only fix the <diagnostics> if explicitly instructed
-- If a selection is provided, focus your changes on the selection, but still do related changes outside of it, like updating references.
-- Preserve leading whitespace
-- Before outputting the code EXPLAIN YOUR CHANGES.
-- ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
-- Use the placeholder `… Unchanged …` as a comment to hide unchanged code.
-- AVOID REPEATING BIG PORTIONS OF THE FILE IF NOT NECESSARY TO SAVE TOKENS!!!
-
-Example:
-Changes:
-- Update the EventApi interface with the new endpoint
-- Implementing a new function in createEventsApi
+## Assistant
+The user asked me the add a new function to update events. For this:
+- I will update the EventsApi interface, to contain the new function `updateEvents`
+- I will imlement the new function in createEventsApi
+- The rest should remain unchanged.
 
 ```typescript src/events.ts
 // … Unchanged …
@@ -204,6 +184,34 @@ function createEventsApi(client: Client): EventsApi {
 
 // … Unchanged …
 ```typescript
+
+# Actual Task
+{{files_context}}
+<diagnostics>
+``` {{filename}}
+{{diagnostics}}
+```
+</diagnostics>
+<file>
+```{{language}} {{filename}}
+{{content}}
+```
+</file>
+{{selection}}
+<instructions>
+{{intructions}}
+Output only the changed code
+</instructions>
+
+{{custom_rules}}
+
+- Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
+- Only fix the <diagnostics> if explicitly instructed
+- If a selection is provided, focus your changes on the selection, but still do related changes outside of it, like updating references.
+- Preserve leading whitespace
+- Before outputting the code EXPLAIN YOUR CHANGES.
+- ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
+- Use the code comment `… Unchanged …` to hide unchanged code. Always use the correct comment syntax of the specific language (`// … Unchanged …`, `# … Unchanged …`, `-- … Unchanged …`, etc.).
 ]])
 
 M.commands_edit_selection = vim.trim([[

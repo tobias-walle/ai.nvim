@@ -1,10 +1,42 @@
-local M = {}
-
 local string_utils = require('ai.utils.strings')
+
+---@class Editor.Patch
+---@field bufnr number
+---@field patch string
+
+---@class Editor.Job
+---@field patch Editor.Patch
+---@field result string
+---@field is_completed boolean
+---@field retry fun()
+---@field cancel fun()
+
+---@class Editor
+---@field job_by_bufnr table<number, Editor.Job>
+---@field subscribers_by_bufnr table<number, fun(Editor.Job)[]>
+local Editor = {}
+Editor.__index = Editor
+
+---@return Editor
+function Editor:new()
+  local instance = setmetatable({}, self)
+  instance.job_by_bufnr = {}
+  instance.subscribers_by_bufnr = {}
+  return instance
+end
+
+---@param self Editor
+function Editor:reset()
+  for _, job in pairs(self.job_by_bufnr) do
+    job.cancel()
+  end
+  self.job_by_bufnr = {}
+end
 
 ---@param bufnr number
 ---@param blocks MarkdownCodeBlock[]
-function M.apply_markdown_code_blocks(bufnr, blocks)
+---@param self Editor
+function Editor:add_markdown_block_patches(bufnr, blocks)
   local current_buf_filename = vim.api.nvim_buf_get_name(bufnr)
   for _, block in ipairs(blocks) do
     local absolute_block_filename = block.file
@@ -25,57 +57,43 @@ function M.apply_markdown_code_blocks(bufnr, blocks)
     end
     local code_lines = block.lines
     local code = vim.fn.join(code_lines, '\n')
-    require('ai.agents.editor').apply_edits({
+    self:add_patch({
       bufnr = bufnr_to_edit,
       patch = code,
     })
   end
 end
 
----@param options { bufnr: number, patch: string }
----@param callback? fun(): nil
-function M.apply_edits(options, callback)
+---@param patch Editor.Patch
+---@param self Editor
+function Editor:add_patch(patch)
   local adapter_nano = require('ai.config').parse_model_string('default:nano')
   local adapter_mini = require('ai.config').parse_model_string('default:mini')
-  local bufnr = options.bufnr
-  local patch = options.patch
-
+  local bufnr = patch.bufnr
   local content_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local original_content = table.concat(content_lines, '\n')
   local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
 
-  local function on_completion()
-    if callback then
-      callback()
-    end
-  end
-
-  local notify_options = {
-    id = 'ai_edit',
-    title = 'AI Editor',
+  ---@type Editor.Job
+  local job = {
+    patch = patch,
+    result = '',
+    is_completed = false,
+    retry = function() end,
+    cancel = function() end,
   }
+  self.job_by_bufnr[bufnr] = job
 
-  local diff_bufnr
-  local diff_win
-  local function render_response(update, override)
-    if not diff_bufnr then
-      vim.notify('Missing diff_bufnr', vim.log.levels.ERROR)
-      return
+  ---@param update string
+  ---@param completed boolean
+  local function process_update(update, completed)
+    local extracted = require('ai.utils.markdown').extract_code(update)
+    local patched_content = extracted[#extracted] and extracted[#extracted].code
+    job.result = patched_content or update
+    job.is_completed = completed
+    for _, subscriber in ipairs(self.subscribers_by_bufnr[patch.bufnr] or {}) do
+      subscriber(job)
     end
-
-    local extracted = require('ai.utils.markdown').extract_code(update.response)
-    local code_lines = extracted[#extracted] and extracted[#extracted].lines
-      or vim.split(update.response, '\n')
-    if override == true then
-      vim.api.nvim_buf_set_lines(diff_bufnr, 0, -1, false, code_lines)
-    else
-      vim.api.nvim_buf_set_lines(diff_bufnr, 0, #code_lines, false, code_lines)
-    end
-    vim.notify(
-      '⏳ Fast Edit ' .. #code_lines .. '/' .. #content_lines,
-      vim.log.levels.INFO,
-      notify_options
-    )
   end
 
   local prompt = string_utils.replace_placeholders(
@@ -83,7 +101,7 @@ function M.apply_edits(options, callback)
     {
       language = language,
       original_content = original_content,
-      patch_content = patch,
+      patch_content = patch.patch,
     }
   )
 
@@ -116,7 +134,7 @@ function M.apply_edits(options, callback)
     })
   end
 
-  local function retry()
+  function job.retry()
     chat:clear()
     -- Use an upgraded model
     send(prompt, adapter_mini)
@@ -124,57 +142,87 @@ function M.apply_edits(options, callback)
 
   local placeholder = require('ai.prompts').placeholder_unchanged
 
-  local start_time
   chat = require('ai.utils.chat'):new({
     adapter = adapter_nano,
-    on_chat_start = function()
-      start_time = vim.uv.hrtime()
-    end,
     on_chat_update = function(update)
-      render_response(update, false)
+      process_update(update.response, false)
     end,
     on_chat_exit = function(data)
-      render_response(data, true)
       local has_still_placeholders = data.response:find(placeholder) ~= nil
       if has_still_placeholders then
-        retry()
+        job.retry()
       else
-        local elapsed_time = (vim.uv.hrtime() - start_time) / 1e9
-        vim.notify(
-          '[ai] Input Tokens: '
-            .. (data.tokens and data.tokens.input or '')
-            .. '; Output Tokens: '
-            .. (data.tokens and data.tokens.output or '')
-            .. '; Prediction Tokens: '
-            .. (data.tokens and data.tokens.accepted_prediction_tokens or '')
-            .. '; Time: '
-            .. string.format('%.2f', elapsed_time)
-            .. 's',
-          vim.log.levels.INFO,
-          notify_options
-        )
-        vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
-        on_completion()
+        process_update(data.response, true)
       end
     end,
   })
 
-  diff_bufnr, diff_win = require('ai.utils.diff_view').render_diff_view({
-    bufnr = bufnr,
-    on_retry = retry,
-    callback = function()
-      on_completion()
-    end,
-  })
-  vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
+  function job.cancel()
+    chat:clear()
+  end
 
-  local has_placeholders = patch:find(placeholder) ~= nil
+  local has_placeholders = patch.patch:find(placeholder) ~= nil
   if has_placeholders then
     send(prompt, adapter_nano)
   else
     -- If there are no placeholders we can just apply the patch directly
-    vim.api.nvim_buf_set_lines(diff_bufnr, 0, -1, false, vim.split(patch, '\n'))
+    process_update(patch.patch, true)
   end
 end
 
-return M
+---@param self Editor
+function Editor:open_all_diff_views()
+  for bufnr, _ in pairs(self.job_by_bufnr) do
+    self:open_diff_view(bufnr)
+  end
+end
+
+---@param self Editor
+---@param bufnr number
+function Editor:open_diff_view(bufnr)
+  local job = self.job_by_bufnr[bufnr]
+  if not job then
+    vim.notify(
+      'Job for bufnr "' .. bufnr .. '" not found',
+      vim.log.levels.ERROR
+    )
+    return
+  end
+
+  local diff_bufnr, diff_win = require('ai.utils.diff_view').render_diff_view({
+    bufnr = bufnr,
+    on_retry = job.retry,
+    callback = function()
+      -- Cleanup afterwards
+      job.cancel()
+      self.job_by_bufnr[bufnr] = nil
+    end,
+  })
+
+  self:subscribe(bufnr, function(update)
+    vim.api.nvim_buf_set_lines(
+      diff_bufnr,
+      0,
+      -1,
+      false,
+      vim.split(update.result, '\n')
+    )
+    if update.is_completed then
+      vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
+    end
+  end)
+end
+
+---@param bufnr number
+---@param callback fun(job: Editor.Job)
+function Editor:subscribe(bufnr, callback)
+  self.subscribers_by_bufnr[bufnr] = self.subscribers_by_bufnr[bufnr] or {}
+  table.insert(self.subscribers_by_bufnr[bufnr], callback)
+  -- Always call the subscriber initially if job already exists
+  local job = self.job_by_bufnr[bufnr]
+  if job then
+    callback(job)
+  end
+end
+
+return Editor

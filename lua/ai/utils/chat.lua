@@ -1,5 +1,6 @@
 ---@class Chat: Chat.Options Wraps an adapter and adds a chat history and other comfort functions
 ---@field messages AdapterMessage[]
+---@field current_message? AdapterMessage
 ---@field job? Job
 ---@field cancelled? boolean
 local Chat = {}
@@ -44,6 +45,11 @@ function Chat:send(options)
     self.on_chat_start()
   end
 
+  self.current_message = {
+    role = 'assistant',
+    content = '',
+  }
+
   ---@type Chat.SendOptions
   local custom_options = {
     tools = vim
@@ -57,6 +63,7 @@ function Chat:send(options)
       if self.cancelled then
         return
       end
+      self.current_message.content = update.response
       if options.on_update then
         options.on_update(update)
       end
@@ -69,15 +76,12 @@ function Chat:send(options)
         return
       end
 
-      ---@type AdapterMessage
-      local message = {
-        role = 'assistant',
-        content = data.response,
-        tool_calls = data.tool_calls,
-        tool_call_results = {},
-      }
+      self.current_message.content = data.response
+      self.current_message.tool_calls = data.tool_calls
+      self.current_message.tool_call_results = {}
+
       -- Add response to chat history
-      table.insert(self.messages, message)
+      table.insert(self.messages, self.current_message)
 
       if options.on_exit then
         options.on_exit(data)
@@ -96,6 +100,9 @@ function Chat:send(options)
           self.tools,
           data.tool_calls,
           function(result, results, finished)
+            if self.cancelled then
+              return
+            end
             -- Find the right tool call
             local index, tool_call
             for i, t in ipairs(data.tool_calls) do
@@ -106,7 +113,7 @@ function Chat:send(options)
               end
             end
 
-            table.insert(message.tool_call_results, result)
+            table.insert(self.current_message.tool_call_results, result)
             if self.on_tool_call_finish then
               self.on_tool_call_finish(tool_call, result, index)
             end
@@ -127,12 +134,16 @@ end
 
 ---@param self Chat
 function Chat:cancel()
-  self.job:stop()
+  if self.job then
+    self.job:stop()
+  end
+  self.current_message = nil
   self.cancelled = true
 end
 
 ---@param self Chat
 function Chat:clear()
+  self:cancel()
   self.messages = {}
   self.tools = {}
 end

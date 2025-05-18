@@ -1,6 +1,7 @@
 local M = {}
 
 local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
+local Editor = require('ai.agents.editor')
 local ThinkingAnimation = require('ai.utils.thinking_animation')
 
 ---@class ApplyChangesStrategyOptions
@@ -27,6 +28,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
   local function get_tool_call_line(index)
     return #last_response_lines - 2 + index
   end
+  local editor = Editor:new()
   local chat = require('ai.utils.chat'):new({
     adapter = adapter,
     on_chat_start = function()
@@ -34,6 +36,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
         preview_popup ~= nil,
         'preview_popup must be initialized before chat starts'
       )
+      editor:reset()
       -- Reset view with animation
       if thinking_animation then
         thinking_animation:stop()
@@ -58,6 +61,11 @@ function M.apply_changes_with_fast_edit_strategy(options)
       local last_row = #response_lines
       local last_col = #response_lines > 0 and #response_lines[last_row] or 0
       vim.api.nvim_win_set_cursor(0, { last_row, last_col })
+    end,
+    on_chat_exit = function(update)
+      local blocks = require('ai.utils.markdown').extract_code(update.response)
+      editor:reset()
+      editor:add_markdown_block_patches(bufnr, blocks)
     end,
     on_tool_call_start = function(tool_call, index)
       vim.api.nvim_buf_set_lines(
@@ -114,10 +122,8 @@ function M.apply_changes_with_fast_edit_strategy(options)
         end
       end)
     end,
-    on_confirm = function(response_lines)
-      local response = table.concat(response_lines, '\n')
-      local blocks = require('ai.utils.markdown').extract_code(response)
-      require('ai.agents.editor').apply_markdown_code_blocks(bufnr, blocks)
+    on_confirm = function()
+      editor:open_all_diff_views()
     end,
   })
 

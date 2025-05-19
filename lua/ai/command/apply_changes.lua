@@ -3,6 +3,7 @@ local M = {}
 local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 local Editor = require('ai.agents.editor')
 local ThinkingAnimation = require('ai.utils.thinking_animation')
+local replace_placeholders = require('ai.utils.strings').replace_placeholders
 
 ---@class ApplyChangesStrategyOptions
 ---@field adapter Adapter
@@ -114,9 +115,12 @@ function M.apply_changes_with_fast_edit_strategy(options)
         prompt = 'Retry',
         enable_thinking_option = true,
       }, function(retry_prompt, flags)
-        if retry_prompt then
+        if retry_prompt ~= nil then
           send(
-            retry_prompt == '' and 'Try again!' or retry_prompt,
+            replace_placeholders(
+              require('ai.prompts').commands_fast_edit_retry,
+              { notes = retry_prompt or 'No special notes' }
+            ),
             flags.model == 'thinking' and adapter_thinking or nil
           )
         end

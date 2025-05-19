@@ -19,9 +19,9 @@ Chat.__index = Chat
 ---@return Chat
 function Chat:new(options)
   local chat = setmetatable(options, self)
-  self.messages = {}
-  self.tools = options.tools or {}
   ---@cast chat Chat
+  chat.messages = {}
+  chat.tools = options.tools or {}
   return chat
 end
 
@@ -99,7 +99,7 @@ function Chat:send(options)
         require('ai.utils.tools').execute_tool_calls(
           self.tools,
           data.tool_calls,
-          function(result, results, finished)
+          function(result, _, finished)
             if self.cancelled then
               return
             end
@@ -117,9 +117,7 @@ function Chat:send(options)
             if self.on_tool_call_finish then
               self.on_tool_call_finish(tool_call, result, index)
             end
-            vim.notify('R' .. #results)
             if finished then
-              vim.notify('Resend with tool calls')
               self:send(options)
             end
           end

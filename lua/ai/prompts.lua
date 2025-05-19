@@ -127,6 +127,17 @@ M.commands_edit_selection = vim.trim([[
 - Avoid comments explaining your changes
 ]])
 
+M.commands_fast_edit_retry = build_prompt({
+  [[
+<notes>
+{{notes}}
+</notes>
+
+I wasn't happy with the result. Please retry considering the notes above if given.
+As only your last response will be considered, please repeat all changes that are still relevant.
+  ]],
+})
+
 M.editor_user_prompt = build_prompt({
   [[
 <original>

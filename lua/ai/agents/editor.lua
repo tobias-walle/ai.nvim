@@ -67,7 +67,6 @@ end
 ---@param patch Editor.Patch
 ---@param self Editor
 function Editor:add_patch(patch)
-  local adapter_nano = require('ai.config').parse_model_string('default:nano')
   local adapter_mini = require('ai.config').parse_model_string('default:mini')
   local bufnr = patch.bufnr
   local content_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
@@ -143,7 +142,7 @@ function Editor:add_patch(patch)
   local placeholder = require('ai.prompts').placeholder_unchanged
 
   chat = require('ai.utils.chat'):new({
-    adapter = adapter_nano,
+    adapter = adapter_mini,
     on_chat_update = function(update)
       local has_still_placeholders = update.response:find(placeholder) ~= nil
       if has_still_placeholders then
@@ -163,7 +162,7 @@ function Editor:add_patch(patch)
 
   local has_placeholders = patch.patch:find(placeholder) ~= nil
   if has_placeholders then
-    send(prompt, adapter_nano)
+    send(prompt, adapter_mini)
   else
     -- If there are no placeholders we can just apply the patch directly
     process_update(patch.patch, true)

@@ -3,6 +3,7 @@ local M = {} -- Start with this line
 local string_utils = require('ai.utils.strings')
 local prompts = require('ai.prompts')
 local Files = require('ai.utils.files')
+local Images = require('ai.utils.images')
 
 --- @type string[]
 M.files = {}
@@ -127,11 +128,35 @@ function M.toggle_menu()
 
   vim.keymap.set('n', 'q', function()
     vim.api.nvim_win_close(win, true)
-  end, { buffer = buf, nowait = true, silent = true })
+  end, {
+    buffer = buf,
+    nowait = true,
+    silent = true,
+    desc = 'Close files context menu',
+  })
 
-  vim.keymap.set('n', '<cr>', function()
-    save()
-  end, { buffer = buf, nowait = true, silent = true })
+  vim.keymap.set(
+    'n',
+    '<cr>',
+    function()
+      save()
+    end,
+    { buffer = buf, nowait = true, silent = true, desc = 'Save files context' }
+  )
+
+  vim.keymap.set('n', '<localleader>i', function()
+    local img_path = Images.paste_image()
+    if not img_path then
+      return
+    end
+    vim.fn.setreg('"', img_path)
+    vim.api.nvim_feedkeys('p', 'n', false)
+  end, {
+    buffer = buf,
+    nowait = true,
+    silent = true,
+    desc = 'Paste image from clipboard',
+  })
 end
 
 ---Get the prompt string for the current context files.
@@ -180,7 +205,7 @@ function M.get_images()
   for _, filepath in ipairs(M.files) do
     if Files.is_image(filepath) then
       local media_type = Files.get_media_type(filepath)
-      local image_base64 = Files.read_image_as_base64(filepath)
+      local image_base64 = Images.read_image_as_base64(filepath)
       ---@type AdapterMessageContentItem
       local image = {
         type = 'image',

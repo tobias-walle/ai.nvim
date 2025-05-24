@@ -15,6 +15,42 @@ local function map_tools(tools)
   return mapped_tools
 end
 
+local function get_cache_control_for_big_text(content)
+  return #content > 5000 and { type = 'ephemeral' } or nil
+end
+
+---@param item AdapterMessageContentItem
+local function map_message_content_item(item)
+  if item['type'] == 'text' then
+    return {
+      type = 'text',
+      text = item.text,
+      cache_control = get_cache_control_for_big_text(item.text),
+    }
+  elseif item['type'] == 'image' then
+    return {
+      type = 'image',
+      source = {
+        type = 'base64',
+        media_type = item.media_type,
+        data = item.base64,
+      },
+    }
+  end
+  return item
+end
+
+---@param content AdapterMessageContent
+local function map_message_content(content)
+  if type(content) == 'string' then
+    return {
+      map_message_content_item({ type = 'text', text = content }),
+    }
+  else
+    return vim.iter(content):map(map_message_content_item):totable()
+  end
+end
+
 ---@type AdapterOptions
 local options = {
   name = 'anthropic',
@@ -29,18 +65,10 @@ local options = {
     create_request_body = function(request)
       local messages = {}
 
-      local get_cache_control_for_big_text = function(content)
-        return #content > 5000 and { type = 'ephemeral' } or nil
-      end
-
       for _, msg in ipairs(request.messages) do
         local content = {}
         if msg.content and #msg.content > 0 then
-          table.insert(content, {
-            type = 'text',
-            text = msg.content,
-            cache_control = get_cache_control_for_big_text(msg.content),
-          })
+          vim.list_extend(content, map_message_content(msg.content))
         end
         if msg.tool_calls then
           for _, tool_call in ipairs(msg.tool_calls) do
@@ -125,6 +153,12 @@ local options = {
           output = response.usage.output_tokens or 0,
         }
       end
+    end,
+    get_error = function(response)
+      if response.error then
+        return 'Error: ' .. vim.inspect(response.error)
+      end
+      return nil
     end,
     get_delta = function(response)
       if

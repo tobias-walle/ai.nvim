@@ -9,13 +9,13 @@ local FilesContext = require('ai.utils.files_context')
 ---@class CommandDefinition
 ---@field name string
 ---@field input_prompt? string
----@field instructions? string
+---@field instructions? AdapterMessageContent
 ---@field model? string
 ---@field only_replace_selection? boolean
 
 ---@param definition CommandDefinition
 ---@param opts table
----@param instructions string
+---@param instructions AdapterMessageContent
 local function execute_ai_command(definition, opts, instructions)
   local bufnr = vim.api.nvim_get_current_buf()
   local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
@@ -39,6 +39,12 @@ local function execute_ai_command(definition, opts, instructions)
 
   local selection_content =
     table.concat(vim.list_slice(lines, start_line, end_line), '\n')
+
+  ---@type AdapterMessageContentItem[]
+  local prompt = {}
+
+  vim.list_extend(prompt, FilesContext.get_images())
+
   local placeholders = {
     custom_rules = require('ai.utils.rules').load_custom_rules() or '',
     filename = filename,
@@ -65,10 +71,16 @@ local function execute_ai_command(definition, opts, instructions)
   local adapter =
     require('ai.config').parse_model_string(definition.model or 'default')
   if definition.only_replace_selection then
-    local prompt = string_utils.replace_placeholders(
-      require('ai.prompts').commands_edit_selection,
-      placeholders
-    )
+    ---@type AdapterMessageContentItem
+    local text_content = {
+      type = 'text',
+      text = string_utils.replace_placeholders(
+        require('ai.prompts').commands_edit_selection,
+        placeholders
+      ),
+    }
+    table.insert(prompt, text_content)
+    dbg(prompt)
     require('ai.command.apply_changes').apply_changes_with_replace_selection_strategy({
       bufnr = bufnr,
       prompt = prompt,
@@ -77,10 +89,15 @@ local function execute_ai_command(definition, opts, instructions)
       adapter = adapter,
     })
   else
-    local prompt = string_utils.replace_placeholders(
-      require('ai.prompts').commands_edit_file,
-      placeholders
-    )
+    ---@type AdapterMessageContentItem
+    local text_content = {
+      type = 'text',
+      text = string_utils.replace_placeholders(
+        require('ai.prompts').commands_edit_file,
+        placeholders
+      ),
+    }
+    table.insert(prompt, text_content)
     require('ai.command.apply_changes').apply_changes_with_fast_edit_strategy({
       bufnr = bufnr,
       prompt = prompt,

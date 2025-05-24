@@ -50,7 +50,7 @@ function M.create_adapter_options(options)
         for _, msg in ipairs(request.messages) do
           local message = { role = msg.role }
           if msg.content and #msg.content > 0 then
-            message.content = msg.content
+            message.content = M.map_message_content(msg.content)
           end
           if msg.tool_calls and #msg.tool_calls > 0 then
             message.tool_calls = {}
@@ -189,6 +189,33 @@ function M.create_adapter_options(options)
       end,
     },
   }
+end
+
+---@param content AdapterMessageContent
+function M.map_message_content(content)
+  if type(content) == 'string' then
+    return content
+  else
+    return vim.iter(content):map(M.map_message_content_item):totable()
+  end
+end
+
+---@param item AdapterMessageContentItem
+function M.map_message_content_item(item)
+  if item['type'] == 'text' then
+    return {
+      type = 'text',
+      text = item.text,
+    }
+  elseif item['type'] == 'image' then
+    return {
+      type = 'image_url',
+      image_url = {
+        url = 'data:' .. item.media_type .. ';base64,' .. item.base64,
+      },
+    }
+  end
+  return item
 end
 
 return M

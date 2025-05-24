@@ -21,9 +21,21 @@ local requests = require('ai.utils.requests')
 ---@field id string
 ---@field result any
 
+---@class AdapterMessageContentText
+---@field type "text"
+---@field text string
+
+---@class AdapterMessageContentImage
+---@field type "image"
+---@field media_type string
+---@field base64 string
+
+---@alias AdapterMessageContentItem AdapterMessageContentText | AdapterMessageContentImage
+---@alias AdapterMessageContent string | AdapterMessageContentItem[]
+
 ---@class AdapterMessage
 ---@field role "user" | "assistant"
----@field content string
+---@field content AdapterMessageContent
 ---@field tool_calls? AdapterMessageToolCall[]
 ---@field tool_call_results? AdapterMessageToolCallResult[]
 

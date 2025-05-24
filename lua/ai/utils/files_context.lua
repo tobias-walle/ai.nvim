@@ -2,6 +2,7 @@ local M = {} -- Start with this line
 
 local string_utils = require('ai.utils.strings')
 local prompts = require('ai.prompts')
+local Files = require('ai.utils.files')
 
 --- @type string[]
 M.files = {}
@@ -124,11 +125,11 @@ function M.toggle_menu()
     vim.notify('Context saved (' .. #lines .. ' files)', vim.log.levels.INFO)
   end
 
-  vim.keymap.set('n', '<localleader>q', function()
+  vim.keymap.set('n', 'q', function()
     vim.api.nvim_win_close(win, true)
   end, { buffer = buf, nowait = true, silent = true })
 
-  vim.keymap.set('n', '<localleader>a', function()
+  vim.keymap.set('n', '<cr>', function()
     save()
   end, { buffer = buf, nowait = true, silent = true })
 end
@@ -139,24 +140,57 @@ function M.get_prompt()
   if #M.files == 0 then
     return ''
   end
+
   local file_prompts = {}
   for _, filepath in ipairs(M.files) do
+    if Files.is_binary(filepath) then
+      goto continue
+    end
+
     local ft = vim.filetype.match({ filename = filepath }) or 'text'
     local ok, lines = pcall(vim.fn.readfile, filepath)
-    if ok and lines then
-      local file_prompt =
-        string_utils.replace_placeholders(prompts.files_context_single_file, {
-          filename = filepath,
-          language = ft,
-          content = table.concat(lines, '\n'),
-        })
-      table.insert(file_prompts, file_prompt)
+    if not ok or not lines then
+      goto continue
     end
+
+    local file_prompt =
+      string_utils.replace_placeholders(prompts.files_context_single_file, {
+        filename = filepath,
+        language = ft,
+        content = table.concat(lines, '\n'),
+      })
+    table.insert(file_prompts, file_prompt)
+
+    ::continue::
   end
+
   local prompt = string_utils.replace_placeholders(prompts.files_context, {
     files = table.concat(file_prompts, '\n'),
   })
   return prompt
+end
+
+---@return AdapterMessageContentItem[]
+function M.get_images()
+  if #M.files == 0 then
+    return {}
+  end
+  ---@type AdapterMessageContentItem[]
+  local images = {}
+  for _, filepath in ipairs(M.files) do
+    if Files.is_image(filepath) then
+      local media_type = Files.get_media_type(filepath)
+      local image_base64 = Files.read_image_as_base64(filepath)
+      ---@type AdapterMessageContentItem
+      local image = {
+        type = 'image',
+        media_type = media_type,
+        base64 = image_base64,
+      }
+      table.insert(images, image)
+    end
+  end
+  return images
 end
 
 function M._get_relative_path_of_current_buffer()

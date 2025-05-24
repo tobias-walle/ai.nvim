@@ -1,7 +1,9 @@
 local M = {}
 
+---@alias Placeholders table<string, string | number>
+
 ---@param template string
----@param placeholders table<string, string | number>
+---@param placeholders Placeholders
 ---@return string
 function M.replace_placeholders(template, placeholders)
   local result = template

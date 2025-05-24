@@ -30,4 +30,18 @@ function M.paste_image()
   end
 end
 
+---Paste the image from the clipboard and insert it as markdown at the cursor position.
+---@return nil
+function M.paste_image_as_markdown()
+  local img_path = M.paste_image()
+  if not img_path then
+    return
+  end
+  local buf = vim.api.nvim_get_current_buf()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local markdown = '![](' .. img_path .. ')'
+  -- Insert markdown image syntax at cursor
+  vim.api.nvim_buf_set_text(buf, row - 1, col, row - 1, col, { markdown })
+end
+
 return M

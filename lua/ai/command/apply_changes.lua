@@ -113,17 +113,18 @@ function M.apply_changes_with_fast_edit_strategy(options)
     on_retry = function()
       open_prompt_input({
         prompt = 'Retry',
+        modify_text = function(text)
+          return replace_placeholders(
+            require('ai.prompts').commands_fast_edit_retry,
+            { notes = text == '' and 'No special notes' or text }
+          )
+        end,
         enable_thinking_option = true,
       }, function(retry_prompt, flags)
-        if retry_prompt ~= nil then
-          send(
-            replace_placeholders(
-              require('ai.prompts').commands_fast_edit_retry,
-              { notes = retry_prompt or 'No special notes' }
-            ),
-            flags.model == 'thinking' and adapter_thinking or nil
-          )
-        end
+        send(
+          retry_prompt,
+          flags.model == 'thinking' and adapter_thinking or nil
+        )
       end)
     end,
     on_confirm = function()

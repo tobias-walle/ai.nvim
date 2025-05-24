@@ -525,7 +525,7 @@ end
 function M.debug_parsing()
   local parsed = Buffer.parse(0)
   local bufnr = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
+  vim.api.nvim_set_option_value('filetype', 'markdown', { buf = bufnr })
   vim.cmd('vsplit')
   vim.api.nvim_win_set_buf(0, bufnr)
   M.update_messages(bufnr, parsed.messages)

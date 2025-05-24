@@ -5,6 +5,7 @@ local string_utils = require('ai.utils.strings')
 local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 local get_diagnostics = require('ai.utils.diagnostics').get_diagnostics
 local FilesContext = require('ai.utils.files_context')
+local Messages = require('ai.utils.messages')
 
 ---@class CommandDefinition
 ---@field name string
@@ -44,14 +45,16 @@ local function execute_ai_command(definition, opts, instructions)
   local prompt = {}
 
   vim.list_extend(prompt, FilesContext.get_images())
+  vim.list_extend(prompt, Messages.extract_images(instructions))
 
+  ---@type Placeholders
   local placeholders = {
     custom_rules = require('ai.utils.rules').load_custom_rules() or '',
     filename = filename,
     content = content,
     selection_content = selection_content,
     language = language,
-    intructions = instructions,
+    intructions = Messages.extract_text(instructions),
     start_line = start_line,
     end_line = end_line,
     diagnostics = diagnostics,
@@ -80,7 +83,6 @@ local function execute_ai_command(definition, opts, instructions)
       ),
     }
     table.insert(prompt, text_content)
-    dbg(prompt)
     require('ai.command.apply_changes').apply_changes_with_replace_selection_strategy({
       bufnr = bufnr,
       prompt = prompt,

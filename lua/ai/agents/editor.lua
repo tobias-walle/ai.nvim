@@ -145,15 +145,15 @@ function Editor:add_patch(patch)
   chat = require('ai.utils.chat'):new({
     adapter = adapter_nano,
     on_chat_update = function(update)
-      process_update(update.response, false)
-    end,
-    on_chat_exit = function(data)
-      local has_still_placeholders = data.response:find(placeholder) ~= nil
+      local has_still_placeholders = update.response:find(placeholder) ~= nil
       if has_still_placeholders then
         job.retry()
       else
-        process_update(data.response, true)
+        process_update(update.response, false)
       end
+    end,
+    on_chat_exit = function(data)
+      process_update(data.response, true)
     end,
   })
 

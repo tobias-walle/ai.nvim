@@ -223,6 +223,7 @@ function Editor:open_diff_view(bufnr, callback)
 
   -- Store the diffview references
   self.diffviews_by_bufnr[bufnr] = diffview
+  vim.api.nvim_set_option_value('foldlevel', 0, { win = diffview.win })
 
   self:subscribe(bufnr, function(update)
     if not vim.api.nvim_buf_is_valid(diffview.bufnr) then

@@ -114,13 +114,13 @@ end
 ---@param definition CommandDefinition
 local function create_command(definition)
   local function cmd_fn(opts)
-    if Buffers.find_buf_by_name('AI') then
-      vim.notify(
-        "A buffer named 'AI' already exists. Command cancelled.",
-        vim.log.levels.WARN
-      )
-      return
-    end
+    -- if Buffers.find_buf_by_name('AI') then
+    --   vim.notify(
+    --     "A buffer named 'AI' already exists. Command cancelled.",
+    --     vim.log.levels.WARN
+    --   )
+    --   return
+    -- end
 
     if definition.instructions and definition.instructions ~= '' then
       return execute_ai_command(definition, opts, definition.instructions)

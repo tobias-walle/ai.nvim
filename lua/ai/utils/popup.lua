@@ -26,6 +26,9 @@ function M.open_response_preview(opts)
 
   local function close()
     vim.cmd.tabclose(tabnr)
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      vim.api.nvim_buf_delete(bufnr, { force = true })
+    end
   end
 
   local keymap_opts = { buffer = true, silent = true }
@@ -47,6 +50,7 @@ function M.open_response_preview(opts)
 
   -- Retry (if defined)
   vim.keymap.set('n', config.mappings.buffers.retry, function()
+    is_confirmed = false
     if opts.on_retry then
       vim.notify('Retry', vim.log.levels.INFO)
       opts.on_retry()

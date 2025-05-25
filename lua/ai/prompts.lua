@@ -71,12 +71,12 @@ function createEventsApi(client: Client): EventsApi {
 }
 
 // ... existing code ...
-```typescript
+```
 
 # Actual Task
 {{files_context}}
 <diagnostics>
-``` {{filename}}
+```text {{filename}}
 {{diagnostics}}
 ```
 </diagnostics>
@@ -104,7 +104,7 @@ Output only the changed code
 
 M.commands_edit_selection = vim.trim([[
 <diagnostics>
-```
+```text {{filename}}
 {{diagnostics_selection}}
 ```
 </diagnostics>

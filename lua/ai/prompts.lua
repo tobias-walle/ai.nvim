@@ -3,7 +3,7 @@ local M = {}
 local build_prompt = require('ai.utils.prompt_builder').build_prompt
 local replace_placeholders = require('ai.utils.strings').replace_placeholders
 
-M.placeholder_unchanged = '… Unchanged …'
+M.placeholder_unchanged = '... existing code ...'
 
 M.system_prompt = vim.trim([[
 Act as an expert software developer. You are very articulate and follow instructions very closely.
@@ -55,22 +55,22 @@ The user asked me the add a new function to update events. For this:
 - The rest should remain unchanged.
 
 ```typescript src/events.ts
-// … Unchanged …
+// ... existing code ...
 
 export interface EventsApi {
-  // … Unchanged …
+  // ... existing code ...
   updateEvents(events: EventInput[]): Promise<void>;
 }
 
 function createEventsApi(client: Client): EventsApi {
-  // … Unchanged …
+  // ... existing code ...
   return {
-    // … Unchanged …
+    // ... existing code ...
     updateEvents: (events) => client.patch('events', { json: events }).json(),
   };
 }
 
-// … Unchanged …
+// ... existing code ...
 ```typescript
 
 # Actual Task
@@ -99,7 +99,7 @@ Output only the changed code
 - Preserve leading whitespace
 - Before outputting the code EXPLAIN YOUR CHANGES.
 - ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
-- Use the code comment `… Unchanged …` to hide unchanged code. Always use the correct comment syntax of the specific language (`// … Unchanged …`, `# … Unchanged …`, `-- … Unchanged …`, etc.).
+- Use the code comment `... existing code ...` to hide unchanged code. Always use the correct comment syntax of the specific language (`// ... existing code ...`, `# ... existing code ...`, `-- ... existing code ...`, etc.).
 ]])
 
 M.commands_edit_selection = vim.trim([[

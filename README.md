@@ -5,13 +5,12 @@
 > It is very likely that I will add breaking changes in the future.
 > I do not recommend using it (yet).
 
-Neovim plugin to integrate LLMs into Neovim to assist the development flow.
+Neovim plugin to integrate LLMs for powerful code autocompletion and command-driven code manipulation.
 
 Features:
 
 - [Autocomplete sections of your code](#autocompletion)
-- [Rewrite your selections using AI](#rewrites)
-- [Chat with your codebase and do changes utilizing agentic workflows](#chat)
+- [Execute AI-powered commands on your code](#commands)
 - Configurable LLM Providers (Use OpenAI, Anthropic, Azure, Ollama, or whatever you prefer).
 
 This plugin is greatly inspired by the following tools:
@@ -33,7 +32,6 @@ Using [lazy.nvim](https://lazy.folke.io/):
   end,
   keys = {
     { '<C-x>', function() require('ai').trigger_completion() end, mode = 'i', desc = 'Trigger AI Completion' },
-    { '<Leader>aa', '<cmd>AiChat<cr>', mode = 'n', desc = 'Toggle AI chat' },
     { '<Leader>ar', '<cmd>AiRewrite<cr>', mode = 'v', desc = 'Rewrite selected text' },
     { '<Leader>am', '<cmd>AiChangeModels<cr>', mode = 'n', desc = 'Change AI models' },
   }
@@ -45,7 +43,7 @@ Please set up the following environment variables, depending on which model or f
 - `OPENAI_API_KEY`: API key for OpenAI if you want to use their models.
 - `ANTHROPIC_API_KEY`: API key for Anthropic if you want to use their models.
 - `OPENROUTER_API_KEY`: API key for OpenRouter if you want to use their models.
-- `PERPLEXITY_API_KEY`: API key for Perplexity if you want to use the @web tool.
+- `PERPLEXITY_API_KEY`: API key for Perplexity.
 - `AZURE_API_BASE`: Base URL for the Azure API if you want to use Azure models. (Note: The model name will be used for the deployment)
 - `AZURE_API_VERSION`: API version for the Azure API.
 - `AZURE_API_KEY`: API key for the Azure API.
@@ -62,23 +60,34 @@ You can find the default configuration here [lua/ai/config.lua](./lua/ai/config.
 require('ai').setup({
   -- The model that is used per default.
   -- The "mini" model is used for tasks which might use a lot of tokens or in which speed is especially important.
-  -- You can customize which model should be used for which task in the "chat", "command" or "completion" settings.
+  -- You can customize which model should be used for which task in the "command" or "completion" settings.
   default_models = {
-    default = 'anthropic:claude-3-5-sonnet-latest',
+    default = 'anthropic:claude-3-7-sonnet-latest',
     mini = 'anthropic:claude-3-5-haiku-latest',
     nano = 'openai:gpt-4.1-nano',
+    thinking = 'openai:o4-mini',
   },
   -- A list of model that can be easily switched between (using :AiChangeModels)
   selectable_models = {
     {
-      default = 'anthropic:claude-3-5-sonnet-latest',
+      default = 'anthropic:claude-3-7-sonnet-latest',
       mini = 'anthropic:claude-3-5-haiku-latest',
       nano = 'openai:gpt-4.1-nano',
+      thinking = 'openai:o4-mini',
     },
     {
       default = 'openai:gpt-4.1',
       mini = 'openai:gpt-4.1-mini',
       nano = 'openai:gpt-4.1-nano',
+      thinking = 'openai:o4-mini',
+    },
+  },
+  -- Special request options for specific models
+  model_overrides = {
+    ['.*:o4%-mini'] = {
+      request = {
+        temperature = 1,
+      },
     },
   },
   -- You can add custom adapters if you are missing a LLM provider.
@@ -91,9 +100,6 @@ require('ai').setup({
   },
   -- Customize which model is used for which task
   -- You can pass the model name directly (like "openai:gpt-4o") or refer to one of the default models.
-  chat = {
-    model = 'default',
-  },
   command = {
     model = 'default',
   },
@@ -103,7 +109,7 @@ require('ai').setup({
   -- ai.nvim is looking for a rules file at the root of your project and will load it into each prompt.
   -- You can use it to define the code style or other information that could be improving the output of the tasks.
   rules_file = '.ai-rules.md',
-  -- The data dir is used to save cached data (like the chat history)
+  -- The data dir is used to save cached data
   data_dir = vim.fn.stdpath('data') .. '/ai',
   -- Override the keymaps used by the plugin
   mappings = {
@@ -111,15 +117,6 @@ require('ai').setup({
       accept_suggestion = '<Tab>',
       next_suggestion = '<C-n>',
       next_suggestion_with_prompt = '<S-C-n>',
-    },
-    chat = {
-      submit = '<CR>',
-      new_chat = '<LocalLeader>x',
-      goto_prev_chat = '<LocalLeader>p',
-      goto_next_chat = '<LocalLeader>n',
-      goto_chat_with_telescope = '<LocalLeader>s',
-      delete_previous_msg = '<LocalLeader>d',
-      copy_last_code_block = '<LocalLeader>y',
     },
     buffers = {
       accept_suggestion = '<LocalLeader>a',
@@ -130,33 +127,6 @@ require('ai').setup({
 })
 ```
 
-## blink.cmp
-
-This plugin supports completing built-in tools and variables in the chat buffer using [blink.cmp](https://github.com/Saghen/blink.cmp).
-
-Please update your `blink.cmp` configuration to use our completion source.
-
-```lua
-return {
-  'saghen/blink.cmp',
-  opts = {
-    -- ...
-    sources = {
-      default = {
-        -- ...
-        'ai_chat',
-      },
-      providers = {
-        -- ...
-        ai_chat = { module = 'ai.cmp.chat' }
-      }
-    }
-  }
-}
-```
-
-See also [Chat](#chat).
-
 ## Features
 
 ### Autocompletion
@@ -166,24 +136,22 @@ If you are happy with the suggestion, you can press `<Tab>` to accept it.
 
 If not, you can get another suggestion with `<C-n>` or provide a custom prompt for your next suggestion with `<S-C-n>` (Shift + Control + n).
 
-### Rewrites
+### Commands
 
-Select a section of text and use `:AiRewrite` to rewrite it.
-The LLM will be given your selection and the file as context.
-
-Optionally, you can pass a direct prompt as the second argument `:AiRewrite <prompt>`.
+The plugin provides several commands (e.g., `:AiRewrite`, `:AiFix`) to interact with the AI. These commands can operate on a visual selection or the entire file. You can provide instructions directly as arguments to the command (e.g., `:AiRewrite <your prompt>`) or, if no arguments are given, an input prompt will appear.
 
 The changes will be displayed in a diff.
 You can accept them with `<LocalLeader>a` or reject them with `<LocalLeader>r`
 (I personally have mapped localleader to `,` with `vim.g.maplocalleader = ','`).
 You can change these mappings in the config.
 
-Other commands:
+Available commands:
 
-- `:AiRewrite <prompt>` - Rewrites the selection based on the given prompt
-- `:AiSpellCheck` - Fix grammar and spelling errors in the selection
-- `:AiTranslate <lang>` - Translate the selection to another language
-- `:AiFix` - Fix bugs in the selection
+- `:AiRewrite <prompt>` - Rewrites the selection or entire file based on the given prompt. If no prompt is provided, an input field will appear.
+- `:AiRewriteSelection <prompt>` - Similar to `AiRewrite`, but strictly operates on the current visual selection.
+- `:AiSpellCheck` - Fixes grammar and spelling errors in the selection using predefined instructions.
+- `:AiTranslate` - Translates the selection to English using predefined instructions. For other languages, use `:AiRewrite` with a specific translation prompt (e.g., `:AiRewrite translate this to German`).
+- `:AiFix` - Attempts to fix bugs in the selection or file using predefined instructions and adds comments explaining the reasoning.
 
 ## Similar Plugins
 

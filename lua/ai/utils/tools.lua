@@ -18,7 +18,7 @@ function M.execute_tool_calls(tools, tool_calls, callback)
       goto continue
     end
 
-    tool.execute({}, tool_call.params, function(result)
+    tool.execute(tool_call.params, function(result)
       completed = completed + 1
       ---@type AdapterMessageToolCallResult
       local tool_call_result = {
@@ -31,6 +31,16 @@ function M.execute_tool_calls(tools, tool_calls, callback)
 
     ::continue::
   end
+end
+
+---@param tools ToolDefinition[]
+---@param name string
+---@return ToolDefinition | nil
+function M.find_tool_definition(tools, name)
+  return vim.iter(tools):find(function(tool)
+    ---@cast tool ToolDefinition
+    return tool.definition.name == name
+  end)
 end
 
 return M

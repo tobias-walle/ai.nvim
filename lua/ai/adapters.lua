@@ -1,6 +1,7 @@
 local M = {}
 
-local requests = require('ai.utils.requests')
+local Requests = require('ai.utils.requests')
+local Json = require('ai.utils.json')
 
 ---@class ToolParameters
 ---@field type string
@@ -15,7 +16,7 @@ local requests = require('ai.utils.requests')
 ---@class AdapterMessageToolCall
 ---@field tool string
 ---@field id string
----@field params table
+---@field params table | nil
 
 ---@class AdapterMessageToolCallResult
 ---@field id string
@@ -193,7 +194,7 @@ function Adapter:chat_stream(options)
   end
 
   local url = self.url:gsub('{{model}}', self.model)
-  return requests.stream({
+  return Requests.stream({
     url = url,
     headers = headers,
     json_body = request_body,
@@ -248,6 +249,10 @@ function Adapter:chat_stream(options)
       elseif delta.type == 'tool_call_delta' then
         if active_tool_call then
           active_tool_call.content = active_tool_call.content .. delta.content
+          local parsed = Json.decode_partial(active_tool_call.content)
+          if parsed then
+            active_tool_call.params = parsed
+          end
         else
           vim.notify(
             'Unexpected tool call delta, no active tool call: '
@@ -283,8 +288,8 @@ function Adapter:chat_stream(options)
       if options.on_exit then
         options.on_exit({
           response = response,
-          tool_calls = tool_calls,
           tokens = tokens_total,
+          tool_calls = tool_calls,
           exit_code = exit_code,
           cancelled = cancelled,
         })

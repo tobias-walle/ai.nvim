@@ -1,19 +1,22 @@
----@class Chat: Chat.Options Wraps an adapter and adds a chat history and other comfort functions
+---@class Chat.Options
+---@field adapter Adapter
+---@field tools? ToolDefinition[]
+---@field on_chat_start? fun()
+---@field on_chat_update? fun(update: AdapterStreamUpdate): nil
+---@field on_chat_exit? fun(data: AdapterStreamExitData): nil
+---@field on_tool_call_start? fun(tool_call: AdapterToolCall, index: number): nil
+---@field on_tool_call_finish? fun(tool_call: AdapterToolCall, result: AdapterMessageToolCallResult, index: number): nil
+
+---@class Chat: Chat.Options -- Wraps an adapter and adds a chat history and other comfort functions
 ---@field messages AdapterMessage[]
+---@field tools ToolDefinition[]
 ---@field current_message? AdapterMessage
 ---@field job? Job
 ---@field cancelled? boolean
 local Chat = {}
 Chat.__index = Chat
 
----@class Chat.Options
----@field adapter Adapter
----@field tools? RealToolDefinition[]
----@field on_chat_start? fun()
----@field on_chat_update? fun(update: AdapterStreamUpdate): nil
----@field on_chat_exit? fun(data: AdapterStreamExitData): nil
----@field on_tool_call_start? fun(tool_call: AdapterToolCall, index: number): nil
----@field on_tool_call_finish? fun(tool_call: AdapterToolCall, result: AdapterMessageToolCallResult, index: number): nil
+local Tools = require('ai.utils.tools')
 
 ---@param options Chat.Options
 ---@return Chat
@@ -50,6 +53,10 @@ function Chat:send(options)
     content = '',
   }
 
+  local request_messages = self.messages
+  self.messages = vim.list_extend({}, self.messages)
+  table.insert(self.messages, self.current_message)
+
   ---@type Chat.SendOptions
   local custom_options = {
     tools = vim
@@ -58,12 +65,13 @@ function Chat:send(options)
         return tool.definition
       end)
       :totable(),
-    messages = self.messages,
+    messages = request_messages,
     on_update = function(update)
       if self.cancelled then
         return
       end
       self.current_message.content = update.response
+      self.current_message.tool_calls = update.tool_calls
       if options.on_update then
         options.on_update(update)
       end
@@ -80,9 +88,6 @@ function Chat:send(options)
       self.current_message.tool_calls = data.tool_calls
       self.current_message.tool_call_results = {}
 
-      -- Add response to chat history
-      table.insert(self.messages, self.current_message)
-
       if options.on_exit then
         options.on_exit(data)
       end
@@ -91,7 +96,12 @@ function Chat:send(options)
       end
 
       if #data.tool_calls > 0 then
+        local is_any_tool_call_completing_chat = false
         for i, tool_call in ipairs(data.tool_calls) do
+          local tool_definition =
+            Tools.find_tool_definition(self.tools, tool_call.tool)
+          is_any_tool_call_completing_chat = is_any_tool_call_completing_chat
+            or (tool_definition and tool_definition.is_completing_chat or false)
           if self.on_tool_call_start then
             self.on_tool_call_start(tool_call, i)
           end
@@ -118,7 +128,12 @@ function Chat:send(options)
               self.on_tool_call_finish(tool_call, result, index)
             end
             if finished then
-              self:send(options)
+              if not is_any_tool_call_completing_chat then
+                ---@type Chat.SendOptions
+                local options_new = vim.tbl_extend('force', {}, options)
+                options_new.messages = {}
+                self:send(options_new)
+              end
             end
           end
         )

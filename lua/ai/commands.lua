@@ -7,6 +7,7 @@ local get_diagnostics = require('ai.utils.diagnostics').get_diagnostics
 local FilesContext = require('ai.utils.files_context')
 local Messages = require('ai.utils.messages')
 local Buffers = require('ai.utils.buffers')
+local AgentPanel = require('ai.ui.agent_panel')
 
 ---@class CommandDefinition
 ---@field name string
@@ -14,6 +15,7 @@ local Buffers = require('ai.utils.buffers')
 ---@field instructions? AdapterMessageContent
 ---@field model? string
 ---@field only_replace_selection? boolean
+---@field agent_mode? boolean
 
 ---@param definition CommandDefinition
 ---@param opts table
@@ -91,6 +93,21 @@ local function execute_ai_command(definition, opts, instructions)
       end_line = end_line,
       adapter = adapter,
     })
+  elseif definition.agent_mode then
+    ---@type AdapterMessageContentItem
+    local text_content = {
+      type = 'text',
+      text = string_utils.replace_placeholders(
+        require('ai.prompts').prompt_agent,
+        placeholders
+      ),
+    }
+    table.insert(prompt, text_content)
+    local agent = AgentPanel.new({
+      adapter = adapter,
+      focused_bufnr = bufnr,
+    })
+    agent:send(prompt)
   else
     ---@type AdapterMessageContentItem
     local text_content = {
@@ -156,6 +173,11 @@ function M.setup()
   create_command({
     name = 'Rewrite',
     input_prompt = 'AI Rewrite',
+  })
+  create_command({
+    name = 'Agent',
+    input_prompt = 'AI Agent Mode',
+    agent_mode = true,
   })
   create_command({
     name = 'RewriteSelection',

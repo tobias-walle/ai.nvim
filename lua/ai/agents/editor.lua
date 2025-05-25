@@ -14,6 +14,7 @@ local string_utils = require('ai.utils.strings')
 ---@class Editor
 ---@field job_by_bufnr table<number, Editor.Job>
 ---@field subscribers_by_bufnr table<number, fun(Editor.Job)[]>
+---@field diffviews_by_bufnr table<number, AiRenderDiffView>
 local Editor = {}
 Editor.__index = Editor
 
@@ -22,15 +23,18 @@ function Editor:new()
   local instance = setmetatable({}, self)
   instance.job_by_bufnr = {}
   instance.subscribers_by_bufnr = {}
+  instance.diffviews_by_bufnr = {}
   return instance
 end
 
 ---@param self Editor
 function Editor:reset()
+  self:close_all_diffviews()
   for _, job in pairs(self.job_by_bufnr) do
     job.cancel()
   end
   self.job_by_bufnr = {}
+  self.subscribers_by_bufnr = {}
 end
 
 ---@param bufnr number
@@ -170,15 +174,30 @@ function Editor:add_patch(patch)
 end
 
 ---@param self Editor
-function Editor:open_all_diff_views()
+---@param callback? fun()
+function Editor:open_all_diff_views(callback)
+  self:close_all_diffviews()
+  local total = 0
+  local completed = 0
   for bufnr, _ in pairs(self.job_by_bufnr) do
-    self:open_diff_view(bufnr)
+    total = total + 1
+    self:open_diff_view(bufnr, function()
+      completed = completed + 1
+      if completed == total and callback then
+        callback()
+      end
+    end)
+  end
+  if total == 0 and callback then
+    callback()
   end
 end
 
 ---@param self Editor
 ---@param bufnr number
-function Editor:open_diff_view(bufnr)
+---@param callback? fun()
+function Editor:open_diff_view(bufnr, callback)
+  self:close_diffview(bufnr)
   local job = self.job_by_bufnr[bufnr]
   if not job then
     vim.notify(
@@ -188,28 +207,57 @@ function Editor:open_diff_view(bufnr)
     return
   end
 
-  local diff_bufnr, diff_win = require('ai.utils.diff_view').render_diff_view({
+  local diffview = require('ai.utils.diff_view').render_diff_view({
     bufnr = bufnr,
     on_retry = job.retry,
     callback = function()
       -- Cleanup afterwards
       job.cancel()
       self.job_by_bufnr[bufnr] = nil
+      self:close_diffview(bufnr)
+      if callback then
+        callback()
+      end
     end,
   })
 
+  -- Store the diffview references
+  self.diffviews_by_bufnr[bufnr] = diffview
+
   self:subscribe(bufnr, function(update)
+    if not vim.api.nvim_buf_is_valid(diffview.bufnr) then
+      return
+    end
     vim.api.nvim_buf_set_lines(
-      diff_bufnr,
+      diffview.bufnr,
       0,
       -1,
       false,
       vim.split(update.result, '\n')
     )
-    if update.is_completed then
-      vim.api.nvim_set_option_value('foldlevel', 0, { win = diff_win })
+    if update.is_completed and vim.api.nvim_win_is_valid(diffview.win) then
+      vim.api.nvim_set_option_value('foldlevel', 0, { win = diffview.win })
     end
   end)
+end
+
+---@param self Editor
+---@param bufnr number
+function Editor:close_diffview(bufnr)
+  local diffview = self.diffviews_by_bufnr[bufnr]
+  if not diffview then
+    return
+  end
+  self.subscribers_by_bufnr[bufnr] = nil
+  diffview.close()
+  self.diffviews_by_bufnr[bufnr] = nil
+end
+
+---@param self Editor
+function Editor:close_all_diffviews()
+  for bufnr, _ in pairs(self.diffviews_by_bufnr) do
+    self:close_diffview(bufnr)
+  end
 end
 
 ---@param bufnr number

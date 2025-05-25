@@ -394,7 +394,7 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
     local bufnr = vim.fn.bufadd(group.file)
     vim.fn.bufload(bufnr)
 
-    local diff_bufnr = require('ai.utils.diff_view').render_diff_view({
+    local diffview = require('ai.utils.diff_view').render_diff_view({
       bufnr = bufnr,
       callback = callback,
     })
@@ -403,10 +403,10 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
     for _, call in ipairs(group.calls) do
       if call.type == 'override' then
         local new_lines = vim.split(call.content, '\n')
-        vim.api.nvim_buf_set_lines(diff_bufnr, 0, -1, false, new_lines)
+        vim.api.nvim_buf_set_lines(diffview.bufnr, 0, -1, false, new_lines)
       elseif call.type == 'replacement' then
         local current_lines =
-          vim.api.nvim_buf_get_lines(diff_bufnr, 0, -1, false)
+          vim.api.nvim_buf_get_lines(diffview.bufnr, 0, -1, false)
         local buffer_text = vim.fn.join(current_lines, '\n')
 
         local replacements = call.replacements or {}
@@ -427,7 +427,7 @@ REMEMBER THAT THE ORIGINAL BLOCK NEEDS TO MATCH EXACTLY. THIS INCLUDES LEADING W
         end
 
         vim.api.nvim_buf_set_lines(
-          diff_bufnr,
+          diffview.bufnr,
           0,
           -1,
           false,

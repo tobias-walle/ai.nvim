@@ -6,6 +6,7 @@ local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 local get_diagnostics = require('ai.utils.diagnostics').get_diagnostics
 local FilesContext = require('ai.utils.files_context')
 local Messages = require('ai.utils.messages')
+local Buffers = require('ai.utils.buffers')
 
 ---@class CommandDefinition
 ---@field name string
@@ -113,6 +114,14 @@ end
 ---@param definition CommandDefinition
 local function create_command(definition)
   local function cmd_fn(opts)
+    if Buffers.find_buf_by_name('AI') then
+      vim.notify(
+        "A buffer named 'AI' already exists. Command cancelled.",
+        vim.log.levels.WARN
+      )
+      return
+    end
+
     if definition.instructions and definition.instructions ~= '' then
       return execute_ai_command(definition, opts, definition.instructions)
     elseif opts.args and opts.args ~= '' then

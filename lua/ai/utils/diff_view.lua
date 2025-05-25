@@ -1,5 +1,10 @@
 local M = {}
 
+---@class AiRenderDiffView
+---@field bufnr number
+---@field win number
+---@field close fun()
+
 ---@class AiRenderDiffViewOptions
 ---@field bufnr integer File to modify
 ---@field callback? fun(result: "ACCEPTED" | "REJECTED") A function to be executed after the diff view is closed.
@@ -7,7 +12,7 @@ local M = {}
 
 ---Renders a diff view for comparing two buffers.
 ---@param opts AiRenderDiffViewOptions
----@return integer diff_bufnr, integer win
+---@return AiRenderDiffView
 function M.render_diff_view(opts)
   local config = require('ai.config').get()
   local bufnr = opts.bufnr
@@ -95,7 +100,13 @@ function M.render_diff_view(opts)
     end
   end, keymap_opts)
 
-  return temp_bufnr, win
+  ---@type AiRenderDiffView
+  local result = {
+    bufnr = temp_bufnr,
+    win = win,
+    close = close_tab,
+  }
+  return result
 end
 
 return M

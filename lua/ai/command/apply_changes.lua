@@ -30,6 +30,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
     return #last_response_lines - 2 + index
   end
   local editor = Editor:new()
+  local is_retrying = false
   local chat = require('ai.utils.chat'):new({
     adapter = adapter,
     on_chat_start = function()
@@ -46,6 +47,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
       thinking_animation:start()
     end,
     on_chat_update = function(update)
+      is_retrying = false
       if thinking_animation then
         thinking_animation:stop()
         thinking_animation = nil
@@ -111,6 +113,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
       chat:cancel()
     end,
     on_retry = function()
+      is_retrying = true
       open_prompt_input({
         prompt = 'Retry',
         modify_text = function(text)
@@ -128,7 +131,11 @@ function M.apply_changes_with_fast_edit_strategy(options)
       end)
     end,
     on_confirm = function()
-      editor:open_all_diff_views()
+      editor:open_all_diff_views(function()
+        if not is_retrying then
+          preview_popup.close()
+        end
+      end)
     end,
   })
 
@@ -144,17 +151,18 @@ function M.apply_changes_with_replace_selection_strategy(options)
   local start_line = options.start_line
   local end_line = options.end_line
 
-  local diff_bufnr
+  ---@type AiRenderDiffView | nil
+  local diffview
   local function render_response(response)
-    if not diff_bufnr then
-      vim.notify('Missing diff_bufnr', vim.log.levels.ERROR)
+    if not diffview then
+      vim.notify('Missing diffview', vim.log.levels.ERROR)
       return
     end
     local extracted = require('ai.utils.markdown').extract_code(response)
     local code_lines = extracted[#extracted] and extracted[#extracted].lines
       or {}
     vim.api.nvim_buf_set_lines(
-      diff_bufnr,
+      diffview.bufnr,
       start_line - 1,
       end_line,
       false,
@@ -174,7 +182,8 @@ function M.apply_changes_with_replace_selection_strategy(options)
 
       -- Reset diffview
       vim.api.nvim_buf_set_lines(
-        diff_bufnr,
+        ---@diagnostic disable-next-line: need-check-nil
+        diffview.bufnr,
         0,
         -1,
         true,
@@ -204,7 +213,7 @@ function M.apply_changes_with_replace_selection_strategy(options)
     })
   end
 
-  diff_bufnr = require('ai.utils.diff_view').render_diff_view({
+  diffview = require('ai.utils.diff_view').render_diff_view({
     bufnr = bufnr,
     callback = function()
       -- Cleanup after result was either rejected or accepted

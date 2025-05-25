@@ -15,30 +15,17 @@ local M = {}
 ---@return ResponsePreviewResult
 function M.open_response_preview(opts)
   local config = require('ai.config').get()
-  local screen_width = vim.o.columns
-  local screen_height = vim.o.lines
-  local width = math.floor(screen_width * 0.9)
-  local height = math.floor(screen_height * 0.9)
-  local win_row = math.floor((screen_height - height) / 2)
-  local win_col = math.floor((screen_width - width) / 2)
   local bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', 'markdown', { buf = bufnr })
-  vim.api.nvim_set_option_value('wrap', true, { win = 0 })
-  local win = vim.api.nvim_open_win(bufnr, true, {
-    relative = 'editor',
-    width = width,
-    height = height,
-    row = win_row,
-    col = win_col,
-    title = 'Ai Response',
-    style = 'minimal',
-    border = 'single',
-    focusable = true,
-    zindex = 50,
-  })
+  vim.cmd('tabnew')
+  local tabnr = vim.fn.tabpagenr()
+  vim.api.nvim_set_current_buf(bufnr)
+  vim.api.nvim_buf_set_name(bufnr, 'AI')
+  local win = vim.api.nvim_get_current_win()
+  vim.api.nvim_set_option_value('wrap', true, { win = win })
 
   local function close()
-    vim.api.nvim_win_close(win, true)
+    vim.cmd.tabclose(tabnr)
   end
 
   local keymap_opts = { buffer = true, silent = true }
@@ -51,7 +38,6 @@ function M.open_response_preview(opts)
       is_confirmed = true
       opts.on_confirm(lines)
     end
-    close()
   end, keymap_opts)
 
   -- Cancel

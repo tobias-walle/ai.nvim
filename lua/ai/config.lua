@@ -202,20 +202,20 @@ function Config.change_default_models()
   end)
 end
 
----@return Adapter
+---@return ai.Adapter
 function Config.get_chat_adapter()
   local config = Config.get()
   return Config.parse_model_string(config.chat.model or 'default')
 end
 
----@return Adapter
+---@return ai.Adapter
 function Config.get_completion_adapter()
   local config = Config.get()
   return Config.parse_model_string(config.completion.model or 'default')
 end
 
 ---@param model_string ModelString
----@return Adapter
+---@return ai.Adapter
 function Config.parse_model_string(model_string)
   local config = Config.get()
   local model_string_pattern = '([^:]+):?(.*)'

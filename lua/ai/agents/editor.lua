@@ -1,45 +1,60 @@
 local string_utils = require('ai.utils.strings')
+local EventEmitter = require('ai.utils.event_emitter')
 
----@class Editor.Patch
+---@class ai.Editor.Patch
 ---@field bufnr number
 ---@field patch string
 
----@class Editor.Job
----@field patch Editor.Patch
+---@class ai.Editor.FilePatch
+---@field file string
+---@field patch string
+
+---@class ai.Editor.Job
+---@field patch ai.Editor.Patch
 ---@field result string
 ---@field is_completed boolean
+---@field apply_result? ai.ApplyResult
 ---@field retry fun()
 ---@field cancel fun()
 
----@class Editor
----@field job_by_bufnr table<number, Editor.Job>
----@field subscribers_by_bufnr table<number, fun(Editor.Job)[]>
----@field diffviews_by_bufnr table<number, AiRenderDiffView>
+---@class ai.Editor
+---@field job_by_bufnr table<number, ai.Editor.Job>
+---@field event_emitters_by_bufnr table<number, ai.EventEmitter<ai.Editor.Job>>
+---@field diffviews_by_bufnr table<number, ai.RenderDiffView>
 local Editor = {}
 Editor.__index = Editor
 
----@return Editor
+---@return ai.Editor
 function Editor:new()
   local instance = setmetatable({}, self)
   instance.job_by_bufnr = {}
-  instance.subscribers_by_bufnr = {}
+  instance.event_emitters_by_bufnr = {}
   instance.diffviews_by_bufnr = {}
   return instance
 end
 
----@param self Editor
+---Check if there are any patches (jobs) currently tracked by the editor.
+---@return boolean
+function Editor:has_any_patches()
+  for _, _ in pairs(self.job_by_bufnr) do
+    return true
+  end
+  return false
+end
+
+---@param self ai.Editor
 function Editor:reset()
   self:close_all_diffviews()
   for _, job in pairs(self.job_by_bufnr) do
     job.cancel()
   end
   self.job_by_bufnr = {}
-  self.subscribers_by_bufnr = {}
+  self.event_emitters_by_bufnr = {}
 end
 
 ---@param bufnr number
 ---@param blocks MarkdownCodeBlock[]
----@param self Editor
+---@param self ai.Editor
 function Editor:add_markdown_block_patches(bufnr, blocks)
   local current_buf_filename = vim.api.nvim_buf_get_name(bufnr)
   for _, block in ipairs(blocks) do
@@ -68,8 +83,30 @@ function Editor:add_markdown_block_patches(bufnr, blocks)
   end
 end
 
----@param patch Editor.Patch
----@param self Editor
+---@param patch ai.Editor.FilePatch
+---@param self ai.Editor
+---@return integer bufnr
+function Editor:add_file_patch(patch)
+  local absolute_block_filename = vim.fn.fnamemodify(patch.file, ':p')
+
+  local bufnr_to_edit = vim.fn.bufnr(absolute_block_filename, false)
+  if bufnr_to_edit == -1 then
+    bufnr_to_edit = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_buf_set_name(bufnr_to_edit, absolute_block_filename)
+    local filetype = vim.filetype.match({ filename = absolute_block_filename })
+      or 'text'
+    vim.api.nvim_set_option_value('filetype', filetype, { buf = bufnr_to_edit })
+  end
+  self:add_patch({
+    bufnr = bufnr_to_edit,
+    patch = patch.patch,
+  })
+
+  return bufnr_to_edit
+end
+
+---@param patch ai.Editor.Patch
+---@param self ai.Editor
 function Editor:add_patch(patch)
   local adapter_mini = require('ai.config').parse_model_string('default:mini')
   local bufnr = patch.bufnr
@@ -77,7 +114,7 @@ function Editor:add_patch(patch)
   local original_content = table.concat(content_lines, '\n')
   local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
 
-  ---@type Editor.Job
+  ---@type ai.Editor.Job
   local job = {
     patch = patch,
     result = '',
@@ -85,6 +122,7 @@ function Editor:add_patch(patch)
     retry = function() end,
     cancel = function() end,
   }
+  self:_ensure_event_emitter(bufnr)
   self.job_by_bufnr[bufnr] = job
 
   ---@param update string
@@ -94,9 +132,7 @@ function Editor:add_patch(patch)
     local patched_content = extracted[#extracted] and extracted[#extracted].code
     job.result = patched_content or update
     job.is_completed = completed
-    for _, subscriber in ipairs(self.subscribers_by_bufnr[patch.bufnr] or {}) do
-      subscriber(job)
-    end
+    self:notify_subscribers(bufnr)
   end
 
   local prompt = string_utils.replace_placeholders(
@@ -111,7 +147,7 @@ function Editor:add_patch(patch)
   local chat
 
   ---@param msg string
-  ---@param adapter Adapter
+  ---@param adapter ai.Adapter
   local function send(msg, adapter)
     vim.notify(
       '[ai] Trigger edit with ' .. adapter.name .. ':' .. adapter.model,
@@ -173,7 +209,7 @@ function Editor:add_patch(patch)
   end
 end
 
----@param self Editor
+---@param self ai.Editor
 ---@param callback? fun()
 function Editor:open_all_diff_views(callback)
   self:close_all_diffviews()
@@ -193,7 +229,7 @@ function Editor:open_all_diff_views(callback)
   end
 end
 
----@param self Editor
+---@param self ai.Editor
 ---@param bufnr number
 ---@param callback? fun()
 function Editor:open_diff_view(bufnr, callback)
@@ -210,7 +246,9 @@ function Editor:open_diff_view(bufnr, callback)
   local diffview = require('ai.utils.diff_view').render_diff_view({
     bufnr = bufnr,
     on_retry = job.retry,
-    callback = function()
+    callback = function(result)
+      job.apply_result = result
+      self:notify_subscribers(bufnr)
       -- Cleanup afterwards
       job.cancel()
       self.job_by_bufnr[bufnr] = nil
@@ -218,6 +256,8 @@ function Editor:open_diff_view(bufnr, callback)
       if callback then
         callback()
       end
+      self.diffviews_by_bufnr[bufnr] = nil
+      self:_clear_event_emitter(bufnr)
     end,
   })
 
@@ -242,19 +282,19 @@ function Editor:open_diff_view(bufnr, callback)
   end)
 end
 
----@param self Editor
+---@param self ai.Editor
 ---@param bufnr number
 function Editor:close_diffview(bufnr)
   local diffview = self.diffviews_by_bufnr[bufnr]
   if not diffview then
     return
   end
-  self.subscribers_by_bufnr[bufnr] = nil
+  self:_clear_event_emitter(bufnr)
   diffview.close()
   self.diffviews_by_bufnr[bufnr] = nil
 end
 
----@param self Editor
+---@param self ai.Editor
 function Editor:close_all_diffviews()
   for bufnr, _ in pairs(self.diffviews_by_bufnr) do
     self:close_diffview(bufnr)
@@ -262,15 +302,32 @@ function Editor:close_all_diffviews()
 end
 
 ---@param bufnr number
----@param callback fun(job: Editor.Job)
+---@param callback fun(job: ai.Editor.Job)
 function Editor:subscribe(bufnr, callback)
-  self.subscribers_by_bufnr[bufnr] = self.subscribers_by_bufnr[bufnr] or {}
-  table.insert(self.subscribers_by_bufnr[bufnr], callback)
-  -- Always call the subscriber initially if job already exists
-  local job = self.job_by_bufnr[bufnr]
-  if job then
-    callback(job)
+  self:_ensure_event_emitter(bufnr)
+  self.event_emitters_by_bufnr[bufnr]:subscribe(callback)
+end
+
+---@param bufnr number
+function Editor:notify_subscribers(bufnr)
+  if self.event_emitters_by_bufnr[bufnr] and self.job_by_bufnr[bufnr] then
+    self.event_emitters_by_bufnr[bufnr]:notify(self.job_by_bufnr[bufnr])
   end
+end
+
+---@param self ai.Editor
+---@param bufnr number
+function Editor:_ensure_event_emitter(bufnr)
+  if not self.event_emitters_by_bufnr[bufnr] then
+    self.event_emitters_by_bufnr[bufnr] =
+      EventEmitter.new({ emit_initially = true })
+  end
+end
+
+---@param self ai.Editor
+---@param bufnr number
+function Editor:_clear_event_emitter(bufnr)
+  self.event_emitters_by_bufnr[bufnr] = nil
 end
 
 return Editor

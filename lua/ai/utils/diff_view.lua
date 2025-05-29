@@ -1,18 +1,20 @@
 local M = {}
 
----@class AiRenderDiffView
+---@class ai.RenderDiffView
 ---@field bufnr number
 ---@field win number
 ---@field close fun()
 
----@class AiRenderDiffViewOptions
+---@alias ai.ApplyResult "ACCEPTED" | "REJECTED"
+
+---@class ai.RenderDiffViewOptions
 ---@field bufnr integer File to modify
----@field callback? fun(result: "ACCEPTED" | "REJECTED") A function to be executed after the diff view is closed.
+---@field callback? fun(result: ai.ApplyResult) A function to be executed after the diff view is closed.
 ---@field on_retry? fun() It defined, allow the user to retry
 
 ---Renders a diff view for comparing two buffers.
----@param opts AiRenderDiffViewOptions
----@return AiRenderDiffView
+---@param opts ai.RenderDiffViewOptions
+---@return ai.RenderDiffView
 function M.render_diff_view(opts)
   local config = require('ai.config').get()
   local bufnr = opts.bufnr
@@ -51,18 +53,19 @@ function M.render_diff_view(opts)
       pcall(vim.api.nvim_buf_delete, temp_bufnr, { force = true })
       if callback then
         callback(result)
+        callback = nil
       end
     end
   end
 
   for _, b in ipairs({ bufnr, temp_bufnr }) do
-    vim.api.nvim_create_autocmd('WinClosed', {
+    vim.api.nvim_create_autocmd({ 'WinClosed', 'BufWipeout' }, {
       buffer = b,
       once = true,
       callback = function(event)
         local event_win_id = tonumber(event.match)
         if event_win_id == win or event_win_id == temp_win then
-          close_tab('ACCEPTED')
+          close_tab('REJECTED')
         end
       end,
     })
@@ -100,7 +103,7 @@ function M.render_diff_view(opts)
     end
   end, keymap_opts)
 
-  ---@type AiRenderDiffView
+  ---@type ai.RenderDiffView
   local result = {
     bufnr = temp_bufnr,
     win = win,

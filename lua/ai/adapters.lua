@@ -93,13 +93,13 @@ local Json = require('ai.utils.json')
 ---@field default_model string
 ---@field handlers AdapterHandlers
 
----@class Adapter: AdapterOptions
+---@class ai.Adapter: AdapterOptions
 ---@field model string
 local Adapter = {}
 Adapter.__index = Adapter
 
 ---@param options AdapterOptions
----@return Adapter
+---@return ai.Adapter
 function Adapter:new(options)
   local adapter = setmetatable(options, self)
   adapter.model = options.default_model

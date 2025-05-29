@@ -1,11 +1,15 @@
----@class AgentPanel.Options
----@field adapter Adapter
+local EventEmitter = require('ai.utils.event_emitter')
+local Buffers = require('ai.utils.buffers')
+
+---@class ai.AgentPanel.Options
+---@field adapter ai.Adapter
 ---@field focused_bufnr number
 
----@class AgentPanel: AgentPanel.Options
----@field editor Editor
----@field chat Chat
----@field chat_thinking_animation ThinkingAnimation | nil
+---@class ai.AgentPanel: ai.AgentPanel.Options
+---@field editor ai.Editor
+---@field on_completion ai.EventEmitter<ai.CompleteTaskTool.Result>
+---@field chat ai.Chat
+---@field chat_thinking_animation ai.ThinkingAnimation | nil
 ---@field chat_bufnr number
 ---@field chat_win number
 local AgentPanel = {}
@@ -16,8 +20,8 @@ local Messages = require('ai.utils.messages')
 local Tools = require('ai.utils.tools')
 local Editor = require('ai.agents.editor')
 
----@param opts AgentPanel.Options
----@return AgentPanel
+---@param opts ai.AgentPanel.Options
+---@return ai.AgentPanel
 function AgentPanel.new(opts)
   local self = setmetatable({}, AgentPanel)
   vim.tbl_extend('force', self, opts)
@@ -25,16 +29,21 @@ function AgentPanel.new(opts)
   -- Render Layout
   self:_setup_layout()
 
-  -- Setup Editor
-  self.editor = Editor:new()
-
   -- Setup Chat
+  self.editor = Editor:new()
+  self.on_completion = EventEmitter.new({ emit_initially = false })
   self.chat = require('ai.utils.chat'):new({
     adapter = opts.adapter,
     system_prompt = require('ai.prompts').system_prompt_agent,
     tools = {
-      require('ai.tools.file_write'),
-      require('ai.tools.complete_task'),
+      require('ai.tools.file_write').create_file_write_tool({
+        editor = self.editor,
+      }),
+      require('ai.tools.complete_task').create_complete_task_tool({
+        on_completion = function(result)
+          self.on_completion:notify(result)
+        end,
+      }),
     },
     on_chat_start = function()
       self.editor:reset()
@@ -47,8 +56,14 @@ function AgentPanel.new(opts)
     on_chat_exit = function()
       self:_render_chat()
     end,
-    on_tool_call_start = function()
+    after_all_tool_calls_started = function()
       self:_render_chat()
+      if self.editor:has_any_patches() then
+        self.editor:open_all_diff_views(function()
+          -- Reset after all diff views were processed by the user
+          self.editor:reset()
+        end)
+      end
     end,
     on_tool_call_finish = function()
       self:_render_chat()
@@ -64,7 +79,7 @@ function AgentPanel:close()
 end
 
 ---@param msg AdapterMessageContent
----@param self AgentPanel
+---@param self ai.AgentPanel
 function AgentPanel:send(msg)
   self.chat:send({
     temperature = 0.1,
@@ -77,7 +92,7 @@ function AgentPanel:send(msg)
   })
 end
 
----@param self AgentPanel
+---@param self ai.AgentPanel
 function AgentPanel:_start_chat_thinking_animation()
   self:_stop_chat_thinking_animation()
   if #self.chat.messages == 0 then
@@ -86,7 +101,7 @@ function AgentPanel:_start_chat_thinking_animation()
   end
 end
 
----@param self AgentPanel
+---@param self ai.AgentPanel
 function AgentPanel:_stop_chat_thinking_animation()
   if self.thinking_animation then
     self.thinking_animation:stop()
@@ -94,7 +109,7 @@ function AgentPanel:_stop_chat_thinking_animation()
   end
 end
 
----@param self AgentPanel
+---@param self ai.AgentPanel
 function AgentPanel:_setup_layout()
   self.chat_bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value(
@@ -103,13 +118,17 @@ function AgentPanel:_setup_layout()
     { buf = self.chat_bufnr }
   )
   vim.cmd('tabnew')
+  local ai_buf = Buffers.find_buf_by_name('AI')
+  if ai_buf and vim.api.nvim_buf_is_valid(ai_buf) then
+    vim.api.nvim_buf_delete(ai_buf, { force = true })
+  end
   vim.api.nvim_set_current_buf(self.chat_bufnr)
   vim.api.nvim_buf_set_name(self.chat_bufnr, 'AI')
   self.chat_win = vim.api.nvim_get_current_win()
   vim.api.nvim_set_option_value('wrap', true, { win = self.chat_win })
 end
 
----@param self AgentPanel
+---@param self ai.AgentPanel
 function AgentPanel:_render_chat()
   local bufnr = self.chat_bufnr
 

@@ -1,6 +1,6 @@
 local M = {}
 
----@param tools ToolDefinition[]
+---@param tools ai.ToolDefinition[]
 ---@param tool_calls AdapterToolCall[]
 ---@param callback fun(result: AdapterMessageToolCallResult, all_results: AdapterMessageToolCallResult[], finished: boolean)
 function M.execute_tool_calls(tools, tool_calls, callback)
@@ -8,7 +8,7 @@ function M.execute_tool_calls(tools, tool_calls, callback)
   local results = {}
   local completed = 0
   for _, tool_call in ipairs(tool_calls) do
-    ---@type ToolDefinition
+    ---@type ai.ToolDefinition
     local tool = vim.iter(tools):find(function(t)
       return t.definition.name == tool_call.tool
     end)
@@ -33,12 +33,12 @@ function M.execute_tool_calls(tools, tool_calls, callback)
   end
 end
 
----@param tools ToolDefinition[]
+---@param tools ai.ToolDefinition[]
 ---@param name string
----@return ToolDefinition | nil
+---@return ai.ToolDefinition | nil
 function M.find_tool_definition(tools, name)
   return vim.iter(tools):find(function(tool)
-    ---@cast tool ToolDefinition
+    ---@cast tool ai.ToolDefinition
     return tool.definition.name == name
   end)
 end

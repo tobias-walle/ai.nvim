@@ -1,4 +1,4 @@
----@type ToolDefinition
+---@type ai.ToolDefinition
 local tool = {
   definition = {
     name = 'web',

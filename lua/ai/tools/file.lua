@@ -1,4 +1,4 @@
----@type ToolDefinition
+---@type ai.ToolDefinition
 local tool = {
   definition = {
     name = 'file',
@@ -30,8 +30,28 @@ The file path should be relative to the project root.
       return callback('Error: ' .. error)
     end
 
-    -- Read the file content
+    -- Try to find an open buffer for the file
     local file_path = vim.fn.getcwd() .. '/' .. params.path
+    local bufnr = nil
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(b) then
+        local buf_name = vim.api.nvim_buf_get_name(b)
+        if buf_name == file_path then
+          bufnr = b
+          break
+        end
+      end
+    end
+
+    if bufnr then
+      -- Buffer is open, get content from buffer
+      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+      local content = table.concat(lines, '\n')
+      callback(content)
+      return
+    end
+
+    -- Buffer not open, read the file content from disk
     local file = io.open(file_path, 'r')
 
     if not file then

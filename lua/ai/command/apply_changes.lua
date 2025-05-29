@@ -6,7 +6,7 @@ local ThinkingAnimation = require('ai.utils.thinking_animation')
 local replace_placeholders = require('ai.utils.strings').replace_placeholders
 
 ---@class ApplyChangesStrategyOptions
----@field adapter Adapter
+---@field adapter ai.Adapter
 ---@field bufnr number
 ---@field prompt AdapterMessageContent
 ---@field start_line number
@@ -91,7 +91,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
   })
 
   ---@param msg AdapterMessageContent
-  ---@param override_adapter? Adapter
+  ---@param override_adapter? ai.Adapter
   local function send(msg, override_adapter)
     chat:send({
       adapter = override_adapter,
@@ -151,7 +151,7 @@ function M.apply_changes_with_replace_selection_strategy(options)
   local start_line = options.start_line
   local end_line = options.end_line
 
-  ---@type AiRenderDiffView | nil
+  ---@type ai.RenderDiffView | nil
   local diffview
   local function render_response(response)
     if not diffview then

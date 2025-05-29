@@ -1,4 +1,4 @@
----@class ThinkingAnimation
+---@class ai.ThinkingAnimation
 ---@field bufnr number
 ---@field timer uv.uv_timer_t?
 ---@field frames string[]

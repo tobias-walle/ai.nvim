@@ -56,6 +56,14 @@ function AgentPanel.new(opts)
         on_completion = function(result)
           self.on_completion:notify(result)
         end,
+        ask_user = function(params, callback)
+          self.user_input = {
+            question = params.question,
+            choices = params.choices,
+            on_answer = callback,
+          }
+          self:_render_chat()
+        end,
       }),
       require('ai.tools.ask').create_ask_tool({
         ask_user = function(params, callback)
@@ -171,9 +179,9 @@ function AgentPanel:_render_chat()
   local messages = self.chat.messages
   for i_message, message in ipairs(messages) do
     if message.role == 'user' then
-      -- Skip user messages for now. Just render a separator.
+      -- Never show user messages
       if i_message > 1 then
-        add({ '', '---', '' })
+        add({ '' })
       end
       goto continue
     end

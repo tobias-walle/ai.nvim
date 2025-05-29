@@ -90,6 +90,10 @@ You can expect all core utils to be installed. And other modern tools like `rg`,
         table.insert(lines, '```')
         return lines
       else
+        table.insert(lines, 'Output:')
+        table.insert(lines, '```')
+        table.insert(lines, '⏳ Waiting...')
+        table.insert(lines, '```')
         return lines
       end
     end,

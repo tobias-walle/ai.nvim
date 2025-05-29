@@ -36,6 +36,7 @@ function AgentPanel.new(opts)
     adapter = opts.adapter,
     system_prompt = require('ai.prompts').system_prompt_agent,
     tools = {
+      require('ai.tools.file_read').create_file_read_tool(),
       require('ai.tools.file_write').create_file_write_tool({
         editor = self.editor,
       }),
@@ -152,11 +153,13 @@ function AgentPanel:_render_chat()
     local text = vim.trim(Messages.extract_text(message.content))
     if text ~= '' then
       add(vim.split(text, '\n'))
+      if message.tool_calls and #message.tool_calls > 0 then
+        add({ '' })
+      end
     end
     for i_tool_call, tool_call in ipairs(message.tool_calls or {}) do
       local tool_call_result = message.tool_call_results
         and message.tool_call_results[i_tool_call]
-      add({ '' })
       local tool_definition =
         Tools.find_tool_definition(self.chat.tools, tool_call.tool)
       if tool_definition and tool_definition.render then
@@ -166,6 +169,9 @@ function AgentPanel:_render_chat()
       else
         add({ '⏳ Using tool "' .. tool_call.tool .. '"' })
       end
+    end
+    if message.tool_calls and #message.tool_calls > 0 then
+      add({ '' })
     end
     ::continue::
   end

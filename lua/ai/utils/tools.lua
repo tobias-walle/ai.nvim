@@ -23,7 +23,7 @@ function M.execute_tool_calls(tools, tool_calls, callback)
       ---@type AdapterMessageToolCallResult
       local tool_call_result = {
         id = tool_call.id,
-        result = result,
+        result = result.result,
       }
       table.insert(results, tool_call_result)
       callback(tool_call_result, results, completed == #tool_calls)

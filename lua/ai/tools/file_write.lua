@@ -16,14 +16,14 @@ function M.create_file_write_tool(opts)
       description = vim.trim([[
 Write content to a specific file.
 Please note that this will override any existing content in the file, so this tool is not suitable for modifying files.
-If you want to modify files, use the "file_patch" tool instead.
+If you want to modify files, use the "file_update" tool instead.
 Use this tool if you need to create new files or are sure you want to override an existing file.
     ]]),
       parameters = {
         type = 'object',
-        required = { 'path', 'content' },
+        required = { 'file', 'content' },
         properties = {
-          path = {
+          file = {
             type = 'string',
             description = 'The relative path to the file from the project root',
             example = 'src/index.ts',
@@ -37,16 +37,16 @@ Use this tool if you need to create new files or are sure you want to override a
       },
     },
     execute = function(params, callback)
-      local path = params.path
+      local file = params.file
       local content = params.content
 
       assert(
-        type(path) == 'string' and type(content) == 'string',
+        type(file) == 'string' and type(content) == 'string',
         'file_write: Invalid parameters'
       )
 
       local bufnr = editor:add_file_patch({
-        file = path,
+        file = file,
         patch = content,
       })
       editor:subscribe(bufnr, function(job)
@@ -56,22 +56,22 @@ Use this tool if you need to create new files or are sure you want to override a
           })
         elseif job.apply_result == 'REJECTED' then
           callback({
-            result = "The change was rejected by the user. Probably because he didn't aggree with it. The file was NOT updated",
+            result = "The change was rejected by the user. Probably because he didn't aggree with it. Do not try to write this file again.",
           })
         end
       end)
     end,
     render = function(tool_call)
-      local path = tool_call.params and tool_call.params.path or ''
+      local file = tool_call.params and tool_call.params.file or ''
       local content = tool_call.params and tool_call.params.content or ''
       local lang = 'text'
-      local ext = vim.fn.fnamemodify(path, ':e')
+      local ext = vim.fn.fnamemodify(file, ':e')
       if ext ~= '' then
-        lang = vim.filetype.match({ filename = path }) or ext
+        lang = vim.filetype.match({ filename = file }) or ext
       end
       local result = Strings.replace_placeholders(
-        vim.trim('```' .. lang .. ' {{path}} (File Write)\n{{content}}\n```'),
-        { path = path, content = content }
+        vim.trim('```' .. lang .. ' {{file}} (File Write)\n{{content}}\n```'),
+        { file = file, content = content }
       )
       return vim.split(result, '\n')
     end,

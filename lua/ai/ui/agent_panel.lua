@@ -39,6 +39,9 @@ function AgentPanel.new(opts)
       require('ai.tools.file_write').create_file_write_tool({
         editor = self.editor,
       }),
+      require('ai.tools.file_update').create_file_update_tool({
+        editor = self.editor,
+      }),
       require('ai.tools.complete_task').create_complete_task_tool({
         on_completion = function(result)
           self.on_completion:notify(result)

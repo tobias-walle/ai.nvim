@@ -5,6 +5,11 @@ local Buffers = require('ai.utils.buffers')
 ---@field adapter ai.Adapter
 ---@field focused_bufnr number
 
+---@class ai.AgentPanel.UserInput
+---@field question string
+---@field choices? string[]
+---@field on_answer fun(text: string)
+
 ---@class ai.AgentPanel: ai.AgentPanel.Options
 ---@field editor ai.Editor
 ---@field on_completion ai.EventEmitter<ai.CompleteTaskTool.Result>
@@ -12,6 +17,7 @@ local Buffers = require('ai.utils.buffers')
 ---@field chat_thinking_animation ai.ThinkingAnimation | nil
 ---@field chat_bufnr number
 ---@field chat_win number
+---@field user_input? ai.AgentPanel.UserInput
 local AgentPanel = {}
 AgentPanel.__index = AgentPanel
 
@@ -48,6 +54,16 @@ function AgentPanel.new(opts)
           self.on_completion:notify(result)
         end,
       }),
+      require('ai.tools.ask').create_ask_tool({
+        ask_user = function(params, callback)
+          self.user_input = {
+            question = params.question,
+            choices = params.choices,
+            on_answer = callback,
+          }
+          self:_render_chat()
+        end,
+      }),
     },
     on_chat_start = function()
       self.editor:reset()
@@ -60,7 +76,7 @@ function AgentPanel.new(opts)
     on_chat_exit = function()
       self:_render_chat()
     end,
-    after_all_tool_calls_started = function()
+    after_all_tool_calls_started = function(data)
       self:_render_chat()
       if self.editor:has_any_patches() then
         self.editor:open_all_diff_views(function()
@@ -68,12 +84,40 @@ function AgentPanel.new(opts)
           self.editor:reset()
         end)
       end
+      if not data.tool_calls or #data.tool_calls == 0 then
+        -- No tool calls, this means that the chat just stopped. For continuation.
+        self:send(
+          'Continue using the given tools until your task is complete. If you want to get input from the user, use the `ask` tool.'
+        )
+      end
     end,
     on_tool_call_finish = function()
       self:_render_chat()
     end,
   })
   return self
+end
+
+function AgentPanel:_setup_layout()
+  self:_setup_chat()
+end
+
+function AgentPanel:_setup_chat()
+  self.chat_bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_option_value(
+    'filetype',
+    'markdown',
+    { buf = self.chat_bufnr }
+  )
+  vim.cmd('tabnew')
+  local ai_buf = Buffers.find_buf_by_name('AI')
+  if ai_buf and vim.api.nvim_buf_is_valid(ai_buf) then
+    vim.api.nvim_buf_delete(ai_buf, { force = true })
+  end
+  vim.api.nvim_set_current_buf(self.chat_bufnr)
+  vim.api.nvim_buf_set_name(self.chat_bufnr, 'AI')
+  self.chat_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_set_option_value('wrap', true, { win = self.chat_win })
 end
 
 function AgentPanel:close()
@@ -105,31 +149,11 @@ function AgentPanel:_start_chat_thinking_animation()
   end
 end
 
----@param self ai.AgentPanel
 function AgentPanel:_stop_chat_thinking_animation()
   if self.thinking_animation then
     self.thinking_animation:stop()
     self.thinking_animation = nil
   end
-end
-
----@param self ai.AgentPanel
-function AgentPanel:_setup_layout()
-  self.chat_bufnr = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_option_value(
-    'filetype',
-    'markdown',
-    { buf = self.chat_bufnr }
-  )
-  vim.cmd('tabnew')
-  local ai_buf = Buffers.find_buf_by_name('AI')
-  if ai_buf and vim.api.nvim_buf_is_valid(ai_buf) then
-    vim.api.nvim_buf_delete(ai_buf, { force = true })
-  end
-  vim.api.nvim_set_current_buf(self.chat_bufnr)
-  vim.api.nvim_buf_set_name(self.chat_bufnr, 'AI')
-  self.chat_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_set_option_value('wrap', true, { win = self.chat_win })
 end
 
 ---@param self ai.AgentPanel
@@ -180,13 +204,39 @@ function AgentPanel:_render_chat()
   local last_line = vim.api.nvim_buf_line_count(bufnr)
   local should_scroll_down = cursor[1] == last_line
 
+  if self.user_input then
+    add({ '' })
+  end
+
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 
-  if should_scroll_down then
+  if should_scroll_down or self.user_input then
     vim.api.nvim_win_set_cursor(
       self.chat_win,
       { vim.api.nvim_buf_line_count(bufnr), 0 }
     )
+  end
+
+  if self.user_input then
+    vim.api.nvim_set_current_win(self.chat_win)
+    vim.cmd('startinsert')
+    vim.keymap.set('n', '<CR>', function()
+      lines = vim.api.nvim_buf_get_lines(self.chat_bufnr, 0, -1, false)
+      local answer_lines = {}
+      for i = last_line, #lines do
+        table.insert(answer_lines, lines[i])
+      end
+      local answer = table.concat(answer_lines, '\n')
+      if self.user_input.choices then
+        for idx, choice in ipairs(self.user_input.choices) do
+          local placeholder = '\\' .. idx
+          answer = answer:gsub(placeholder, choice)
+        end
+      end
+      local on_answer = self.user_input.on_answer
+      self.user_input = nil
+      on_answer(answer)
+    end, { buffer = self.chat_bufnr, nowait = true })
   end
 end
 

@@ -20,11 +20,23 @@ Use this tool to request access to the content of a specific file that you need 
             description = 'The relative path to the file from the project root',
             example = 'src/index.ts',
           },
+          line_start = {
+            type = 'number',
+            description = 'Optional. The first line to read (1-based, inclusive).',
+            example = 1,
+          },
+          line_end = {
+            type = 'number',
+            description = 'Optional. The last line to read (1-based, inclusive).',
+            example = 10,
+          },
         },
       },
     },
     execute = function(params, callback)
       local file = params.file
+      local line_start = params.line_start
+      local line_end = params.line_end
 
       assert(type(file) == 'string', 'file_read: Invalid parameters')
 
@@ -41,9 +53,27 @@ Use this tool to request access to the content of a specific file that you need 
         end
       end
 
+      local function slice_lines(lines)
+        if line_start or line_end then
+          local total = #lines
+          local s = line_start and math.max(1, line_start) or 1
+          local e = line_end and math.min(total, line_end) or total
+          -- Lua tables are 1-based, but nvim_buf_get_lines is 0-based for start, exclusive for end
+          -- Here, for slicing, we use 1-based inclusive indices
+          local sliced = {}
+          for i = s, e do
+            table.insert(sliced, lines[i])
+          end
+          return sliced
+        else
+          return lines
+        end
+      end
+
       if bufnr then
         -- Buffer is open, get content from buffer
         local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+        lines = slice_lines(lines)
         local content = table.concat(lines, '\n')
         callback({ result = content })
         return
@@ -60,6 +90,12 @@ Use this tool to request access to the content of a specific file that you need 
 
       local content = f:read('*a')
       f:close()
+
+      if line_start or line_end then
+        local lines = vim.split(content, '\n', { plain = true })
+        lines = slice_lines(lines)
+        content = table.concat(lines, '\n')
+      end
 
       callback({ result = content })
     end,

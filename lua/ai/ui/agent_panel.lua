@@ -50,6 +50,7 @@ function AgentPanel.new(opts)
         editor = self.editor,
       }),
       require('ai.tools.search').create_search_tool(),
+      require('ai.tools.execute_code').create_execute_code_tool(),
       require('ai.tools.complete_task').create_complete_task_tool({
         on_completion = function(result)
           self.on_completion:notify(result)

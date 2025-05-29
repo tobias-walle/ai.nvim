@@ -41,6 +41,8 @@ To create the update:
 2. Write out the modified code sections, using the appropriate comment syntax to indicate unchanged parts.
 3. Ensure that you're only outputting the necessary changes and using the "... existing code ..." comment for parts that remain the same.
 
+It is CRUCIAL that you add the "... existing code ..." comments! Also add them to the start and end of the file if you are omitting something there.
+
 Remember, the purpose of this update is to guide a small language model in modifying the existing code.
 The model will replace the "... existing code ..." sections with the original code.
 Therefore, focus only on the changes that need to be made and use the comment syntax to preserve the overall structure of the code.

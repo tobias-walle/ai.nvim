@@ -101,9 +101,6 @@ After the code was run, you will get the stdout and stderr as a result.
         table.insert(lines, '```')
         return lines
       else
-        table.insert(lines, '```')
-        table.insert(lines, '⏳ Running...')
-        table.insert(lines, '```')
         return lines
       end
     end,

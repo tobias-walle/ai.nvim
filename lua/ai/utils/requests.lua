@@ -13,6 +13,17 @@ local Job = require('ai.utils.jobs').Job
 --- @param options StreamRequestOptions
 --- @return Job
 function M.stream(options)
+  -- Store body in temp file to avoid 'argument list too long' error
+  local tmpfile = os.tmpname()
+  local f = io.open(tmpfile, 'w')
+  assert(f, 'Failed to create tmpfile "' .. tmpfile .. '"')
+  f:write(vim.json.encode(options.json_body))
+  f:close()
+
+  local function cleanup_tmpfile()
+    os.remove(tmpfile)
+  end
+
   local cmd = {
     'curl',
     '-i',
@@ -29,9 +40,9 @@ function M.stream(options)
     table.insert(cmd, '-H')
     table.insert(cmd, key .. ': ' .. value)
   end
-  -- Add body
-  table.insert(cmd, '-d')
-  table.insert(cmd, vim.json.encode(options.json_body))
+  -- Add body from file
+  table.insert(cmd, '--data')
+  table.insert(cmd, '@' .. tmpfile)
 
   local cancelled = false
   local stdout = ''
@@ -85,6 +96,8 @@ function M.stream(options)
         process_line(buffer)
       end
 
+      cleanup_tmpfile()
+
       if obj.code ~= 0 then
         vim.notify(
           '[ai] curl failed.'
@@ -110,6 +123,7 @@ function M.stream(options)
       cancelled = true
       --- process:kill doesn't work correctly, so we do it like this
       vim.system({ 'kill', '-INT', '' .. process.pid }):wait()
+      cleanup_tmpfile()
     end,
   })
 end

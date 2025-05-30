@@ -77,28 +77,28 @@ After the code was run, you will get the stdout and stderr as a result.
       local code = tool_call.params and tool_call.params.code or ''
       local result = tool_call_result and tool_call_result.result
 
-      table.insert(lines, '```' .. language)
+      table.insert(lines, '`````' .. language)
       vim.list_extend(lines, vim.split(vim.trim(code), '\n', { plain = true }))
-      table.insert(lines, '```')
+      table.insert(lines, '`````')
       table.insert(lines, '')
 
       if result then
         table.insert(lines, 'Output:')
         if result.error then
-          table.insert(lines, '```')
+          table.insert(lines, '`````')
           table.insert(lines, '❌ Error: ' .. result.error)
-          table.insert(lines, '```')
+          table.insert(lines, '`````')
           return lines
         end
         local output = (result.stdout and #result.stdout > 0) and result.stdout
           or result.stderr
           or ''
-        table.insert(lines, '```')
+        table.insert(lines, '`````')
         vim.list_extend(
           lines,
           vim.split(vim.trim(output), '\n', { plain = true })
         )
-        table.insert(lines, '```')
+        table.insert(lines, '`````')
         return lines
       else
         return lines

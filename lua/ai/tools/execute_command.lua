@@ -63,37 +63,37 @@ You can expect all core utils to be installed. And other modern tools like `rg`,
       local command = tool_call.params and tool_call.params.command or ''
       local result = tool_call_result and tool_call_result.result
 
-      table.insert(lines, '```bash')
+      table.insert(lines, '`````bash')
       vim.list_extend(
         lines,
         vim.split(vim.trim(command), '\n', { plain = true })
       )
-      table.insert(lines, '```')
+      table.insert(lines, '`````')
       table.insert(lines, '')
 
       if result then
         table.insert(lines, 'Output:')
         if result.error then
-          table.insert(lines, '```')
+          table.insert(lines, '`````')
           table.insert(lines, '❌ Error: ' .. result.error)
-          table.insert(lines, '```')
+          table.insert(lines, '`````')
           return lines
         end
         local output = (result.stdout and #result.stdout > 0) and result.stdout
           or result.stderr
           or ''
-        table.insert(lines, '```')
+        table.insert(lines, '`````')
         vim.list_extend(
           lines,
           vim.split(vim.trim(output), '\n', { plain = true })
         )
-        table.insert(lines, '```')
+        table.insert(lines, '`````')
         return lines
       else
         table.insert(lines, 'Output:')
-        table.insert(lines, '```')
+        table.insert(lines, '`````')
         table.insert(lines, '⏳ Waiting...')
-        table.insert(lines, '```')
+        table.insert(lines, '`````')
         return lines
       end
     end,

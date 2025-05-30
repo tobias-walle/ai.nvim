@@ -20,7 +20,7 @@ function M.create_search_tool()
           query = {
             type = 'string',
             description = 'The search regex pattern to look for',
-            example = '[Hh]ello [Ww]orld',
+            example = '([Hh]ello)|([Ww]orld)',
           },
           path = {
             type = 'string',
@@ -61,12 +61,21 @@ function M.create_search_tool()
     end,
     render = function(tool_call, tool_call_result)
       local query = tool_call.params and tool_call.params.query or ''
+      local path = tool_call.params and tool_call.params.path or '.'
       local result = tool_call_result and tool_call_result.result
       if result then
         local count = result.count or 0
-        return { '🔍 Searched `' .. query .. '` (' .. count .. ' results)' }
+        return {
+          '🔍 Searched `'
+            .. query
+            .. '` in `'
+            .. path
+            .. '` ('
+            .. count
+            .. ' results)',
+        }
       else
-        return { '⏳ Searching `' .. query .. '`' }
+        return { '⏳ Searching `' .. query .. '` in `' .. path .. '`' }
       end
     end,
   }

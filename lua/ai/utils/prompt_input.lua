@@ -8,12 +8,14 @@ local Images = require('ai.utils.images')
 ---@field modify_text? fun(text: string): string
 ---@field enable_thinking_option? boolean
 ---@field enable_files_context_option? boolean
+---@field width? number  -- Optional custom width for the prompt input window
+---@field save_to_history? boolean  -- Whether to save the prompt to history (default: true)
 
 ---@class PromptInputFlags
 ---@field model? 'default' | 'thinking'
 
 ---@param opts PromptInputOptions
----@param callback fun(input: AdapterMessageContent, flags: PromptInputFlags)
+---@param callback fun(input: ai.AdapterMessageContent, flags: PromptInputFlags)
 ---@return nil
 function M.open_prompt_input(opts, callback)
   M.load_history()
@@ -35,7 +37,14 @@ function M.open_prompt_input(opts, callback)
     local screen_width = vim.o.columns
     local screen_height = vim.o.lines
     local win_row = 3
-    local width = maximize and screen_width - 6 or 50
+    local width
+    if maximize then
+      width = screen_width - 6
+    elseif opts.width then
+      width = opts.width
+    else
+      width = 50
+    end
     local height = maximize and screen_height - 6 - win_row or 10
     local win_col = math.floor((screen_width - width) / 2)
     local footer_items = {}
@@ -119,8 +128,11 @@ function M.open_prompt_input(opts, callback)
     vim.api.nvim_win_close(win, true)
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
     local text = table.concat(lines, '\n')
-    table.insert(M.history, text)
-    M.save_history()
+    local save_to_history = opts.save_to_history
+    if save_to_history == nil or save_history then
+      table.insert(M.history, text)
+      M.save_history()
+    end
 
     if opts.modify_text then
       text = opts.modify_text(text)

@@ -39,7 +39,7 @@ When creating the update, follow these format requirements:
 To create the update:
 1. Analyze the provided code and identify the sections that need to be changed.
 2. Write out the modified code sections, using the appropriate comment syntax to indicate unchanged parts.
-3. Ensure that you're only outputting the necessary changes and using the "... existing code ..." comment for parts that remain the same.
+3. Ensure that you're only outputting the necessary changes and using the "... existing code ..." comment for parts that remain the same. Use this feature aggressively to save output tokens and time!
 
 It is CRUCIAL that you add the "... existing code ..." comments! Also add them to the start and end of the file if you are omitting something there.
 
@@ -56,11 +56,9 @@ export interface EventsApi {
 }
 
 function createEventsApi(client: Client): EventsApi {
-  // ... existing code ...
-  return {
     // ... existing code ...
     updateEvents: (events) => client.update('events', { json: events }).json(),
-  };
+    // ... existing code ...
 }
 
 // ... existing code ...
@@ -103,7 +101,9 @@ function createEventsApi(client: Client): EventsApi {
         lang = vim.filetype.match({ filename = file }) or ext
       end
       local result = Strings.replace_placeholders(
-        vim.trim('```' .. lang .. ' {{file}} (File Update)\n{{update}}\n```'),
+        vim.trim(
+          '`````' .. lang .. ' {{file}} (File Update)\n{{update}}\n`````'
+        ),
         { file = file, update = update }
       )
       return vim.split(result, '\n')

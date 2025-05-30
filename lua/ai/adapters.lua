@@ -20,7 +20,7 @@ local Json = require('ai.utils.json')
 
 ---@class AdapterMessageToolCallResult
 ---@field id string
----@field result any
+---@field result ai.AdapterMessageContent
 
 ---@class AdapterMessageContentText
 ---@field type "text"
@@ -32,11 +32,11 @@ local Json = require('ai.utils.json')
 ---@field base64 string
 
 ---@alias AdapterMessageContentItem AdapterMessageContentText | AdapterMessageContentImage
----@alias AdapterMessageContent string | AdapterMessageContentItem[]
+---@alias ai.AdapterMessageContent string | AdapterMessageContentItem[]
 
 ---@class AdapterMessage
 ---@field role "user" | "assistant"
----@field content AdapterMessageContent
+---@field content ai.AdapterMessageContent
 ---@field tool_calls? AdapterMessageToolCall[]
 ---@field tool_call_results? AdapterMessageToolCallResult[]
 

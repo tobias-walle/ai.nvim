@@ -62,6 +62,7 @@ function M.create_adapter_options(options)
                   name = tool_call.tool,
                   arguments = vim.json.encode(tool_call.params),
                 },
+                strict = true,
               })
             end
           end
@@ -71,7 +72,8 @@ function M.create_adapter_options(options)
               table.insert(messages, {
                 role = 'tool',
                 tool_call_id = tool_call.id,
-                content = vim.json.encode(tool_call.result),
+                content = tool_call.result
+                  and M.map_message_content(tool_call.result),
               })
             end
           end
@@ -191,7 +193,7 @@ function M.create_adapter_options(options)
   }
 end
 
----@param content AdapterMessageContent
+---@param content ai.AdapterMessageContent
 function M.map_message_content(content)
   if type(content) == 'string' then
     return content

@@ -8,7 +8,7 @@ local replace_placeholders = require('ai.utils.strings').replace_placeholders
 ---@class ApplyChangesStrategyOptions
 ---@field adapter ai.Adapter
 ---@field bufnr number
----@field prompt AdapterMessageContent
+---@field prompt ai.AdapterMessageContent
 ---@field start_line number
 ---@field end_line number
 
@@ -90,7 +90,7 @@ function M.apply_changes_with_fast_edit_strategy(options)
     end,
   })
 
-  ---@param msg AdapterMessageContent
+  ---@param msg ai.AdapterMessageContent
   ---@param override_adapter? ai.Adapter
   local function send(msg, override_adapter)
     chat:send({
@@ -199,7 +199,7 @@ function M.apply_changes_with_replace_selection_strategy(options)
     end,
   })
 
-  ---@param msg AdapterMessageContent
+  ---@param msg ai.AdapterMessageContent
   local function send(msg)
     chat:send({
       system_prompt = require('ai.prompts').system_prompt,

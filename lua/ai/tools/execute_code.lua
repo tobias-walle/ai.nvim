@@ -1,5 +1,7 @@
 local M = {}
 
+local Messages = require('ai.utils.messages')
+
 ---@class ai.ExecuteCodeTool.Params
 ---@field language 'javascript_node' | 'lua_neovim' | 'python'
 ---@field code string
@@ -53,7 +55,11 @@ After the code was run, you will get the stdout and stderr as a result.
         cmd = 'nvim'
         args = { '--headless', '-c', 'lua ' .. code, '+qall' }
       else
-        callback({ result = { error = 'Unsupported language: ' .. language } })
+        callback({
+          result = vim.json.encode({
+            error = 'Unsupported language: ' .. language,
+          }),
+        })
         return
       end
       vim.system(
@@ -66,7 +72,7 @@ After the code was run, you will get the stdout and stderr as a result.
             code = obj.code,
           }
           vim.schedule(function()
-            callback({ result = result })
+            callback({ result = vim.json.encode(result) })
           end)
         end
       )
@@ -75,7 +81,9 @@ After the code was run, you will get the stdout and stderr as a result.
       local lines = {}
       local language = tool_call.params and tool_call.params.language or ''
       local code = tool_call.params and tool_call.params.code or ''
-      local result = tool_call_result and tool_call_result.result
+      local result = tool_call_result
+        and tool_call_result.result
+        and vim.json.decode(Messages.extract_text(tool_call_result.result))
 
       table.insert(lines, '`````' .. language)
       vim.list_extend(lines, vim.split(vim.trim(code), '\n', { plain = true }))

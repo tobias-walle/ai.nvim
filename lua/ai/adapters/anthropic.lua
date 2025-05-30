@@ -40,7 +40,7 @@ local function map_message_content_item(item)
   return item
 end
 
----@param content AdapterMessageContent
+---@param content ai.AdapterMessageContent
 local function map_message_content(content)
   if type(content) == 'string' then
     return {

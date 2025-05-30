@@ -1,6 +1,6 @@
 local M = {}
 
----@param content AdapterMessageContent
+---@param content ai.AdapterMessageContent
 ---@return string
 function M.extract_text(content)
   if type(content) == 'string' then
@@ -16,7 +16,7 @@ function M.extract_text(content)
   end
 end
 
----@param content AdapterMessageContent
+---@param content ai.AdapterMessageContent
 ---@return AdapterMessageContentItem[]
 function M.extract_images(content)
   if type(content) == 'string' then

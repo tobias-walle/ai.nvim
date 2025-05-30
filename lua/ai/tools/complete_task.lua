@@ -1,12 +1,16 @@
 local M = {}
 
+local Messages = require('ai.utils.messages')
+
+local FINAL_QUESTION = 'Anything else?'
+
 ---@class ai.CompleteTaskTool.Result
 ---@field result "success" | "failure"
 ---@field summary string
 
 ---@class ai.CompleteTaskTool.Options
 ---@field on_completion fun(result: ai.CompleteTaskTool.Result)
----@field ask_user? fun(params: ai.AskTool.Params, callback: fun(answer: string))
+---@field ask_user? fun(params: ai.AskTool.Params, callback: fun(answer: ai.AdapterMessageContent))
 
 ---@param opts ai.CompleteTaskTool.Options
 ---@return ai.ToolDefinition
@@ -39,7 +43,7 @@ Mark the current task as completed. Do this after you finished all the required 
     execute = function(params, callback)
       on_completion(params)
       if opts.ask_user then
-        opts.ask_user({ question = '' }, function(answer)
+        opts.ask_user({ question = FINAL_QUESTION }, function(answer)
           callback({ result = answer })
         end)
       end
@@ -62,7 +66,7 @@ Mark the current task as completed. Do this after you finished all the required 
       if opts.ask_user then
         vim.list_extend(result, {
           '',
-          '> Anything else?',
+          FINAL_QUESTION,
         })
       end
 
@@ -70,7 +74,10 @@ Mark the current task as completed. Do this after you finished all the required 
         table.insert(result, '')
         vim.list_extend(
           result,
-          vim.split(vim.trim(tool_call_result.result), '\n')
+          vim.split(
+            vim.trim(Messages.extract_text(tool_call_result.result)),
+            '\n'
+          )
         )
       end
 

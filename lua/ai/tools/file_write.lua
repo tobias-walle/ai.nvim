@@ -70,7 +70,9 @@ Use this tool if you need to create new files or are sure you want to override a
         lang = vim.filetype.match({ filename = file }) or ext
       end
       local result = Strings.replace_placeholders(
-        vim.trim('```' .. lang .. ' {{file}} (File Write)\n{{content}}\n```'),
+        vim.trim(
+          '`````' .. lang .. ' {{file}} (File Write)\n{{content}}\n`````'
+        ),
         { file = file, content = content }
       )
       return vim.split(result, '\n')

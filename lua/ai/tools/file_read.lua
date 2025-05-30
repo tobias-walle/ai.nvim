@@ -1,5 +1,7 @@
 local M = {}
 
+local Messages = require('ai.utils.messages')
+
 ---@return ai.ToolDefinition
 function M.create_file_read_tool()
   ---@type ai.ToolDefinition
@@ -101,19 +103,19 @@ Use this tool to request access to the content of a specific file that you need 
     end,
     render = function(tool_call, result)
       local file = tool_call.params and tool_call.params.file or ''
-      if result then
+      local result_text = result
+        and result.result
+        and Messages.extract_text(result.result)
+      if result_text then
         if
-          type(result.result) == 'string'
-          and vim.startswith(result.result, 'Error:')
+          type(result_text) == 'string'
+          and vim.startswith(result_text, 'Error:')
         then
           return {
             '❌ Error reading file `' .. file .. '`',
           }
         end
-        local line_count = (
-          type(result.result) == 'string' and #vim.split(result.result, '\n')
-          or 0
-        )
+        local line_count = #vim.split(result_text, '\n') or 0
         return {
           '✅ Reading file `' .. file .. '` (' .. line_count .. ' lines)',
         }

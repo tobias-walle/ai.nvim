@@ -1,5 +1,7 @@
 local M = {}
 
+local Messages = require('ai.utils.messages')
+
 function M.create_execute_command_tool()
   ---@type ai.ToolDefinition
   local tool = {
@@ -33,9 +35,9 @@ You can expect all core utils to be installed. And other modern tools like `rg`,
         }, function(input)
           if input == nil or (input ~= 'y' and input ~= 'Y') then
             callback({
-              result = {
+              result = vim.json.encode({
                 error = 'Command execution denied by user. Reason: ' .. input,
-              },
+              }),
             })
             return
           end
@@ -51,7 +53,7 @@ You can expect all core utils to be installed. And other modern tools like `rg`,
                 code = obj.code,
               }
               vim.schedule(function()
-                callback({ result = result })
+                callback({ result = vim.json.encode(result) })
               end)
             end
           )
@@ -61,7 +63,9 @@ You can expect all core utils to be installed. And other modern tools like `rg`,
     render = function(tool_call, tool_call_result)
       local lines = {}
       local command = tool_call.params and tool_call.params.command or ''
-      local result = tool_call_result and tool_call_result.result
+      local result = tool_call_result
+        and tool_call_result.result
+        and vim.json.decode(Messages.extract_text(tool_call_result.result))
 
       table.insert(lines, '`````bash')
       vim.list_extend(

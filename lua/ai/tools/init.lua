@@ -1,7 +1,7 @@
 local M = {}
 
 ---@class ai.ToolDefinition.ExcutionResult
----@field result any
+---@field result ai.AdapterMessageContent
 
 ---@class ai.ToolDefinition
 ---@field is_completing_chat? boolean

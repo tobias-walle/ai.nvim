@@ -12,14 +12,14 @@ local AgentPanel = require('ai.ui.agent_panel')
 ---@class CommandDefinition
 ---@field name string
 ---@field input_prompt? string
----@field instructions? AdapterMessageContent
+---@field instructions? ai.AdapterMessageContent
 ---@field model? string
 ---@field only_replace_selection? boolean
 ---@field agent_mode? boolean
 
 ---@param definition CommandDefinition
 ---@param opts table
----@param instructions AdapterMessageContent
+---@param instructions ai.AdapterMessageContent
 local function execute_ai_command(definition, opts, instructions)
   local bufnr = vim.api.nvim_get_current_buf()
   local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })

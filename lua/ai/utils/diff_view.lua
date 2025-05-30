@@ -83,7 +83,7 @@ function M.render_diff_view(opts)
       if vim.fn.isdirectory(parent_dir) == 0 then
         vim.fn.mkdir(parent_dir, 'p')
       end
-      vim.cmd('write')
+      vim.cmd('write!')
     end)
     close_tab('ACCEPTED')
   end, keymap_opts)

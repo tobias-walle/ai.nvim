@@ -8,7 +8,7 @@ local Buffers = require('ai.utils.buffers')
 ---@class ai.AgentPanel.UserInput
 ---@field question string
 ---@field choices? string[]
----@field on_answer fun(text: string)
+---@field on_answer fun(text: ai.AdapterMessageContent)
 
 ---@class ai.AgentPanel: ai.AgentPanel.Options
 ---@field editor ai.Editor
@@ -137,7 +137,7 @@ function AgentPanel:close()
   end
 end
 
----@param msg AdapterMessageContent
+---@param msg ai.AdapterMessageContent
 ---@param self ai.AgentPanel
 function AgentPanel:send(msg)
   self.chat:send({
@@ -170,6 +170,7 @@ end
 ---@param self ai.AgentPanel
 function AgentPanel:_render_chat()
   local bufnr = self.chat_bufnr
+  vim.api.nvim_set_option_value('readonly', false, { buf = bufnr })
 
   local lines = {}
   local function add(new_lines)
@@ -215,10 +216,6 @@ function AgentPanel:_render_chat()
   local last_line = vim.api.nvim_buf_line_count(bufnr)
   local should_scroll_down = cursor[1] == last_line
 
-  if self.user_input then
-    add({ '' })
-  end
-
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 
   if should_scroll_down or self.user_input then
@@ -229,26 +226,18 @@ function AgentPanel:_render_chat()
   end
 
   if self.user_input then
-    vim.api.nvim_set_current_win(self.chat_win)
-    vim.cmd('startinsert')
-    vim.keymap.set('n', '<CR>', function()
-      lines = vim.api.nvim_buf_get_lines(self.chat_bufnr, 0, -1, false)
-      local answer_lines = {}
-      for i = last_line, #lines do
-        table.insert(answer_lines, lines[i])
-      end
-      local answer = table.concat(answer_lines, '\n')
-      if self.user_input.choices then
-        for idx, choice in ipairs(self.user_input.choices) do
-          local placeholder = '\\' .. idx
-          answer = answer:gsub(placeholder, choice)
-        end
-      end
-      local on_answer = self.user_input.on_answer
-      self.user_input = nil
-      on_answer(answer)
+    vim.keymap.set('n', 'i', function()
+      require('ai.utils.prompt_input').open_prompt_input({
+        prompt = self.user_input.question,
+        width = 80,
+        save_to_history = false,
+      }, function(answer)
+        self.user_input.on_answer(answer)
+      end)
     end, { buffer = self.chat_bufnr, nowait = true })
   end
+
+  vim.api.nvim_set_option_value('readonly', true, { buf = bufnr })
 end
 
 return AgentPanel

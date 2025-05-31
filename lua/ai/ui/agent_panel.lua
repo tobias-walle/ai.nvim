@@ -119,6 +119,7 @@ end
 function AgentPanel:_setup_layout()
   self:_setup_chat()
   self:_setup_token_info()
+  self:_setup_cleanup()
 end
 
 function AgentPanel:_setup_chat()
@@ -139,21 +140,57 @@ function AgentPanel:_setup_chat()
   vim.api.nvim_set_option_value('wrap', true, { win = self.chat_win })
 end
 
+function AgentPanel:_setup_cleanup()
+  if self._chat_cleanup_augroup then
+    pcall(vim.api.nvim_del_augroup_by_id, self._chat_cleanup_augroup)
+    self._chat_cleanup_augroup = nil
+  end
+  self._chat_cleanup_augroup = vim.api.nvim_create_augroup(
+    'AgentPanelChatCleanup' .. self.chat_bufnr,
+    { clear = true }
+  )
+  vim.api.nvim_create_autocmd({ 'BufWipeout', 'BufDelete' }, {
+    group = self._chat_cleanup_augroup,
+    buffer = self.chat_bufnr,
+    callback = function()
+      if self and self.close then
+        self:close()
+      end
+    end,
+  })
+  vim.api.nvim_create_autocmd({ 'WinClosed' }, {
+    group = self._chat_cleanup_augroup,
+    callback = function(args)
+      local winid = tonumber(args.match)
+      if winid == self.chat_win then
+        if self and self.close then
+          self:close()
+        end
+      end
+    end,
+  })
+end
+
 function AgentPanel:close()
-  if vim.api.nvim_buf_is_valid(self.chat_bufnr) then
-    vim.api.nvim_buf_delete(self.chat_bufnr, { force = true })
+  if self.chat then
+    self.chat:cancel()
   end
-  if self.token_info_win and vim.api.nvim_win_is_valid(self.token_info_win) then
-    vim.api.nvim_win_close(self.token_info_win, true)
-  end
-  if
-    self.token_info_bufnr and vim.api.nvim_buf_is_valid(self.token_info_bufnr)
-  then
-    vim.api.nvim_buf_delete(self.token_info_bufnr, { force = true })
+  if self._chat_cleanup_augroup then
+    pcall(vim.api.nvim_del_augroup_by_id, self._chat_cleanup_augroup)
+    self._chat_cleanup_augroup = nil
   end
   if self._token_info_augroup then
     pcall(vim.api.nvim_del_augroup_by_id, self._token_info_augroup)
     self._token_info_augroup = nil
+  end
+  if vim.api.nvim_buf_is_valid(self.chat_bufnr) then
+    vim.api.nvim_buf_delete(self.chat_bufnr, { force = true })
+  end
+  if vim.api.nvim_win_is_valid(self.token_info_win) then
+    vim.api.nvim_win_close(self.token_info_win, true)
+  end
+  if vim.api.nvim_buf_is_valid(self.token_info_bufnr) then
+    vim.api.nvim_buf_delete(self.token_info_bufnr, { force = true })
   end
 end
 
@@ -324,10 +361,13 @@ function AgentPanel:_setup_token_info()
 end
 
 function AgentPanel:_render_token_info()
+  local bufnr = self.token_info_bufnr
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
   local total = self.chat and self.chat:get_total_tokens_used() or {}
   local last = self.chat and self.chat.tokens_used[#self.chat.tokens_used] or {}
-
-  local bufnr = self.token_info_bufnr
 
   vim.api.nvim_buf_clear_namespace(bufnr, self.token_info_ns, 0, -1)
 

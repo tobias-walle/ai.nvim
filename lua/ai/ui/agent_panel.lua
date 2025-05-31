@@ -104,9 +104,13 @@ function AgentPanel.new(opts)
       end
       if not data.tool_calls or #data.tool_calls == 0 then
         -- No tool calls, this means that the chat just stopped. For continuation.
-        self:send(
-          'Continue using the given tools until your task is complete. If you want to get input from the user, use the `ask` tool.'
-        )
+        self:send(vim.trim([[
+You are in autonomous mode.
+- If you are done with your task use the `complete_task` tool.
+- If the task failed also use the `complete_task` tool.
+- If you need input from me, use the `ask` tool.
+- Otherwise continue with your task given above.
+        ]]))
       end
     end,
     on_tool_call_finish = function()

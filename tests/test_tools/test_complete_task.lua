@@ -53,7 +53,15 @@ T['CompleteTask']['render should show final question and answer if ask_user pres
   local rendered = tool.render(tool_call, tool_call_result)
   eq(
     rendered,
-    { '✅ Task completed', '', 'Done.', '', 'Anything else?', '', 'No more.' }
+    {
+      '✅ Task completed',
+      '',
+      'Done.',
+      '',
+      '> Anything else?',
+      '',
+      'No more.',
+    }
   )
 end
 

@@ -103,6 +103,12 @@ Use this tool to request access to the content of a specific file that you need 
     end,
     render = function(tool_call, result)
       local file = tool_call.params and tool_call.params.file or ''
+      local line_start = tool_call.params and tool_call.params.line_start
+      local line_end = tool_call.params and tool_call.params.line_end
+      local file_display = file
+      if line_start or line_end then
+        file_display = file .. ':' .. (line_start or '') .. ':' .. (line_end or '')
+      end
       local result_text = result
         and result.result
         and Messages.extract_text(result.result)
@@ -112,16 +118,16 @@ Use this tool to request access to the content of a specific file that you need 
           and vim.startswith(result_text, 'Error:')
         then
           return {
-            '❌ Error reading file `' .. file .. '`',
+            '❌ Error reading file `' .. file_display .. '`',
           }
         end
         local line_count = #vim.split(result_text, '\n') or 0
         return {
-          '✅ Reading file `' .. file .. '` (' .. line_count .. ' lines)',
+          '✅ Reading file `' .. file_display .. '` (' .. line_count .. ' lines)',
         }
       else
         return {
-          '⏳ Reading file `' .. file .. '`',
+          '⏳ Reading file `' .. file_display .. '`',
         }
       end
     end,

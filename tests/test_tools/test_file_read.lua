@@ -45,6 +45,27 @@ T['FileRead']['render should show reading and error'] = function()
   local tool_call_result = { result = 'Error: fail' }
   local rendered2 = tool.render(tool_call, tool_call_result)
   eq(rendered2, { '❌ Error reading file `foo.txt`' })
+
+  -- With line_start and line_end
+  local tool_call_lines = { params = { file = 'foo.txt', line_start = 1, line_end = 20 } }
+  local rendered_lines = tool.render(tool_call_lines)
+  eq(rendered_lines, { '⏳ Reading file `foo.txt:1:20`' })
+  local rendered_lines2 = tool.render(tool_call_lines, tool_call_result)
+  eq(rendered_lines2, { '❌ Error reading file `foo.txt:1:20`' })
+
+  -- Only line_start
+  local tool_call_start = { params = { file = 'foo.txt', line_start = 5 } }
+  local rendered_start = tool.render(tool_call_start)
+  eq(rendered_start, { '⏳ Reading file `foo.txt:5:`' })
+  local rendered_start2 = tool.render(tool_call_start, tool_call_result)
+  eq(rendered_start2, { '❌ Error reading file `foo.txt:5:`' })
+
+  -- Only line_end
+  local tool_call_end = { params = { file = 'foo.txt', line_end = 10 } }
+  local rendered_end = tool.render(tool_call_end)
+  eq(rendered_end, { '⏳ Reading file `foo.txt::10`' })
+  local rendered_end2 = tool.render(tool_call_end, tool_call_result)
+  eq(rendered_end2, { '❌ Error reading file `foo.txt::10`' })
 end
 
 T['FileRead']['render should show line count'] = function()
@@ -53,6 +74,11 @@ T['FileRead']['render should show line count'] = function()
   local tool_call_result = { result = 'a\nb\nc' }
   local rendered = tool.render(tool_call, tool_call_result)
   eq(rendered, { '✅ Reading file `foo.txt` (3 lines)' })
+
+  -- With line_start and line_end
+  local tool_call_lines = { params = { file = 'foo.txt', line_start = 1, line_end = 2 } }
+  local rendered_lines = tool.render(tool_call_lines, tool_call_result)
+  eq(rendered_lines, { '✅ Reading file `foo.txt:1:2` (3 lines)' })
 end
 
 return T

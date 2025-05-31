@@ -187,7 +187,6 @@ function AgentPanel:_stop_chat_thinking_animation()
   end
 end
 
----@param self ai.AgentPanel
 function AgentPanel:_render_chat()
   local bufnr = self.chat_bufnr
   if
@@ -203,10 +202,6 @@ function AgentPanel:_render_chat()
   local function add(new_lines)
     vim.list_extend(lines, new_lines)
   end
-
-  -- Add top padding for token info window
-  add({ '' })
-  add({ '' })
 
   local messages = self.chat.messages
   for i_message, message in ipairs(messages) do
@@ -243,6 +238,10 @@ function AgentPanel:_render_chat()
     ::continue::
   end
 
+  -- Add bottom padding for token info window
+  add({ '' })
+  add({ '' })
+
   local cursor = vim.api.nvim_win_get_cursor(self.chat_win)
   local last_line = vim.api.nvim_buf_line_count(bufnr)
   local should_scroll_down = cursor[1] == last_line
@@ -271,7 +270,6 @@ function AgentPanel:_render_chat()
   vim.api.nvim_set_option_value('readonly', true, { buf = bufnr })
   self:_render_token_info()
 end
-
 function AgentPanel:_setup_token_info()
   self.token_info_bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value(
@@ -282,18 +280,20 @@ function AgentPanel:_setup_token_info()
   -- Make the token info window relative to the chat window, not the editor
   local chat_win = self.chat_win
   local chat_win_width = vim.api.nvim_win_get_width(chat_win)
+  local chat_win_height = vim.api.nvim_win_get_height(chat_win)
+  local token_info_height = 2
   self.token_info_win = vim.api.nvim_open_win(self.token_info_bufnr, false, {
     relative = 'win',
     win = chat_win,
-    anchor = 'NW',
-    row = 0,
+    anchor = 'SW',
+    row = chat_win_height,
     col = 0,
     width = chat_win_width,
-    height = 2,
+    height = token_info_height,
     style = 'minimal',
     border = {
       '',
-      '',
+      '─',
       '',
       '',
       '',
@@ -357,7 +357,7 @@ function AgentPanel:_render_token_info()
 
   local lines = {
     'Session: ' .. fmt_tokens(total),
-    'Message: ' .. fmt_tokens(last),
+    'Last Message: ' .. fmt_tokens(last),
   }
 
   -- Use the chat window's width for centering
@@ -417,10 +417,12 @@ function AgentPanel:_render_token_info()
     end
   end
 
+  local chat_win_height = vim.api.nvim_win_get_height(self.chat_win)
   vim.api.nvim_win_set_config(self.token_info_win, {
+    anchor = 'SW',
     width = width,
     height = #centered_lines,
-    row = 0,
+    row = chat_win_height,
     col = 0,
     relative = 'win',
     win = self.chat_win,

@@ -63,14 +63,11 @@ Mark the current task as completed. Do this after you finished all the required 
         vim.list_extend(result, vim.split(params.summary, '\n'))
       end
 
-      if opts.ask_user then
+      if tool_call_result and tool_call_result.result then
         vim.list_extend(result, {
           '',
-          FINAL_QUESTION,
+          '> ' .. FINAL_QUESTION,
         })
-      end
-
-      if tool_call_result and tool_call_result.result then
         table.insert(result, '')
         vim.list_extend(
           result,

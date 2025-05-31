@@ -25,6 +25,7 @@ end
 ---@field url string
 ---@field headers table<string, string>
 ---@field default_model string
+---@field pricing_per_model? table<string, AdapterPricing>
 
 ---@params OpenAiLikeAdapterOptions options
 ---@return AdapterOptions
@@ -38,6 +39,56 @@ function M.create_adapter_options(options)
       ['X-Title'] = 'ai.nvim',
     }, options.headers),
     default_model = options.default_model,
+    pricing_per_model = vim.tbl_extend('force', {
+      ['gpt-4.1'] = {
+        input_per_million = 2.00,
+        output_per_million = 8.00,
+        cache_read_per_million = 0.50,
+        cache_write_per_million = 0.00,
+      },
+      ['gpt-4.1-mini'] = {
+        input_per_million = 0.40,
+        output_per_million = 1.60,
+        cache_read_per_million = 0.10,
+        cache_write_per_million = 0.00,
+      },
+      ['gpt-4.1-nano'] = {
+        input_per_million = 0.10,
+        output_per_million = 0.40,
+        cache_read_per_million = 0.025,
+        cache_write_per_million = 0.00,
+      },
+      ['gpt-4o'] = {
+        input_per_million = 2.50,
+        output_per_million = 10.00,
+        cache_read_per_million = 0.00,
+        cache_write_per_million = 0.00,
+      },
+      ['gpt-4o-mini'] = {
+        input_per_million = 0.15,
+        output_per_million = 0.60,
+        cache_read_per_million = 0.00,
+        cache_write_per_million = 0.00,
+      },
+      ['o3-mini'] = {
+        input_per_million = 1.10,
+        output_per_million = 4.40,
+        cache_read_per_million = 0.00,
+        cache_write_per_million = 0.00,
+      },
+      ['o4-mini'] = {
+        input_per_million = 1.10,
+        output_per_million = 4.40,
+        cache_read_per_million = 0.275,
+        cache_write_per_million = 0.00,
+      },
+      ['o3'] = {
+        input_per_million = 10.00,
+        output_per_million = 40.00,
+        cache_read_per_million = 2.50,
+        cache_write_per_million = 0.00,
+      },
+    }, options.pricing_per_model or {}),
     handlers = {
       create_request_body = function(request)
         local messages = {}

@@ -86,11 +86,25 @@ local Json = require('ai.utils.json')
 ---@field get_delta fun(response: any): AdapterDelta | nil -- Get the text from the response
 ---@field get_error fun(response: any): string | nil -- Get an error from the response if it exists
 
+---@class AdapterPricing
+---@field input_per_million number
+---@field output_per_million number
+---@field cache_read_per_million number
+---@field cache_write_per_million number
+
+---@class AdapterCosts
+---@field total number
+---@field output number
+---@field input number
+---@field cache_read number
+---@field cache_write number
+
 ---@class AdapterOptions
 ---@field name string
 ---@field url string
 ---@field headers table
 ---@field default_model string
+---@field pricing_per_model? table<string, AdapterPricing>
 ---@field handlers AdapterHandlers
 
 ---@class ai.Adapter: AdapterOptions
@@ -296,6 +310,39 @@ function Adapter:chat_stream(options)
       end
     end,
   })
+end
+
+---@param token_info AdapterTokenInfo
+---@return AdapterCosts|nil
+function Adapter:get_costs(token_info)
+  if not self.pricing_per_model or not self.model then
+    return nil
+  end
+  local pricing = self.pricing_per_model[self.model]
+  if not pricing then
+    return nil
+  end
+  local input_tokens = token_info.input or 0
+  local output_tokens = token_info.output or 0
+  local cache_read_tokens = token_info.input_cached or 0
+  local cache_write_tokens = 0 -- TODO: Get info about cache writes
+
+  local input_cost = (input_tokens / 1e6) * (pricing.input_per_million or 0)
+  local output_cost = (output_tokens / 1e6) * (pricing.output_per_million or 0)
+  local cache_read_cost = (cache_read_tokens / 1e6)
+    * (pricing.cache_read_per_million or 0)
+  local cache_write_cost = (cache_write_tokens / 1e6)
+    * (pricing.cache_write_per_million or 0)
+
+  local total = input_cost + output_cost + cache_read_cost + cache_write_cost
+
+  return {
+    total = total,
+    input = input_cost,
+    output = output_cost,
+    cache_read = cache_read_cost,
+    cache_write = cache_write_cost,
+  }
 end
 
 M.Adapter = Adapter

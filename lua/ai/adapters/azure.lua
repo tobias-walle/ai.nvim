@@ -12,7 +12,7 @@ local options =
     headers = {
       ['api-key'] = azureApiKey,
     },
-    default_model = 'gpt-4o',
+    default_model = 'gpt-4.1',
   })
 
 return options

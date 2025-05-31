@@ -318,15 +318,28 @@ function AgentPanel:_render_token_info()
 
   vim.api.nvim_buf_clear_namespace(bufnr, self.token_info_ns, 0, -1)
 
+  ---@param t AdapterTokenInfo
   local function fmt_tokens(t)
+    local costs = self.chat and self.chat.adapter:get_costs(t)
     local input = t.input or 0
     local output = t.output or 0
-    return tostring(input + output)
-      .. ' (Input: '
-      .. input
-      .. ', Output: '
-      .. output
-      .. ')'
+    local input_cost = costs and costs.input or nil
+    local output_cost = costs and costs.output or nil
+    local total_cost = costs and costs.total or nil
+
+    local result = tostring(input + output)
+    if total_cost then
+      result = result .. ' (' .. string.format('%.2f', total_cost) .. '$)'
+    end
+    result = result .. ' - Input: ' .. input
+    if input_cost then
+      result = result .. ' (' .. string.format('%.2f', input_cost) .. '$)'
+    end
+    result = result .. ' - Output: ' .. output
+    if output_cost then
+      result = result .. ' (' .. string.format('%.2f', output_cost) .. '$)'
+    end
+    return result
   end
 
   local lines = {

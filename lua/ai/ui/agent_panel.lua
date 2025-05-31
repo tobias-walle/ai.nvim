@@ -280,19 +280,21 @@ function AgentPanel:_render_chat()
   end
 
   -- Add bottom padding for token info window
-  add({ '' })
-  add({ '' })
+  local padding = 4
+  for _ = 1, padding do
+    add({ '' })
+  end
 
   local cursor = vim.api.nvim_win_get_cursor(self.chat_win)
   local last_line = vim.api.nvim_buf_line_count(bufnr)
-  local should_scroll_down = cursor[1] == last_line
+  local should_scroll_down = cursor[1] >= (last_line - padding)
 
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 
   if should_scroll_down or self.user_input then
     vim.api.nvim_win_set_cursor(
       self.chat_win,
-      { vim.api.nvim_buf_line_count(bufnr), 0 }
+      { math.max(1, vim.api.nvim_buf_line_count(bufnr) - padding + 1), 0 }
     )
   end
 

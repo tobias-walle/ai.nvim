@@ -38,31 +38,19 @@ This allows you to iterate over it and overwrite the selection again later.
         callback({ result = 'No selection found in buffer ' .. bufnr })
         return
       end
-      local start_row, start_col = start[1] - 1, start[2]
-      local end_row, end_col = finish[1] - 1, finish[2]
+      local start_row = start[1] - 1
+      local end_row = finish[1] - 1
       -- Normalize order
-      if
-        start_row > end_row or (start_row == end_row and start_col > end_col)
-      then
+      if start_row > end_row then
         start_row, end_row = end_row, start_row
-        start_col, end_col = end_col, start_col
       end
       -- Replace lines in selection
       local lines = vim.split(content, '\n')
-      vim.api.nvim_buf_set_text(
-        bufnr,
-        start_row,
-        start_col,
-        end_row,
-        end_col + 1,
-        lines
-      )
+      vim.api.nvim_buf_set_text(bufnr, start_row, 0, end_row, -1, lines)
       -- Update marks to select the new content
       local new_end_row = start_row + #lines - 1
-      local new_end_col = (#lines == 1) and (start_col + #lines[1])
-        or #lines[#lines]
-      vim.api.nvim_buf_set_mark(bufnr, '<', start_row + 1, start_col, {})
-      vim.api.nvim_buf_set_mark(bufnr, '>', new_end_row + 1, new_end_col, {})
+      vim.api.nvim_buf_set_mark(bufnr, '<', start_row + 1, 0, {})
+      vim.api.nvim_buf_set_mark(bufnr, '>', new_end_row + 1, 0, {})
       callback({ result = 'SUCCESS' })
     end,
     render = function()

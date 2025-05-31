@@ -49,6 +49,9 @@ function AgentPanel.new(opts)
     adapter = opts.adapter,
     system_prompt = require('ai.prompts').system_prompt_agent,
     tools = {
+      -- require('ai.tools.selection_write').create_selection_write_tool({
+      --   bufnr = opts.focused_bufnr,
+      -- }),
       require('ai.tools.file_read').create_file_read_tool(),
       require('ai.tools.file_write').create_file_write_tool({
         editor = self.editor,

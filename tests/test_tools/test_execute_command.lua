@@ -34,10 +34,7 @@ T['ExecuteCommand']['render should show command and waiting if no result'] = fun
     'ls',
     '`````',
     '',
-    'Output:',
-    '`````',
-    '⏳ Waiting...',
-    '`````',
+    '⏳ Running command...',
   })
 end
 

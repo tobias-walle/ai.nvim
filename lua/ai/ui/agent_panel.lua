@@ -283,7 +283,7 @@ function AgentPanel:_render_chat()
   end
 
   -- Add bottom padding for token info window
-  local padding = 4
+  local padding = 5
   for _ = 1, padding do
     add({ '' })
   end

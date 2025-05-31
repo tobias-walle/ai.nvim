@@ -176,6 +176,9 @@ function AgentPanel:_setup_cleanup()
 end
 
 function AgentPanel:close()
+  if self.editor then
+    self.editor:close_all_diffviews()
+  end
   if self.chat then
     self.chat:cancel()
   end

@@ -18,4 +18,17 @@ function M.replace_placeholders(template, placeholders)
   return result
 end
 
+---@param text string
+---@return string
+function M.strip_ansi_codes(text)
+  if type(text) ~= 'string' then
+    return text
+  end
+  -- Remove ANSI escape sequences
+  -- Pattern matches: ESC[ followed by any number of digits, semicolons, and other characters,
+  -- ending with a letter (the command character)
+  local result = text:gsub('[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]', '')
+  return result
+end
+
 return M

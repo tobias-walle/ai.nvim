@@ -1,6 +1,7 @@
 local M = {}
 
 local Messages = require('ai.utils.messages')
+local Strings = require('ai.utils.strings')
 
 function M.create_execute_command_tool()
   ---@type ai.ToolDefinition
@@ -89,15 +90,16 @@ You can expect all core utils to be installed. And other modern tools like `rg`,
         table.insert(lines, '`````')
         vim.list_extend(
           lines,
-          vim.split(vim.trim(output), '\n', { plain = true })
+          vim.split(
+            Strings.strip_ansi_codes(vim.trim(output)),
+            '\n',
+            { plain = true }
+          )
         )
         table.insert(lines, '`````')
         return lines
       else
-        table.insert(lines, 'Output:')
-        table.insert(lines, '`````')
-        table.insert(lines, '⏳ Waiting...')
-        table.insert(lines, '`````')
+        table.insert(lines, '⏳ Running command...')
         return lines
       end
     end,

@@ -17,6 +17,9 @@ local Buffers = require('ai.utils.buffers')
 ---@field chat_thinking_animation ai.ThinkingAnimation | nil
 ---@field chat_bufnr number
 ---@field chat_win number
+---@field token_info_bufnr number
+---@field token_info_win number
+---@field token_info_ns number
 ---@field user_input? ai.AgentPanel.UserInput
 local AgentPanel = {}
 AgentPanel.__index = AgentPanel
@@ -31,6 +34,9 @@ local Editor = require('ai.agents.editor')
 function AgentPanel.new(opts)
   local self = setmetatable({}, AgentPanel)
   vim.tbl_extend('force', self, opts)
+
+  -- Setup namespace
+  self.token_info_ns = vim.api.nvim_create_namespace('AgentPanelTokenInfo')
 
   -- Render Layout
   self:_setup_layout()
@@ -111,6 +117,7 @@ end
 
 function AgentPanel:_setup_layout()
   self:_setup_chat()
+  self:_setup_token_info()
 end
 
 function AgentPanel:_setup_chat()
@@ -134,6 +141,18 @@ end
 function AgentPanel:close()
   if vim.api.nvim_buf_is_valid(self.chat_bufnr) then
     vim.api.nvim_buf_delete(self.chat_bufnr, { force = true })
+  end
+  if self.token_info_win and vim.api.nvim_win_is_valid(self.token_info_win) then
+    vim.api.nvim_win_close(self.token_info_win, true)
+  end
+  if
+    self.token_info_bufnr and vim.api.nvim_buf_is_valid(self.token_info_bufnr)
+  then
+    vim.api.nvim_buf_delete(self.token_info_bufnr, { force = true })
+  end
+  if self._token_info_augroup then
+    pcall(vim.api.nvim_del_augroup_by_id, self._token_info_augroup)
+    self._token_info_augroup = nil
   end
 end
 
@@ -176,6 +195,10 @@ function AgentPanel:_render_chat()
   local function add(new_lines)
     vim.list_extend(lines, new_lines)
   end
+
+  -- Add top padding for token info window
+  add({ '' })
+  add({ '' })
 
   local messages = self.chat.messages
   for i_message, message in ipairs(messages) do
@@ -238,6 +261,126 @@ function AgentPanel:_render_chat()
   end
 
   vim.api.nvim_set_option_value('readonly', true, { buf = bufnr })
+  self:_render_token_info()
+end
+
+function AgentPanel:_setup_token_info()
+  self.token_info_bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_option_value(
+    'bufhidden',
+    'wipe',
+    { buf = self.token_info_bufnr }
+  )
+  self.token_info_win = vim.api.nvim_open_win(self.token_info_bufnr, false, {
+    relative = 'editor',
+    anchor = 'NW',
+    row = 0,
+    col = 0,
+    width = vim.o.columns,
+    height = 2,
+    style = 'minimal',
+    border = {
+      '',
+      '',
+      '',
+      '',
+      '',
+      '─',
+      '',
+      '',
+    },
+    noautocmd = true,
+  })
+  vim.api.nvim_win_set_option(
+    self.token_info_win,
+    'winhl',
+    'NormalFloat:NormalFloat,FloatBorder:FloatBorder'
+  )
+
+  self:_render_token_info()
+
+  -- Setup autocommand to rerender token info on window resize
+  self._token_info_augroup =
+    vim.api.nvim_create_augroup('AgentPanelTokenInfo', { clear = true })
+  vim.api.nvim_create_autocmd('VimResized', {
+    group = self._token_info_augroup,
+    callback = function()
+      self:_render_token_info()
+    end,
+  })
+end
+
+function AgentPanel:_render_token_info()
+  local total = self.chat and self.chat:get_total_tokens_used() or {}
+  local last = self.chat and self.chat.tokens_used[#self.chat.tokens_used] or {}
+
+  local bufnr = self.token_info_bufnr
+
+  vim.api.nvim_buf_clear_namespace(bufnr, self.token_info_ns, 0, -1)
+
+  local function fmt_tokens(t)
+    local input = t.input or 0
+    local output = t.output or 0
+    return tostring(input + output)
+      .. ' (Input: '
+      .. input
+      .. ', Output: '
+      .. output
+      .. ')'
+  end
+
+  local lines = {
+    'Tokens Total: ' .. fmt_tokens(total),
+    'Tokens Last: ' .. fmt_tokens(last),
+  }
+
+  local width = vim.o.columns
+  local centered_lines = {}
+  for _, line in ipairs(lines) do
+    local padding = math.floor((width - #line) / 2)
+    if padding > 0 then
+      table.insert(centered_lines, string.rep(' ', padding) .. line)
+    else
+      table.insert(centered_lines, line)
+    end
+  end
+
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, centered_lines)
+
+  -- Highlighting
+  for i, line in ipairs(centered_lines) do
+    local token_start, token_end = string.find(line, '%d+')
+    if token_start and token_end then
+      vim.api.nvim_buf_set_extmark(
+        bufnr,
+        self.token_info_ns,
+        i - 1,
+        token_start - 1,
+        {
+          end_col = token_end,
+          hl_group = 'Number',
+        }
+      )
+    end
+    local bracket_start, bracket_end = string.find(line, '%b()')
+    if bracket_start and bracket_end then
+      vim.api.nvim_buf_set_extmark(
+        bufnr,
+        self.token_info_ns,
+        i - 1,
+        bracket_start - 1,
+        {
+          end_col = bracket_end,
+          hl_group = 'Comment',
+        }
+      )
+    end
+  end
+
+  vim.api.nvim_win_set_config(self.token_info_win, {
+    width = width,
+    height = #centered_lines,
+  })
 end
 
 return AgentPanel

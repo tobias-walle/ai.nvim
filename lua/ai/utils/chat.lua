@@ -15,6 +15,7 @@
 ---@field current_message? AdapterMessage
 ---@field job? Job
 ---@field cancelled? boolean
+---@field tokens_used AdapterTokenInfo[]
 local Chat = {}
 Chat.__index = Chat
 
@@ -27,6 +28,7 @@ function Chat:new(options)
   ---@cast chat ai.Chat
   chat.messages = {}
   chat.tools = options.tools or {}
+  chat.tokens_used = {}
   return chat
 end
 
@@ -90,6 +92,9 @@ function Chat:send(options)
       self.current_message.tool_calls = data.tool_calls
       self.current_message.tool_call_results = {}
 
+      -- Track tokens used after each chat completion
+      table.insert(self.tokens_used, data.tokens)
+
       if options.on_exit then
         options.on_exit(data)
       end
@@ -97,60 +102,7 @@ function Chat:send(options)
         self.on_chat_exit(data)
       end
 
-      if #data.tool_calls > 0 then
-        local is_any_tool_call_completing_chat = false
-        for i, tool_call in ipairs(data.tool_calls) do
-          local tool_definition =
-            Tools.find_tool_definition(self.tools, tool_call.tool)
-          is_any_tool_call_completing_chat = is_any_tool_call_completing_chat
-            or (tool_definition and tool_definition.is_completing_chat or false)
-          if self.on_tool_call_start then
-            self.on_tool_call_start(tool_call, i)
-          end
-        end
-
-        require('ai.utils.tools').execute_tool_calls(
-          self.tools,
-          data.tool_calls,
-          function(result, _, finished)
-            if self.cancelled then
-              return
-            end
-            -- Find the right tool call
-            local index, tool_call
-            for i, t in ipairs(data.tool_calls) do
-              if t.id == result.id then
-                index = i
-                tool_call = t
-                break
-              end
-            end
-
-            table.insert(self.current_message.tool_call_results, result)
-            if self.on_tool_call_finish then
-              self.on_tool_call_finish(tool_call, result, index)
-            end
-            if finished then
-              if self.after_all_tool_calls_finished then
-                self.after_all_tool_calls_finished(data)
-              end
-              if not is_any_tool_call_completing_chat then
-                ---@type Chat.SendOptions
-                local options_new = vim.tbl_extend('force', {}, options)
-                options_new.messages = {}
-                self:send(options_new)
-              end
-            end
-          end
-        )
-      end
-
-      if self.after_all_tool_calls_started then
-        self.after_all_tool_calls_started(data)
-      end
-      if #data.tool_calls > 0 and self.after_all_tool_calls_finished then
-        self.after_all_tool_calls_finished(data)
-      end
+      self:_handle_tool_calls(data, options)
     end,
   }
 
@@ -172,6 +124,78 @@ function Chat:clear()
   self:cancel()
   self.messages = {}
   self.tools = {}
+  self.tokens_used = {}
+end
+
+---@param self ai.Chat
+---@param data AdapterStreamExitData
+---@param options Chat.SendOptions
+function Chat:_handle_tool_calls(data, options)
+  if #data.tool_calls > 0 then
+    local is_any_tool_call_completing_chat = false
+    for i, tool_call in ipairs(data.tool_calls) do
+      local tool_definition =
+        Tools.find_tool_definition(self.tools, tool_call.tool)
+      is_any_tool_call_completing_chat = is_any_tool_call_completing_chat
+        or (tool_definition and tool_definition.is_completing_chat or false)
+      if self.on_tool_call_start then
+        self.on_tool_call_start(tool_call, i)
+      end
+    end
+
+    Tools.execute_tool_calls(
+      self.tools,
+      data.tool_calls,
+      function(result, _, finished)
+        if self.cancelled then
+          return
+        end
+        -- Find the right tool call
+        local index, tool_call
+        for i, t in ipairs(data.tool_calls) do
+          if t.id == result.id then
+            index = i
+            tool_call = t
+            break
+          end
+        end
+
+        table.insert(self.current_message.tool_call_results, result)
+        if self.on_tool_call_finish then
+          self.on_tool_call_finish(tool_call, result, index)
+        end
+        if finished then
+          if self.after_all_tool_calls_finished then
+            self.after_all_tool_calls_finished(data)
+          end
+          if not is_any_tool_call_completing_chat then
+            ---@type Chat.SendOptions
+            local options_new = vim.tbl_extend('force', {}, options)
+            options_new.messages = {}
+            self:send(options_new)
+          end
+        end
+      end
+    )
+  end
+
+  if self.after_all_tool_calls_started then
+    self.after_all_tool_calls_started(data)
+  end
+  if #data.tool_calls > 0 and self.after_all_tool_calls_finished then
+    self.after_all_tool_calls_finished(data)
+  end
+end
+
+---@return AdapterTokenInfo
+function Chat:get_total_tokens_used()
+  local total = {}
+  for _, tokens in ipairs(self.tokens_used) do
+    for k, v in pairs(tokens) do
+      total[k] = (total[k] or 0) + (v or 0)
+    end
+  end
+  return total
 end
 
 return Chat

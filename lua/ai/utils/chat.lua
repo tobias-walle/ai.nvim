@@ -60,6 +60,7 @@ function Chat:send(options)
   local request_messages = self.messages
   self.messages = vim.list_extend({}, self.messages)
   table.insert(self.messages, self.current_message)
+  table.insert(self.tokens_used, {})
 
   ---@type Chat.SendOptions
   local custom_options = {
@@ -73,6 +74,9 @@ function Chat:send(options)
     on_update = function(update)
       if self.cancelled then
         return
+      end
+      if update.tokens then
+        self.tokens_used[#self.tokens_used] = update.tokens
       end
       self.current_message.content = update.response
       self.current_message.tool_calls = update.tool_calls
@@ -92,8 +96,9 @@ function Chat:send(options)
       self.current_message.tool_calls = data.tool_calls
       self.current_message.tool_call_results = {}
 
-      -- Track tokens used after each chat completion
-      table.insert(self.tokens_used, data.tokens)
+      if data.tokens then
+        self.tokens_used[#self.tokens_used] = data.tokens
+      end
 
       if options.on_exit then
         options.on_exit(data)

@@ -1,5 +1,6 @@
 local EventEmitter = require('ai.utils.event_emitter')
 local Buffers = require('ai.utils.buffers')
+local Numbers = require('ai.utils.numbers')
 
 ---@class ai.AgentPanel.Options
 ---@field adapter ai.Adapter
@@ -189,6 +190,13 @@ end
 ---@param self ai.AgentPanel
 function AgentPanel:_render_chat()
   local bufnr = self.chat_bufnr
+  if
+    not vim.api.nvim_buf_is_valid(bufnr)
+    or not vim.api.nvim_win_is_valid(self.chat_win)
+  then
+    return
+  end
+
   vim.api.nvim_set_option_value('readonly', false, { buf = bufnr })
 
   local lines = {}
@@ -271,12 +279,16 @@ function AgentPanel:_setup_token_info()
     'wipe',
     { buf = self.token_info_bufnr }
   )
+  -- Make the token info window relative to the chat window, not the editor
+  local chat_win = self.chat_win
+  local chat_win_width = vim.api.nvim_win_get_width(chat_win)
   self.token_info_win = vim.api.nvim_open_win(self.token_info_bufnr, false, {
-    relative = 'editor',
+    relative = 'win',
+    win = chat_win,
     anchor = 'NW',
     row = 0,
     col = 0,
-    width = vim.o.columns,
+    width = chat_win_width,
     height = 2,
     style = 'minimal',
     border = {
@@ -299,15 +311,16 @@ function AgentPanel:_setup_token_info()
 
   self:_render_token_info()
 
-  -- Setup autocommand to rerender token info on window resize
-  self._token_info_augroup =
-    vim.api.nvim_create_augroup('AgentPanelTokenInfo', { clear = true })
-  vim.api.nvim_create_autocmd('VimResized', {
-    group = self._token_info_augroup,
-    callback = function()
-      self:_render_token_info()
-    end,
-  })
+  -- Setup autocommand to rerender token info on window or chat window resize
+  self._token_info_augroup = vim.api.nvim_create_autocmd(
+    { 'VimResized', 'WinResized' },
+    {
+      group = self._token_info_augroup,
+      callback = function()
+        self:_render_token_info()
+      end,
+    }
+  )
 end
 
 function AgentPanel:_render_token_info()
@@ -327,27 +340,28 @@ function AgentPanel:_render_token_info()
     local output_cost = costs and costs.output or nil
     local total_cost = costs and costs.total or nil
 
-    local result = tostring(input + output)
+    local result = Numbers.format_integer(input + output)
     if total_cost then
-      result = result .. ' (' .. string.format('%.2f', total_cost) .. '$)'
+      result = result .. ' [' .. string.format('%.2f', total_cost) .. '$]'
     end
-    result = result .. ' - Input: ' .. input
+    result = result .. ' (Input: ' .. Numbers.format_integer(input)
     if input_cost then
-      result = result .. ' (' .. string.format('%.2f', input_cost) .. '$)'
+      result = result .. ' [' .. string.format('%.2f', input_cost) .. '$]'
     end
-    result = result .. ' - Output: ' .. output
+    result = result .. ' - Output: ' .. Numbers.format_integer(output)
     if output_cost then
-      result = result .. ' (' .. string.format('%.2f', output_cost) .. '$)'
+      result = result .. ' [' .. string.format('%.2f', output_cost) .. '$])'
     end
     return result
   end
 
   local lines = {
-    'Tokens Total: ' .. fmt_tokens(total),
-    'Tokens Last: ' .. fmt_tokens(last),
+    'Session: ' .. fmt_tokens(total),
+    'Message: ' .. fmt_tokens(last),
   }
 
-  local width = vim.o.columns
+  -- Use the chat window's width for centering
+  local width = vim.api.nvim_win_get_width(self.chat_win)
   local centered_lines = {}
   for _, line in ipairs(lines) do
     local padding = math.floor((width - #line) / 2)
@@ -362,7 +376,7 @@ function AgentPanel:_render_token_info()
 
   -- Highlighting
   for i, line in ipairs(centered_lines) do
-    local token_start, token_end = string.find(line, '%d+')
+    local token_start, token_end = string.find(line, '[%d,]+')
     if token_start and token_end then
       vim.api.nvim_buf_set_extmark(
         bufnr,
@@ -372,6 +386,19 @@ function AgentPanel:_render_token_info()
         {
           end_col = token_end,
           hl_group = 'Number',
+        }
+      )
+    end
+    local price_start, price_end = string.find(line, '%[0%.%d%d%$%]')
+    if price_start and price_end then
+      vim.api.nvim_buf_set_extmark(
+        bufnr,
+        self.token_info_ns,
+        i - 1,
+        price_start - 1,
+        {
+          end_col = price_end,
+          hl_group = 'Constant',
         }
       )
     end
@@ -393,6 +420,10 @@ function AgentPanel:_render_token_info()
   vim.api.nvim_win_set_config(self.token_info_win, {
     width = width,
     height = #centered_lines,
+    row = 0,
+    col = 0,
+    relative = 'win',
+    win = self.chat_win,
   })
 end
 

@@ -1,5 +1,7 @@
 local M = {}
 
+local Messages = require('ai.utils.messages')
+
 ---@class ai.AskTool.Params
 ---@field question string
 ---@field choices? string[]
@@ -54,7 +56,10 @@ Use this if additional input is required.
         vim.list_extend(rendered, { '' })
         vim.list_extend(
           rendered,
-          vim.split(vim.trim(tool_call_result.result), '\n')
+          vim.split(
+            vim.trim(Messages.extract_text(tool_call_result.result)),
+            '\n'
+          )
         )
         vim.list_extend(rendered, { '', '---' })
       end

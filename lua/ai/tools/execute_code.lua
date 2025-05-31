@@ -80,12 +80,17 @@ After the code was run, you will get the stdout and stderr as a result.
     render = function(tool_call, tool_call_result)
       local lines = {}
       local language = tool_call.params and tool_call.params.language or ''
+      local markdown_block_language = language == 'javascript_node'
+          and 'javascript'
+        or language == 'lua_neovim' and 'lua'
+        or language == 'python' and 'python'
+        or language
       local code = tool_call.params and tool_call.params.code or ''
       local result = tool_call_result
         and tool_call_result.result
         and vim.json.decode(Messages.extract_text(tool_call_result.result))
 
-      table.insert(lines, '`````' .. language)
+      table.insert(lines, '`````' .. markdown_block_language)
       vim.list_extend(lines, vim.split(vim.trim(code), '\n', { plain = true }))
       table.insert(lines, '`````')
       table.insert(lines, '')

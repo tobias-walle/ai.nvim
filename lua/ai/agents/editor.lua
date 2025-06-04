@@ -1,13 +1,19 @@
 local string_utils = require('ai.utils.strings')
 local EventEmitter = require('ai.utils.event_emitter')
+local Buffers = require('ai.utils.buffers')
+local Lists = require('ai.utils.lists')
 
----@class ai.Editor.Patch
----@field bufnr number
+---@class ai.Editor.FastyApplyPatch
+---@field bufnr number | string
 ---@field patch string
 
----@class ai.Editor.FilePatch
----@field file string
+---@class ai.Editor.OverridePatch
+---@field bufnr number | string
+---@field line_start number -- 1-indexed inclusive
+---@field line_end number -- 1-indexed exclusive
 ---@field patch string
+
+---@alias ai.Editor.Patch ai.Editor.FastyApplyPatch | ai.Editor.OverridePatch
 
 ---@class ai.Editor.Job
 ---@field patch ai.Editor.Patch
@@ -52,67 +58,11 @@ function Editor:reset()
   self.event_emitters_by_bufnr = {}
 end
 
----@param bufnr number
----@param blocks MarkdownCodeBlock[]
----@param self ai.Editor
-function Editor:add_markdown_block_patches(bufnr, blocks)
-  local current_buf_filename = vim.api.nvim_buf_get_name(bufnr)
-  for _, block in ipairs(blocks) do
-    local absolute_block_filename = block.file
-        and vim.fn.fnamemodify(block.file, ':p')
-      or current_buf_filename
-
-    local bufnr_to_edit = vim.fn.bufnr(absolute_block_filename, false)
-    if bufnr_to_edit == -1 then
-      bufnr_to_edit = vim.api.nvim_create_buf(true, false)
-      vim.api.nvim_buf_set_name(bufnr_to_edit, absolute_block_filename)
-      local filetype = vim.filetype.match({ filename = absolute_block_filename })
-        or 'text'
-      vim.api.nvim_set_option_value(
-        'filetype',
-        filetype,
-        { buf = bufnr_to_edit }
-      )
-    end
-    local code_lines = block.lines
-    local code = vim.fn.join(code_lines, '\n')
-    self:add_patch({
-      bufnr = bufnr_to_edit,
-      patch = code,
-    })
-  end
-end
-
----@param patch ai.Editor.FilePatch
----@param self ai.Editor
----@return integer bufnr
-function Editor:add_file_patch(patch)
-  local absolute_block_filename = vim.fn.fnamemodify(patch.file, ':p')
-
-  local bufnr_to_edit = vim.fn.bufnr(absolute_block_filename, false)
-  if bufnr_to_edit == -1 then
-    bufnr_to_edit = vim.api.nvim_create_buf(true, false)
-    vim.api.nvim_buf_set_name(bufnr_to_edit, absolute_block_filename)
-    local filetype = vim.filetype.match({ filename = absolute_block_filename })
-      or 'text'
-    vim.api.nvim_set_option_value('filetype', filetype, { buf = bufnr_to_edit })
-  end
-  self:add_patch({
-    bufnr = bufnr_to_edit,
-    patch = patch.patch,
-  })
-
-  return bufnr_to_edit
-end
-
 ---@param patch ai.Editor.Patch
 ---@param self ai.Editor
+---@return integer bufnr
 function Editor:add_patch(patch)
-  local adapter_mini = require('ai.config').parse_model_string('default:mini')
-  local bufnr = patch.bufnr
-  local content_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  local original_content = table.concat(content_lines, '\n')
-  local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
+  local bufnr = Buffers.get_bufnr(patch.bufnr)
 
   ---@type ai.Editor.Job
   local job = {
@@ -125,14 +75,48 @@ function Editor:add_patch(patch)
   self:_ensure_event_emitter(bufnr)
   self.job_by_bufnr[bufnr] = job
 
+  if patch.line_start and patch.line_end then
+    ---@cast patch ai.Editor.OverridePatch
+    self:_handle_override(bufnr, patch)
+  else
+    ---@cast patch ai.Editor.FastyApplyPatch
+    self:_handle_fast_apply(bufnr, patch)
+  end
+
+  return bufnr
+end
+
+---@param bufnr number
+---@param patch ai.Editor.OverridePatch
+function Editor:_handle_override(bufnr, patch)
+  local content_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local patch_lines = vim.split(patch.patch, '\n', { plain = true })
+  local patched_content = Lists.replace_lines(
+    content_lines,
+    patch.line_start,
+    patch.line_end,
+    patch_lines
+  )
+  local result = table.concat(patched_content, '\n')
+  self:_update_result(bufnr, result, true)
+end
+
+---@param bufnr number
+---@param patch ai.Editor.FastyApplyPatch
+function Editor:_handle_fast_apply(bufnr, patch)
+  local content_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local original_content = table.concat(content_lines, '\n')
+  local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
+  local adapter_mini = require('ai.config').parse_model_string('default:mini')
+
+  local job = self.job_by_bufnr[bufnr]
+
   ---@param update string
   ---@param completed boolean
   local function process_update(update, completed)
     local extracted = require('ai.utils.markdown').extract_code(update)
     local patched_content = extracted[#extracted] and extracted[#extracted].code
-    job.result = patched_content or update
-    job.is_completed = completed
-    self:notify_subscribers(bufnr)
+    self:_update_result(bufnr, patched_content or update, completed)
   end
 
   local prompt = string_utils.replace_placeholders(
@@ -313,6 +297,13 @@ function Editor:notify_subscribers(bufnr)
   if self.event_emitters_by_bufnr[bufnr] and self.job_by_bufnr[bufnr] then
     self.event_emitters_by_bufnr[bufnr]:notify(self.job_by_bufnr[bufnr])
   end
+end
+
+function Editor:_update_result(bufnr, content, completed)
+  local job = self.job_by_bufnr[bufnr]
+  job.result = content
+  job.is_completed = completed
+  self:notify_subscribers(bufnr)
 end
 
 ---@param self ai.Editor

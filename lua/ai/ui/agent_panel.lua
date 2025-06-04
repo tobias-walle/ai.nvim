@@ -352,10 +352,10 @@ function AgentPanel:_setup_token_info()
     },
     noautocmd = true,
   })
-  vim.api.nvim_win_set_option(
-    self.token_info_win,
+  vim.api.nvim_set_option_value(
     'winhl',
-    'NormalFloat:NormalFloat,FloatBorder:FloatBorder'
+    'NormalFloat:NormalFloat,FloatBorder:FloatBorder',
+    { win = self.token_info_win }
   )
 
   self:_render_token_info()

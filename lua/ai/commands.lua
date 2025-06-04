@@ -6,7 +6,6 @@ local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 local get_diagnostics = require('ai.utils.diagnostics').get_diagnostics
 local FilesContext = require('ai.utils.files_context')
 local Messages = require('ai.utils.messages')
-local Buffers = require('ai.utils.buffers')
 local AgentPanel = require('ai.ui.agent_panel')
 
 ---@class CommandDefinition
@@ -93,7 +92,7 @@ local function execute_ai_command(definition, opts, instructions)
       end_line = end_line,
       adapter = adapter,
     })
-  elseif definition.agent_mode then
+  else
     ---@type AdapterMessageContentItem
     local text_content = {
       type = 'text',
@@ -108,23 +107,6 @@ local function execute_ai_command(definition, opts, instructions)
       focused_bufnr = bufnr,
     })
     agent:send(prompt)
-  else
-    ---@type AdapterMessageContentItem
-    local text_content = {
-      type = 'text',
-      text = string_utils.replace_placeholders(
-        require('ai.prompts').commands_edit_file,
-        placeholders
-      ),
-    }
-    table.insert(prompt, text_content)
-    require('ai.command.apply_changes').apply_changes_with_fast_edit_strategy({
-      bufnr = bufnr,
-      prompt = prompt,
-      start_line = start_line,
-      end_line = end_line,
-      adapter = adapter,
-    })
   end
 end
 

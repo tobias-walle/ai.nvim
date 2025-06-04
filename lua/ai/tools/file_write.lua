@@ -45,8 +45,8 @@ Use this tool if you need to create new files or are sure you want to override a
         'file_write: Invalid parameters'
       )
 
-      local bufnr = editor:add_file_patch({
-        file = file,
+      local bufnr = editor:add_patch({
+        bufnr = file,
         patch = content,
       })
       editor:subscribe(bufnr, function(job)

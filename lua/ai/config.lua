@@ -105,7 +105,7 @@ Config.default_config = {
   },
   -- ai.nvim is looking for a rules file at the root of your project and will load it into each prompt.
   -- You can use it to define the code style or other information that could be improving the output of the tasks.
-  -- You can now provide a string, a list of files, or a list of folders. If a folder is given, all markdown files in it will be loaded and combined.
+  -- You can now provide a list of files or folders. If a folder is given, all markdown files in it will be loaded and combined.
   rules_file = { '.ai/rules', '.ai-rules.md', '.roo/rules' },
   -- The data dir is used to save cached data (like the chat history)
   data_dir = vim.fn.stdpath('data') .. '/ai',

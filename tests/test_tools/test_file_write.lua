@@ -12,7 +12,7 @@ T['FileWrite']['execute should call editor and callback with accepted'] = functi
   local tool = FileWrite.create_file_write_tool({
     ---@diagnostic disable-next-line: missing-fields
     editor = {
-      add_file_patch = function(_, args)
+      add_patch = function(_, args)
         called_patch = args
         return 1
       end,
@@ -26,7 +26,7 @@ T['FileWrite']['execute should call editor and callback with accepted'] = functi
   tool.execute({ file = 'foo.txt', content = 'abc' }, function(result)
     got_result = result
   end)
-  eq(called_patch.file, 'foo.txt')
+  eq(called_patch.bufnr, 'foo.txt')
   eq(called_patch.patch, 'abc')
   eq(called_subscribe, true)
   assert(got_result.result:match('accepted'), 'Should mention accepted')
@@ -36,7 +36,7 @@ T['FileWrite']['execute should callback with rejected'] = function()
   local tool = FileWrite.create_file_write_tool({
     ---@diagnostic disable-next-line: missing-fields
     editor = {
-      add_file_patch = function()
+      add_patch = function()
         return 1
       end,
       subscribe = function(_, bufnr, cb)

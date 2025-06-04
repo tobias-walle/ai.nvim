@@ -1,6 +1,7 @@
 local M = {}
 
 local Strings = require('ai.utils.strings')
+local Buffers = require('ai.utils.buffers')
 
 ---@class ai.FileUpdateTool.Options
 ---@field editor ai.Editor
@@ -76,8 +77,8 @@ function createEventsApi(client: Client): EventsApi {
         'file_update: Invalid parameters'
       )
 
-      local bufnr = editor:add_file_patch({
-        file = file,
+      local bufnr = editor:add_patch({
+        bufnr = file,
         patch = update,
       })
       editor:subscribe(bufnr, function(job)

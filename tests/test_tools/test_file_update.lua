@@ -11,7 +11,7 @@ T['FileUpdate']['execute should call editor and callback with accepted'] = funct
   local tool = FileUpdate.create_file_update_tool({
     ---@diagnostic disable-next-line: missing-fields
     editor = {
-      add_file_patch = function(_, args)
+      add_patch = function(_, args)
         called_patch = args
         return 1
       end,
@@ -25,7 +25,7 @@ T['FileUpdate']['execute should call editor and callback with accepted'] = funct
   tool.execute({ file = 'foo.txt', update = 'patch' }, function(result)
     got_result = result
   end)
-  eq(called_patch.file, 'foo.txt')
+  eq(called_patch.bufnr, 'foo.txt')
   eq(called_patch.patch, 'patch')
   eq(called_subscribe, true)
   assert(got_result.result:match('accepted'), 'Should mention accepted')
@@ -35,7 +35,7 @@ T['FileUpdate']['execute should callback with rejected'] = function()
   local tool = FileUpdate.create_file_update_tool({
     ---@diagnostic disable-next-line: missing-fields
     editor = {
-      add_file_patch = function()
+      add_patch = function()
         return 1
       end,
       subscribe = function(_, _, cb)

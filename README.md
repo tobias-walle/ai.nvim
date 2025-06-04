@@ -108,7 +108,8 @@ require('ai').setup({
   },
   -- ai.nvim is looking for a rules file at the root of your project and will load it into each prompt.
   -- You can use it to define the code style or other information that could be improving the output of the tasks.
-  rules_file = '.ai-rules.md',
+  -- You can now provide a list of files or folders. If a folder is given, all markdown files in it will be loaded and combined.
+  rules_file = { '.ai-rules.md', '.ai/rules', '.ai/rules/' },
   -- The data dir is used to save cached data
   data_dir = vim.fn.stdpath('data') .. '/ai',
   -- Override the keymaps used by the plugin

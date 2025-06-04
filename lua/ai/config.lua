@@ -37,7 +37,7 @@ local Config = {}
 ---@field adapters? table<string, AdapterOptions>
 ---@field data_dir? string Folder in which chats and other data is stored
 ---@field mappings? AiKeyMap Key mappings
----@field rules_file? string Name of an optional file relative to the opened projects to define custom rules for the LLM.
+---@field rules_file? string | string[] Name of an optional file or folder(s) relative to the opened project to define custom rules for the LLM
 ---@field chat? AiChatConfig
 ---@field command? AiCommandConfig
 ---@field completion? AiCommandConfig
@@ -105,7 +105,8 @@ Config.default_config = {
   },
   -- ai.nvim is looking for a rules file at the root of your project and will load it into each prompt.
   -- You can use it to define the code style or other information that could be improving the output of the tasks.
-  rules_file = '.ai-rules.md',
+  -- You can now provide a string, a list of files, or a list of folders. If a folder is given, all markdown files in it will be loaded and combined.
+  rules_file = { '.ai/rules', '.ai-rules.md', '.roo/rules' },
   -- The data dir is used to save cached data (like the chat history)
   data_dir = vim.fn.stdpath('data') .. '/ai',
   -- Override the keymaps used by the plugin
@@ -242,4 +243,91 @@ function Config.parse_model_string(model_string)
   adapter.model = model_name or adapter.model
   return adapter
 end
+
+--- Utility to resolve rules_file(s) into a single string of rules
+---@param rules_file string | string[]
+---@return string|nil
+function Config.resolve_rules(rules_file)
+  if rules_file == nil or rules_file == '' then
+    return nil
+  end
+  local uv = vim.uv or vim.loop
+  local cwd = vim.fn.getcwd()
+  local files_to_load = {}
+
+  local function is_dir(path)
+    local stat = uv.fs_stat(path)
+    return stat and stat.type == 'directory'
+  end
+
+  local function is_file(path)
+    local stat = uv.fs_stat(path)
+    return stat and stat.type == 'file'
+  end
+
+  local function find_markdown_files_in_dir(dir)
+    local files = {}
+    local handle = uv.fs_scandir(dir)
+    if not handle then
+      return files
+    end
+    while true do
+      local name, t = uv.fs_scandir_next(handle)
+      if not name then
+        break
+      end
+      if t == 'file' and name:match('%.md$') then
+        table.insert(files, dir .. '/' .. name)
+      end
+    end
+    return files
+  end
+
+  local candidates = type(rules_file) == 'table' and rules_file
+    or { rules_file }
+
+  for _, entry in ipairs(candidates) do
+    local path = entry
+    if type(path) == 'table' then
+      goto continue
+    end
+    if type(path) ~= 'string' then
+      goto continue
+    end
+    if not path:match('^/') then
+      path = cwd .. '/' .. path
+    end
+    if is_file(path) then
+      table.insert(files_to_load, path)
+      break -- first matching file
+    elseif is_dir(path) then
+      local md_files = find_markdown_files_in_dir(path)
+      vim.list_extend(files_to_load, md_files)
+    end
+    ::continue::
+  end
+
+  if #files_to_load == 0 then
+    return nil
+  end
+
+  local rules = {}
+  for _, file in ipairs(files_to_load) do
+    local fd = uv.fs_open(file, 'r', 438)
+    if fd then
+      local stat = uv.fs_fstat(fd)
+      local content = nil
+      if stat and stat.size then
+        content = uv.fs_read(fd, stat.size, 0)
+      end
+      uv.fs_close(fd)
+      if content then
+        table.insert(rules, content)
+      end
+    end
+  end
+
+  return table.concat(rules, '\n')
+end
+
 return Config

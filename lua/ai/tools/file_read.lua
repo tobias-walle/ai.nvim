@@ -12,6 +12,8 @@ function M.create_file_read_tool()
 Read the content of a specific file.
 The file path should be relative to the project root.
 Use this tool to request access to the content of a specific file that you need to fullfill your task.
+Only use line_start and line_end if you know which lines are relevant (e.g. from an error message).
+Read the whole file per default.
       ]]),
       parameters = {
         type = 'object',
@@ -107,7 +109,11 @@ Use this tool to request access to the content of a specific file that you need 
       local line_end = tool_call.params and tool_call.params.line_end
       local file_display = file
       if line_start or line_end then
-        file_display = file .. ':' .. (line_start or '') .. ':' .. (line_end or '')
+        file_display = file
+          .. ':'
+          .. (line_start or '')
+          .. ':'
+          .. (line_end or '')
       end
       local result_text = result
         and result.result
@@ -123,7 +129,11 @@ Use this tool to request access to the content of a specific file that you need 
         end
         local line_count = #vim.split(result_text, '\n') or 0
         return {
-          '✅ Reading file `' .. file_display .. '` (' .. line_count .. ' lines)',
+          '✅ Reading file `'
+            .. file_display
+            .. '` ('
+            .. line_count
+            .. ' lines)',
         }
       else
         return {

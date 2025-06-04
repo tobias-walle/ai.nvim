@@ -6,8 +6,6 @@ local replace_placeholders = require('ai.utils.strings').replace_placeholders
 M.placeholder_unchanged = '... existing code ...'
 
 M._system_prompt_general_rules = vim.trim([[
-===
-
 # CODING AND FORMATTING
 
 - Always use best practices when coding.
@@ -15,6 +13,7 @@ M._system_prompt_general_rules = vim.trim([[
 - If a library that is already used, could solve the specified problem, prefer it's use over your own implementation.
 - Try to stay DRY, but duplicate code if it makes sense.
 - Create a new line after each sentence.
+- NEVER add comments describing your current edit. Only use comments if they shouldn't be removed afterwards.
 ]])
 
 M.system_prompt = build_prompt({
@@ -28,19 +27,10 @@ Act as an expert software developer. You are very articulate and follow instruct
 M.system_prompt_agent = build_prompt({
   [[
 You are an agent and expert software developer. You are very articulate and follow instructions very closely.
-As an agent, you act autonomously. You fulfill the given tasks using the tools provided to you.
+As an agent, you act autonomously. You fulfill the given task by formulating and paln and using the tools provided to you.
   ]],
   '',
   M._system_prompt_general_rules,
-  [[
-===
-
-# TOOL USE
-
-You have access to a set of tools that are executed upon the user's approval.
-You can multiple tools per message, and will receive the result of that tool use in the user's response.
-You use tools step-by-step to accomplish a given task, with each tool use informed by the result of the previous tool use.
-  ]],
 })
 
 M.commands_selection = vim.trim([[
@@ -66,47 +56,37 @@ The following files were selected by me and might be relevant for the tasks.
 ]])
 
 M.prompt_agent = vim.trim([[
-===
-
-# USER RULES
-
+<project-rules>
 {{custom_rules}}
+</project-rules>
 
-===
-
-# RELEVANT FILES CONTEXT
-
+<relevant-files>
 {{files_context}}
+</relevant-files>
 
-===
-
-# DIAGNOSTICS CONTEXT
-
-```text {{filename}}
+<diagnostics file="{{filename}}">
 {{diagnostics}}
-```
+</diagnostics>
 
-===
-
-# CURRENT FILE CONTEXT
-
-```{{language}} {{filename}}
+<current-file file="{{filename}}">
+```{{language}}
 {{content}}
 ```
+</current-file>
 
-===
+{{selection}}
 
-# INSTRUCTIONS
+<instructions>
+- Fullfill the task given by the user.
+- Formulate a plan first, explain your intended changes and then use the right tools for the job.
+- Focus your changes on the `current-file` or the `selection` if it was provided.
+- Only fix the `diagnostics` if explicitly instructed.
+- Use the `ask` tool if you need more information (for example if the user rejects an edit). Provide suggestions as `choices`.
+</instructions>
 
-- Fullfill the task below by using the tools provided to you. Focus your changes on the FILE, but also take other files in the context into account.
-- Only fix the DIAGNOSTICS if explicitly instructed.
-- Formulate a plan first, explain your intended changes and then use the right tools for the job to do them.
-
-===
-
-# TASK
-
+<task>
 {{intructions}}
+</task>
 ]])
 
 M.commands_edit_file = vim.trim([[

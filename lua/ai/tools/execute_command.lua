@@ -71,37 +71,32 @@ You can expect all core utils to be installed. And other modern tools like `rg`,
       table.insert(lines, '`````bash')
       vim.list_extend(
         lines,
-        vim.split(vim.trim(command), '\n', { plain = true })
+        vim.split('> ' .. vim.trim(command), '\n', { plain = true })
       )
-      table.insert(lines, '`````')
-      table.insert(lines, '')
 
       if result then
-        table.insert(lines, 'Output:')
         if result.error then
-          table.insert(lines, '`````')
           table.insert(lines, '❌ Error: ' .. result.error)
-          table.insert(lines, '`````')
-          return lines
-        end
-        local output = (result.stdout and #result.stdout > 0) and result.stdout
-          or result.stderr
-          or ''
-        table.insert(lines, '`````')
-        vim.list_extend(
-          lines,
-          vim.split(
-            Strings.strip_ansi_codes(vim.trim(output)),
-            '\n',
-            { plain = true }
+        else
+          local output = (result.stdout and #result.stdout > 0)
+              and result.stdout
+            or result.stderr
+            or ''
+          vim.list_extend(
+            lines,
+            vim.split(
+              Strings.strip_ansi_codes(vim.trim(output)),
+              '\n',
+              { plain = true }
+            )
           )
-        )
-        table.insert(lines, '`````')
-        return lines
+        end
       else
         table.insert(lines, '⏳ Running command...')
-        return lines
       end
+
+      table.insert(lines, '`````')
+      return lines
     end,
   }
   return tool

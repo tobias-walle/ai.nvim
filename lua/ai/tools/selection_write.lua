@@ -56,17 +56,19 @@ Do not add any final newline if not already present.
       }
       local patch_bufnr = editor:add_patch(patch)
       editor:subscribe(patch_bufnr, function(job)
-        if job.apply_result == 'ACCEPTED' then
-          -- Update marks to select the new content
-          local lines = vim.split(content, '\n')
-          local new_end_row = start_row + #lines - 1
-          vim.api.nvim_buf_set_mark(bufnr, '<', start_row, 0, {})
-          vim.api.nvim_buf_set_mark(bufnr, '>', new_end_row, 0, {})
-          callback({ result = 'SUCCESS' })
-        elseif job.apply_result == 'REJECTED' then
-          callback({
-            result = "The change was rejected by the user. Probably because he didn't agree with it. Do not try to write this selection again.",
-          })
+        if job.diffview_result then
+          if job.diffview_result.result == 'ACCEPTED' then
+            -- Update marks to select the new content
+            local lines = vim.split(content, '\n')
+            local new_end_row = start_row + #lines - 1
+            vim.api.nvim_buf_set_mark(bufnr, '<', start_row, 0, {})
+            vim.api.nvim_buf_set_mark(bufnr, '>', new_end_row, 0, {})
+            callback({ result = 'SUCCESS' })
+          elseif job.diffview_result.result == 'REJECTED' then
+            callback({
+              result = 'REJECTED. Reason: ' .. job.diffview_result.reason,
+            })
+          end
         end
       end)
     end,

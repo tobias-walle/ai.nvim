@@ -82,14 +82,16 @@ function createEventsApi(client: Client): EventsApi {
         patch = update,
       })
       editor:subscribe(bufnr, function(job)
-        if job.apply_result == 'ACCEPTED' then
-          callback({
-            result = 'The change was accepted. The file now contains the suggested changes.',
-          })
-        elseif job.apply_result == 'REJECTED' then
-          callback({
-            result = "The change was rejected by the user. Probably because he didn't aggree with it. Do not try to write this file again.",
-          })
+        if job.diffview_result then
+          if job.diffview_result.result == 'ACCEPTED' then
+            callback({
+              result = 'The change was accepted. The file now contains the suggested changes.',
+            })
+          elseif job.diffview_result.result == 'REJECTED' then
+            callback({
+              result = 'REJECTED. Reason: ' .. job.diffview_result.reason,
+            })
+          end
         end
       end)
     end,

@@ -19,7 +19,7 @@ local Lists = require('ai.utils.lists')
 ---@field patch ai.Editor.Patch
 ---@field result string
 ---@field is_completed boolean
----@field apply_result? ai.ApplyResult
+---@field diffview_result? ai.DiffviewResult
 ---@field retry fun()
 ---@field cancel fun()
 
@@ -194,28 +194,30 @@ function Editor:_handle_fast_apply(bufnr, patch)
 end
 
 ---@param self ai.Editor
----@param callback? fun()
+---@param callback? fun(results: ai.DiffviewResult[])
 function Editor:open_all_diff_views(callback)
   self:close_all_diffviews()
   local total = 0
   local completed = 0
+  local results = {}
   for bufnr, _ in pairs(self.job_by_bufnr) do
     total = total + 1
-    self:open_diff_view(bufnr, function()
+    self:open_diff_view(bufnr, function(result)
       completed = completed + 1
+      table.insert(results, result)
       if completed == total and callback then
-        callback()
+        callback(results)
       end
     end)
   end
   if total == 0 and callback then
-    callback()
+    callback(results)
   end
 end
 
 ---@param self ai.Editor
 ---@param bufnr number
----@param callback? fun()
+---@param callback? fun(results: ai.DiffviewResult)
 function Editor:open_diff_view(bufnr, callback)
   self:close_diffview(bufnr)
   local job = self.job_by_bufnr[bufnr]
@@ -231,14 +233,14 @@ function Editor:open_diff_view(bufnr, callback)
     bufnr = bufnr,
     on_retry = job.retry,
     callback = function(result)
-      job.apply_result = result
+      job.diffview_result = result
       self:notify_subscribers(bufnr)
       -- Cleanup afterwards
       job.cancel()
       self.job_by_bufnr[bufnr] = nil
       self:close_diffview(bufnr)
       if callback then
-        callback()
+        callback(result)
       end
       self.diffviews_by_bufnr[bufnr] = nil
       self:_clear_event_emitter(bufnr)

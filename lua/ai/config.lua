@@ -16,7 +16,9 @@ local Config = {}
 
 ---@class AiKeyMapBuffers
 ---@field accept_suggestion? string
+---@field accept_suggestion_and_exit? string
 ---@field cancel? string
+---@field cancel_and_exit? string
 ---@field retry? string
 
 ---@class AiKeyMap
@@ -127,7 +129,9 @@ Config.default_config = {
     },
     buffers = {
       accept_suggestion = '<LocalLeader>a',
+      accept_suggestion_and_exit = '<LocalLeader>A',
       cancel = '<LocalLeader>q',
+      cancel_and_exit = '<LocalLeader>Q',
       retry = '<LocalLeader>r',
     },
   },

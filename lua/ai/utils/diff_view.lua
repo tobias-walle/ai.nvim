@@ -5,11 +5,16 @@ local M = {}
 ---@field win number
 ---@field close fun()
 
----@alias ai.ApplyResult "ACCEPTED" | "REJECTED"
+---@alias ai.DiffviewResultType "ACCEPTED" | "REJECTED"
+
+---@class ai.DiffviewResult
+---@field result ai.DiffviewResultType
+---@field reason? string
+---@field exit_afterwards? boolean
 
 ---@class ai.RenderDiffViewOptions
 ---@field bufnr integer File to modify
----@field callback? fun(result: ai.ApplyResult) A function to be executed after the diff view is closed.
+---@field callback? fun(result: ai.DiffviewResult) A function to be executed after the diff view is closed.
 ---@field on_retry? fun() It defined, allow the user to retry
 
 ---Renders a diff view for comparing two buffers.
@@ -24,8 +29,8 @@ function M.render_diff_view(opts)
   local temp_bufnr = vim.api.nvim_create_buf(false, true)
   local filename = vim.api.nvim_buf_get_name(bufnr)
   vim.api.nvim_buf_set_name(temp_bufnr, filename .. ' [AI]')
-  local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
-  vim.api.nvim_buf_set_option(temp_bufnr, 'filetype', filetype)
+  local filetype = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
+  vim.api.nvim_set_option_value('filetype', filetype, { buf = temp_bufnr })
 
   -- Copy content
   local original_buf_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
@@ -44,6 +49,7 @@ function M.render_diff_view(opts)
 
   -- Setup autocmd to close diff if one of the buffers is closed
   local already_closed = false
+  ---@param result ai.DiffviewResult
   local close_tab = function(result)
     if not already_closed then
       already_closed = true
@@ -65,7 +71,7 @@ function M.render_diff_view(opts)
       callback = function(event)
         local event_win_id = tonumber(event.match)
         if event_win_id == win or event_win_id == temp_win then
-          close_tab('REJECTED')
+          close_tab({ result = 'REJECTED' })
         end
       end,
     })
@@ -73,8 +79,7 @@ function M.render_diff_view(opts)
 
   local keymap_opts = { buffer = true, silent = true }
 
-  -- Accept changes
-  vim.keymap.set('n', config.mappings.buffers.accept_suggestion, function()
+  local function accept()
     local lines = vim.api.nvim_buf_get_lines(temp_bufnr, 0, -1, false)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     vim.api.nvim_buf_call(bufnr, function()
@@ -85,12 +90,35 @@ function M.render_diff_view(opts)
       end
       vim.cmd('write!')
     end)
-    close_tab('ACCEPTED')
+  end
+
+  -- Accept changes
+  vim.keymap.set('n', config.mappings.buffers.accept_suggestion, function()
+    accept()
+    close_tab({ result = 'ACCEPTED' })
   end, keymap_opts)
+
+  vim.keymap.set(
+    'n',
+    config.mappings.buffers.accept_suggestion_and_exit,
+    function()
+      accept()
+      close_tab({ result = 'ACCEPTED', exit_afterwards = true })
+    end,
+    keymap_opts
+  )
 
   -- Reject changes
   vim.keymap.set('n', config.mappings.buffers.cancel, function()
-    close_tab('REJECTED')
+    vim.ui.input({ prompt = 'Reason' }, function(reason)
+      if reason and reason ~= '' then
+        close_tab({ result = 'REJECTED', reason = reason })
+      end
+    end)
+  end, keymap_opts)
+
+  vim.keymap.set('n', config.mappings.buffers.cancel_and_exit, function()
+    close_tab({ result = 'REJECTED', exit_afterwards = true })
   end, keymap_opts)
 
   -- Retry (if defined)

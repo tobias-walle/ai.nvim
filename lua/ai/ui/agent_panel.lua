@@ -136,7 +136,6 @@ function AgentPanel.new(opts)
       })
     )
   end
-  dbg(disable_tools)
 
   -- Setup Chat
   self.chat = require('ai.utils.chat'):new({
@@ -157,7 +156,12 @@ function AgentPanel.new(opts)
     after_all_tool_calls_started = function(data)
       self:_render_chat()
       if self.editor:has_any_patches() then
-        self.editor:open_all_diff_views(function()
+        self.editor:open_all_diff_views(function(results)
+          for _, result in ipairs(results) do
+            if result.exit_afterwards then
+              self:close()
+            end
+          end
           -- Reset after all diff views were processed by the user
           self.editor:reset()
         end)

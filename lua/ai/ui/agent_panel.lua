@@ -2,9 +2,21 @@ local EventEmitter = require('ai.utils.event_emitter')
 local Buffers = require('ai.utils.buffers')
 local Numbers = require('ai.utils.numbers')
 
+---@class DisabledTools
+---@field selection_write? boolean
+---@field file_read? boolean
+---@field file_write? boolean
+---@field file_update? boolean
+---@field search? boolean
+---@field execute_code? boolean
+---@field execute_command? boolean
+---@field complete_task? boolean
+---@field ask? boolean
+
 ---@class ai.AgentPanel.Options
 ---@field adapter ai.Adapter
 ---@field focused_bufnr number
+---@field disable_tools? DisabledTools
 
 ---@class ai.AgentPanel.UserInput
 ---@field question string
@@ -42,26 +54,58 @@ function AgentPanel.new(opts)
   -- Render Layout
   self:_setup_layout()
 
-  -- Setup Chat
+  -- Setup Tools
   self.editor = Editor:new()
   self.on_completion = EventEmitter.new({ emit_initially = false })
-  self.chat = require('ai.utils.chat'):new({
-    adapter = opts.adapter,
-    system_prompt = require('ai.prompts').system_prompt_agent,
-    tools = {
-      -- require('ai.tools.selection_write').create_selection_write_tool({
-      --   bufnr = opts.focused_bufnr,
-      -- }),
-      require('ai.tools.file_read').create_file_read_tool(),
+  ---@type ai.ToolDefinition[]
+  local tools = {}
+  local disable_tools = opts.disable_tools or {}
+  if not disable_tools.selection_write then
+    table.insert(
+      tools,
+      require('ai.tools.selection_write').create_selection_write_tool({
+        editor = self.editor,
+        bufnr = opts.focused_bufnr,
+      })
+    )
+  end
+  if not disable_tools.file_read then
+    table.insert(tools, require('ai.tools.file_read').create_file_read_tool())
+  end
+  if not disable_tools.file_write then
+    table.insert(
+      tools,
       require('ai.tools.file_write').create_file_write_tool({
         editor = self.editor,
-      }),
+      })
+    )
+  end
+  if not disable_tools.file_update then
+    table.insert(
+      tools,
       require('ai.tools.file_update').create_file_update_tool({
         editor = self.editor,
-      }),
-      require('ai.tools.search').create_search_tool(),
-      require('ai.tools.execute_code').create_execute_code_tool(),
-      require('ai.tools.execute_command').create_execute_command_tool(),
+      })
+    )
+  end
+  if not disable_tools.search then
+    table.insert(tools, require('ai.tools.search').create_search_tool())
+  end
+  if not disable_tools.execute_code then
+    table.insert(
+      tools,
+      require('ai.tools.execute_code').create_execute_code_tool()
+    )
+  end
+  if not disable_tools.execute_command then
+    table.insert(
+      tools,
+      require('ai.tools.execute_command').create_execute_command_tool()
+    )
+  end
+  if not disable_tools.complete_task then
+    table.insert(
+      tools,
       require('ai.tools.complete_task').create_complete_task_tool({
         on_completion = function(result)
           self.on_completion:notify(result)
@@ -74,7 +118,12 @@ function AgentPanel.new(opts)
           }
           self:_render_chat()
         end,
-      }),
+      })
+    )
+  end
+  if not disable_tools.ask then
+    table.insert(
+      tools,
       require('ai.tools.ask').create_ask_tool({
         ask_user = function(params, callback)
           self.user_input = {
@@ -84,8 +133,16 @@ function AgentPanel.new(opts)
           }
           self:_render_chat()
         end,
-      }),
-    },
+      })
+    )
+  end
+  dbg(disable_tools)
+
+  -- Setup Chat
+  self.chat = require('ai.utils.chat'):new({
+    adapter = opts.adapter,
+    system_prompt = require('ai.prompts').system_prompt_agent,
+    tools = tools,
     on_chat_start = function()
       self.editor:reset()
       self:_start_chat_thinking_animation()

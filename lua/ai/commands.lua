@@ -14,7 +14,6 @@ local AgentPanel = require('ai.ui.agent_panel')
 ---@field instructions? ai.AdapterMessageContent
 ---@field model? string
 ---@field only_replace_selection? boolean
----@field agent_mode? boolean
 
 ---@param definition CommandDefinition
 ---@param opts table
@@ -59,8 +58,8 @@ local function execute_ai_command(definition, opts, instructions)
     intructions = Messages.extract_text(instructions),
     start_line = start_line,
     end_line = end_line,
-    diagnostics = diagnostics,
-    diagnostics_selection = diagnostics_selection,
+    diagnostics = definition.only_replace_selection and diagnostics_selection
+      or diagnostics,
     files_context = FilesContext.get_prompt(),
   }
 
@@ -75,52 +74,29 @@ local function execute_ai_command(definition, opts, instructions)
 
   local adapter =
     require('ai.config').parse_model_string(definition.model or 'default')
-  if definition.only_replace_selection then
-    ---@type AdapterMessageContentItem
-    local text_content = {
-      type = 'text',
-      text = string_utils.replace_placeholders(
-        require('ai.prompts').commands_edit_selection,
-        placeholders
-      ),
-    }
-    table.insert(prompt, text_content)
-    require('ai.command.apply_changes').apply_changes_with_replace_selection_strategy({
-      bufnr = bufnr,
-      prompt = prompt,
-      start_line = start_line,
-      end_line = end_line,
-      adapter = adapter,
-    })
-  else
-    ---@type AdapterMessageContentItem
-    local text_content = {
-      type = 'text',
-      text = string_utils.replace_placeholders(
-        require('ai.prompts').prompt_agent,
-        placeholders
-      ),
-    }
-    table.insert(prompt, text_content)
-    local agent = AgentPanel.new({
-      adapter = adapter,
-      focused_bufnr = bufnr,
-    })
-    agent:send(prompt)
-  end
+  ---@type AdapterMessageContentItem
+  local text_content = {
+    type = 'text',
+    text = string_utils.replace_placeholders(
+      require('ai.prompts').prompt_agent,
+      placeholders
+    ),
+  }
+  table.insert(prompt, text_content)
+  local agent = AgentPanel.new({
+    adapter = adapter,
+    focused_bufnr = bufnr,
+    disable_tools = {
+      file_write = definition.only_replace_selection,
+      file_update = definition.only_replace_selection,
+    },
+  })
+  agent:send(prompt)
 end
 
 ---@param definition CommandDefinition
 local function create_command(definition)
   local function cmd_fn(opts)
-    -- if Buffers.find_buf_by_name('AI') then
-    --   vim.notify(
-    --     "A buffer named 'AI' already exists. Command cancelled.",
-    --     vim.log.levels.WARN
-    --   )
-    --   return
-    -- end
-
     if definition.instructions and definition.instructions ~= '' then
       return execute_ai_command(definition, opts, definition.instructions)
     elseif opts.args and opts.args ~= '' then
@@ -159,7 +135,6 @@ function M.setup()
   create_command({
     name = 'Agent',
     input_prompt = 'AI Agent Mode',
-    agent_mode = true,
   })
   create_command({
     name = 'RewriteSelection',

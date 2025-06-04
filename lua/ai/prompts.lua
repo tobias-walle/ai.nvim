@@ -14,6 +14,7 @@ M._system_prompt_general_rules = vim.trim([[
 - Try to stay DRY, but duplicate code if it makes sense.
 - Create a new line after each sentence.
 - NEVER add comments describing your current edit. Only use comments if they shouldn't be removed afterwards.
+- NEVER remove existing comments if not specifically instructed,
 ]])
 
 M.system_prompt = build_prompt({
@@ -88,103 +89,6 @@ M.prompt_agent = vim.trim([[
 {{intructions}}
 </task>
 ]])
-
-M.commands_edit_file = vim.trim([[
-# Example
-## User
-<instructions>
-Add a new function to update events.
-</instructions
-
-## Assistant
-The user asked me the add a new function to update events. For this:
-- I will update the EventsApi interface, to contain the new function `updateEvents`
-- I will imlement the new function in createEventsApi
-- The rest should remain unchanged.
-
-```typescript src/events.ts
-// ... existing code ...
-
-export interface EventsApi {
-  // ... existing code ...
-  updateEvents(events: EventInput[]): Promise<void>;
-}
-
-function createEventsApi(client: Client): EventsApi {
-  // ... existing code ...
-  return {
-    // ... existing code ...
-    updateEvents: (events) => client.patch('events', { json: events }).json(),
-  };
-}
-
-// ... existing code ...
-```
-
-# Actual Task
-{{files_context}}
-<diagnostics>
-```text {{filename}}
-{{diagnostics}}
-```
-</diagnostics>
-<file>
-```{{language}} {{filename}}
-{{content}}
-```
-</file>
-{{selection}}
-<instructions>
-{{intructions}}
-Output only the changed code
-</instructions>
-
-{{custom_rules}}
-
-- Follow the <instructions> and respond with the code replacing the file content in the <file> code block!
-- Only fix the <diagnostics> if explicitly instructed
-- If a selection is provided, focus your changes on the selection, but still do related changes outside of it, like updating references.
-- Preserve leading whitespace
-- Before outputting the code EXPLAIN YOUR CHANGES.
-- ALWAYS PUT THE FILENAME IN THE HEADER, RIGHT TO THE ```<lang>. You can create or edit other files, but only do it if instructed and stay in the same file per default.
-- Use the code comment `... existing code ...` to hide unchanged code. Always use the correct comment syntax of the specific language (`// ... existing code ...`, `# ... existing code ...`, `-- ... existing code ...`, etc.).
-]])
-
-M.commands_edit_selection = vim.trim([[
-<diagnostics>
-```text {{filename}}
-{{diagnostics_selection}}
-```
-</diagnostics>
-
-<file>
-```{{language}} {{filename}}
-{{content}}
-```
-</file>
-{{selection}}
-<instructions>
-{{intructions}}
-</instructions>
-
-{{custom_rules}}
-
-- Follow the <instructions> and respond with the code replacing ONLY the <selection> content in the code block!
-- Only fix the <diagnostics> if explicitly instructed
-- Preserve leading whitespace
-- Avoid comments explaining your changes
-]])
-
-M.commands_fast_edit_retry = build_prompt({
-  [[
-<notes>
-{{notes}}
-</notes>
-
-I wasn't happy with the result. Please retry considering the notes above if given.
-As only your last response will be considered, please repeat all changes that are still relevant.
-  ]],
-})
 
 M.editor_user_prompt = build_prompt({
   [[

@@ -91,6 +91,7 @@ local function execute_ai_command(definition, opts, task)
     adapter = adapter,
     focused_bufnr = bufnr,
     disable_tools = {
+      selection_write = not definition.only_replace_selection,
       file_write = definition.only_replace_selection,
       file_update = definition.only_replace_selection,
     },

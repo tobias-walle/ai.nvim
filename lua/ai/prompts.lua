@@ -78,16 +78,26 @@ M.prompt_agent = vim.trim([[
 {{selection}}
 
 <instructions>
-- Fullfill the task given by the user.
-- Formulate a plan first, explain your intended changes and then use the right tools for the job.
-- Focus your changes on the `current-file` or the `selection` if it was provided.
-- Only fix the `diagnostics` if explicitly instructed.
-- Use the `ask` tool if you need more information (for example if the user rejects an edit). Provide suggestions as `choices`.
+{{instructions}}
 </instructions>
 
 <task>
-{{intructions}}
+{{task}}
 </task>
+]])
+
+M.default_instructions = vim.trim([[
+- Fullfill the task given by the user.
+- Formulate a plan first, explain your intended changes and then use the right tools for the job.
+- If a `selection` was provided, focus your changes on that. Think why the user decided to include it for the task.
+- Only fix the `diagnostics` if explicitly instructed.
+- Always use the `ask` tool if you need more information or feedback from the user. Provide suggestions as `choices`.
+]])
+
+M.selection_only_instructions = vim.trim([[
+- Fullfill the task given by the user by replacing the selection.
+- Only fix the `diagnostics` if explicitly instructed.
+- Use the `selection_write` tool directly for simple tasks. Reason about your changes first for more complex requests.
 ]])
 
 M.editor_user_prompt = build_prompt({

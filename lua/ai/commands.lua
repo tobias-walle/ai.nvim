@@ -6,6 +6,7 @@ local open_prompt_input = require('ai.utils.prompt_input').open_prompt_input
 local get_diagnostics = require('ai.utils.diagnostics').get_diagnostics
 local FilesContext = require('ai.utils.files_context')
 local Messages = require('ai.utils.messages')
+local Prompts = require('ai.prompts')
 local AgentPanel = require('ai.ui.agent_panel')
 
 ---@class CommandDefinition
@@ -17,8 +18,8 @@ local AgentPanel = require('ai.ui.agent_panel')
 
 ---@param definition CommandDefinition
 ---@param opts table
----@param instructions ai.AdapterMessageContent
-local function execute_ai_command(definition, opts, instructions)
+---@param task ai.AdapterMessageContent
+local function execute_ai_command(definition, opts, task)
   local bufnr = vim.api.nvim_get_current_buf()
   local language = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
   local filename = vim.fn.expand('%:.')
@@ -46,7 +47,7 @@ local function execute_ai_command(definition, opts, instructions)
   local prompt = {}
 
   vim.list_extend(prompt, FilesContext.get_images())
-  vim.list_extend(prompt, Messages.extract_images(instructions))
+  vim.list_extend(prompt, Messages.extract_images(task))
 
   ---@type Placeholders
   local placeholders = {
@@ -55,18 +56,21 @@ local function execute_ai_command(definition, opts, instructions)
     content = content,
     selection_content = selection_content,
     language = language,
-    intructions = Messages.extract_text(instructions),
+    task = Messages.extract_text(task),
     start_line = start_line,
     end_line = end_line,
     diagnostics = definition.only_replace_selection and diagnostics_selection
       or diagnostics,
+    instructions = definition.only_replace_selection
+        and Prompts.selection_only_instructions
+      or Prompts.default_instructions,
     files_context = FilesContext.get_prompt(),
   }
 
   local selection = ''
   if not is_whole_file then
     selection = string_utils.replace_placeholders(
-      require('ai.prompts').commands_selection,
+      Prompts.commands_selection,
       placeholders
     )
   end
@@ -78,7 +82,7 @@ local function execute_ai_command(definition, opts, instructions)
   local text_content = {
     type = 'text',
     text = string_utils.replace_placeholders(
-      require('ai.prompts').prompt_agent,
+      Prompts.prompt_agent,
       placeholders
     ),
   }

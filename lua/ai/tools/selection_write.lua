@@ -66,7 +66,8 @@ Do not add any final newline if not already present.
             callback({ result = 'SUCCESS' })
           elseif job.diffview_result.result == 'REJECTED' then
             callback({
-              result = 'REJECTED. Reason: ' .. job.diffview_result.reason,
+              result = 'REJECTED by the user. Try again and strongly consider the reason for the rejection: '
+                .. (job.diffview_result.reason or 'Reason not defined'),
             })
           end
         end

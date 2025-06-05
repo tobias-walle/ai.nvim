@@ -57,7 +57,8 @@ Use this tool if you need to create new files or are sure you want to override a
             })
           elseif job.diffview_result.result == 'REJECTED' then
             callback({
-              result = 'REJECTED. Reason: ' .. job.diffview_result.reason,
+              result = 'REJECTED by the user. Try again and strongly consider the reason for the rejection: '
+                .. (job.diffview_result.reason or 'Reason not defined'),
             })
           end
         end

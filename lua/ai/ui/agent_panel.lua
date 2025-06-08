@@ -1,6 +1,7 @@
 local EventEmitter = require('ai.utils.event_emitter')
 local Buffers = require('ai.utils.buffers')
 local Numbers = require('ai.utils.numbers')
+local Strings = require('ai.utils.strings')
 
 ---@class DisabledTools
 ---@field selection_write? boolean
@@ -12,6 +13,7 @@ local Numbers = require('ai.utils.numbers')
 ---@field execute_command? boolean
 ---@field complete_task? boolean
 ---@field ask? boolean
+---@field summarize_chat? boolean
 
 ---@class ai.AgentPanel.Options
 ---@field adapter ai.Adapter
@@ -117,6 +119,28 @@ function AgentPanel.new(opts)
             on_answer = callback,
           }
           self:_render_chat()
+        end,
+      })
+    )
+  end
+  if not disable_tools.summarize_chat then
+    table.insert(
+      tools,
+      require('ai.tools.summarize_chat').create_complete_task_tool({
+        on_summarization = function(result)
+          local first_message = self.chat.messages[1]
+          self.chat.messages = {
+            first_message, -- Preserve the first message, as it contains a lot of relevant info
+            { role = 'assistant', content = result },
+          }
+          self:_render_chat()
+          self:send(vim.trim([[
+You are in autonomous mode.
+- If you are done with your task use the `complete_task` tool.
+- If the task failed also use the `complete_task` tool.
+- If you need input from me, use the `ask` tool.
+- Otherwise continue with your task given above.
+          ]]))
         end,
       })
     )
@@ -308,7 +332,7 @@ function AgentPanel:_render_chat()
 
   local lines = {}
   local function add(new_lines)
-    vim.list_extend(lines, new_lines)
+    vim.list_extend(lines, Strings.flatten_lines(new_lines))
   end
 
   local messages = self.chat.messages

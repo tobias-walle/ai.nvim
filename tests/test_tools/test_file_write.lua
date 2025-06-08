@@ -18,7 +18,7 @@ T['FileWrite']['execute should call editor and callback with accepted'] = functi
       end,
       subscribe = function(_, bufnr, cb)
         called_subscribe = true
-        cb({ apply_result = 'ACCEPTED' })
+        cb({ diffview_result = { result = 'ACCEPTED' } })
       end,
     },
   })
@@ -40,7 +40,7 @@ T['FileWrite']['execute should callback with rejected'] = function()
         return 1
       end,
       subscribe = function(_, bufnr, cb)
-        cb({ apply_result = 'REJECTED' })
+        cb({ diffview_result = { result = 'REJECTED', reason = 'Test reason' } })
       end,
     },
   })
@@ -48,7 +48,7 @@ T['FileWrite']['execute should callback with rejected'] = function()
   tool.execute({ file = 'foo.txt', content = 'abc' }, function(result)
     got_result = result
   end)
-  assert(got_result.result:match('rejected'), 'Should mention rejected')
+  assert(got_result.result:lower():match('rejected'), 'Should mention rejected')
 end
 
 T['FileWrite']['render should show file and content'] = function()

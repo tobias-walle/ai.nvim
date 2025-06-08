@@ -17,7 +17,7 @@ T['FileUpdate']['execute should call editor and callback with accepted'] = funct
       end,
       subscribe = function(_, _, cb)
         called_subscribe = true
-        cb({ apply_result = 'ACCEPTED' })
+        cb({ diffview_result = { result = 'ACCEPTED' } })
       end,
     },
   })
@@ -39,7 +39,7 @@ T['FileUpdate']['execute should callback with rejected'] = function()
         return 1
       end,
       subscribe = function(_, _, cb)
-        cb({ apply_result = 'REJECTED' })
+        cb({ diffview_result = { result = 'REJECTED' } })
       end,
     },
   })
@@ -47,7 +47,7 @@ T['FileUpdate']['execute should callback with rejected'] = function()
   tool.execute({ file = 'foo.txt', update = 'patch' }, function(result)
     got_result = result
   end)
-  assert(got_result.result:match('rejected'), 'Should mention rejected')
+  assert(got_result.result:match('REJECTED'), 'Should mention rejected')
 end
 
 T['FileUpdate']['render should show file and update'] = function()

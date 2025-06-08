@@ -118,7 +118,17 @@ function M.open_prompt_input(opts, callback)
     refresh_options()
   end
 
+  local function save_to_history()
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
+    local text = table.concat(lines, '\n')
+    if opts.save_to_history == nil or opts.save_to_history then
+      table.insert(M.history, text)
+      M.save_history()
+    end
+  end
+
   local function cancel()
+    save_to_history()
     cleanup_autocmds()
     vim.api.nvim_win_close(win, true)
   end
@@ -126,14 +136,10 @@ function M.open_prompt_input(opts, callback)
   local function confirm()
     cleanup_autocmds()
     vim.api.nvim_win_close(win, true)
+    save_to_history()
+
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
     local text = table.concat(lines, '\n')
-    local save_to_history = opts.save_to_history
-    if save_to_history == nil or save_history then
-      table.insert(M.history, text)
-      M.save_history()
-    end
-
     if opts.modify_text then
       text = opts.modify_text(text)
     end

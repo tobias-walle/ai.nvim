@@ -6,37 +6,47 @@ T['replace_placeholders'] = MiniTest.new_set()
 
 T['replace_placeholders']['should replace single placeholder'] = function()
   local Strings = require('ai.utils.strings')
-  local result = Strings.replace_placeholders('Hello, {{name}}!', { name = 'World' })
+  local result =
+    Strings.replace_placeholders('Hello, {{name}}!', { name = 'World' })
   eq(result, 'Hello, World!')
 end
 
 T['replace_placeholders']['should replace multiple placeholders'] = function()
   local Strings = require('ai.utils.strings')
-  local result = Strings.replace_placeholders('Hi {{first}} {{last}}', { first = 'John', last = 'Doe' })
+  local result = Strings.replace_placeholders(
+    'Hi {{first}} {{last}}',
+    { first = 'John', last = 'Doe' }
+  )
   eq(result, 'Hi John Doe')
 end
 
 T['replace_placeholders']['should handle missing placeholders'] = function()
   local Strings = require('ai.utils.strings')
-  local result = Strings.replace_placeholders('Hello, {{name}} {{surname}}!', { name = 'Alice' })
+  local result = Strings.replace_placeholders(
+    'Hello, {{name}} {{surname}}!',
+    { name = 'Alice' }
+  )
   eq(result, 'Hello, Alice {{surname}}!')
 end
 
 T['replace_placeholders']['should handle numeric values'] = function()
   local Strings = require('ai.utils.strings')
-  local result = Strings.replace_placeholders('You have {{count}} messages', { count = 5 })
+  local result =
+    Strings.replace_placeholders('You have {{count}} messages', { count = 5 })
   eq(result, 'You have 5 messages')
 end
 
 T['replace_placeholders']['should handle repeated placeholders'] = function()
   local Strings = require('ai.utils.strings')
-  local result = Strings.replace_placeholders('{{word}} {{word}}', { word = 'echo' })
+  local result =
+    Strings.replace_placeholders('{{word}} {{word}}', { word = 'echo' })
   eq(result, 'echo echo')
 end
 
 T['replace_placeholders']['should not replace when no placeholders'] = function()
   local Strings = require('ai.utils.strings')
-  local result = Strings.replace_placeholders('No placeholders here', { foo = 'bar' })
+  local result =
+    Strings.replace_placeholders('No placeholders here', { foo = 'bar' })
   eq(result, 'No placeholders here')
 end
 
@@ -81,5 +91,62 @@ T['strip_ansi_codes']['should remove multiple ANSI codes'] = function()
   eq(result, 'Green and Blue')
 end
 
-return T
+T['flatten_lines'] = MiniTest.new_set()
 
+T['flatten_lines']['should flatten lines with newlines'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = { 'a', 'b\nc', 'd' }
+  local result = Strings.flatten_lines(input)
+  eq(result, { 'a', 'b', 'c', 'd' })
+end
+
+T['flatten_lines']['should handle empty input'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = {}
+  local result = Strings.flatten_lines(input)
+  eq(result, {})
+end
+
+T['flatten_lines']['should handle only empty strings'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = { '', '', '' }
+  local result = Strings.flatten_lines(input)
+  eq(result, { '', '', '' })
+end
+
+T['flatten_lines']['should handle strings with only newlines'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = { '\n', '\n\n', '' }
+  local result = Strings.flatten_lines(input)
+  eq(result, { '', '', '', '', '', '' })
+end
+
+T['flatten_lines']['should handle multiple consecutive newlines'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = { 'a\n\n\nb', 'c' }
+  local result = Strings.flatten_lines(input)
+  eq(result, { 'a', '', '', 'b', 'c' })
+end
+
+T['flatten_lines']['should handle input with no newlines'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = { 'a', 'b', 'c' }
+  local result = Strings.flatten_lines(input)
+  eq(result, { 'a', 'b', 'c' })
+end
+
+T['flatten_lines']['should handle numbers as input'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = { 1, '2\n3', 4 }
+  local result = Strings.flatten_lines(input)
+  eq(result, { '1', '2', '3', '4' })
+end
+
+T['flatten_lines']['should preserve leading and trailing newlines'] = function()
+  local Strings = require('ai.utils.strings')
+  local input = { '\na', 'b\n', '\nc\n' }
+  local result = Strings.flatten_lines(input)
+  eq(result, { '', 'a', 'b', '', '', 'c', '' })
+end
+
+return T

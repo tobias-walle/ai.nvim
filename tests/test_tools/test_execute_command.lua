@@ -31,10 +31,9 @@ T['ExecuteCommand']['render should show command and waiting if no result'] = fun
   local rendered = tool.render(tool_call)
   eq(rendered, {
     '`````bash',
-    'ls',
-    '`````',
-    '',
+    '> ls',
     '⏳ Running command...',
+    '`````',
   })
 end
 
@@ -46,11 +45,7 @@ T['ExecuteCommand']['render should show output if result present'] = function()
   local rendered = tool.render(tool_call, tool_call_result)
   eq(rendered, {
     '`````bash',
-    'echo hi',
-    '`````',
-    '',
-    'Output:',
-    '`````',
+    '> echo hi',
     'hi',
     '`````',
   })
@@ -63,11 +58,7 @@ T['ExecuteCommand']['render should show error if result has error'] = function()
   local rendered = tool.render(tool_call, tool_call_result)
   eq(rendered, {
     '`````bash',
-    'fail',
-    '`````',
-    '',
-    'Output:',
-    '`````',
+    '> fail',
     '❌ Error: fail',
     '`````',
   })

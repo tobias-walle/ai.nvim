@@ -31,4 +31,16 @@ function M.strip_ansi_codes(text)
   return result
 end
 
+---@param lines string[]
+---@return string[]
+function M.flatten_lines(lines)
+  local result = {}
+  for _, item in ipairs(lines) do
+    for _, line in ipairs(vim.split(tostring(item), '\n')) do
+      table.insert(result, line)
+    end
+  end
+  return result
+end
+
 return M

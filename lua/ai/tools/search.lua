@@ -64,10 +64,12 @@ function M.create_search_tool()
     render = function(tool_call, tool_call_result)
       local query = tool_call.params and tool_call.params.query or ''
       local path = tool_call.params and tool_call.params.path or '.'
-      local result = tool_call_result
-        and tool_call_result.result
-        and vim.json.decode(Messages.extract_text(tool_call_result.result))
-      if result then
+      local ok, result = pcall(function()
+        return tool_call_result
+          and tool_call_result.result
+          and vim.json.decode(Messages.extract_text(tool_call_result.result))
+      end)
+      if ok and result then
         local count = result.count or 0
         return {
           '🔍 Searched `'

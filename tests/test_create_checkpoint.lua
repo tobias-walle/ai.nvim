@@ -1,12 +1,12 @@
 local eq = MiniTest.expect.equality
 local Messages = require('ai.utils.messages')
-local Summarize = require('ai.tools.summarize_chat')
+local Summarize = require('ai.tools.create_checkpoint')
 
 local T = MiniTest.new_set()
 
-T['summarize_chat'] = MiniTest.new_set()
+T['create_checkpoint'] = MiniTest.new_set()
 
-T['summarize_chat']['should summarize simple chat'] = function()
+T['create_checkpoint']['should summarize simple chat'] = function()
   local called = false
   local tool = Summarize.create_complete_task_tool({
     on_summarization = function(result)

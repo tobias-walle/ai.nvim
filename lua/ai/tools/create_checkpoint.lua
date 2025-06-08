@@ -15,7 +15,7 @@ function M.create_complete_task_tool(opts)
   ---@type ai.ToolDefinition
   local tool = {
     definition = {
-      name = 'summarize_chat',
+      name = 'create_checkpoint',
       description = vim.trim([[
 Summarize the current chat history.
 Use this if it gets quite big and/or contains a lot of unrelated information.
@@ -52,9 +52,11 @@ Don't repeat the project rules!
           tasks = {
             type = 'string',
             description = vim.trim([[
-Tasks that are already done and tasks that remain. Treat this like a TODO list.
+Tasks that are already done and tasks that remain.
+Treat this like a TODO list.
 Extend or update this list, based on the new knowledge your are obtaining.
 Use this to keep track of the overreaching task at hand.
+Always start with task with `- [x]` if already completed or `- [ ]` if is still planned.
             ]]),
             example = vim.trim([[
 - [x] Documented the `@example/utils`

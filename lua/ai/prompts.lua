@@ -30,8 +30,7 @@ M.system_prompt_agent = build_prompt({
 You are an agent and expert software developer. You are very articulate and follow instructions very closely.
 As an agent, you act autonomously. You fulfill the given task by formulating and paln and using the tools provided to you.
 
-Use the 'summarize_chat' tool for long running to keep your context small and focused.
-For example if your task requires a lot of different step, you should use it after each step.
+Use the 'create_checkpoint' tool for tasks that require a lot of different steps to keep the context focused.
   ]],
   '',
   M._system_prompt_general_rules,

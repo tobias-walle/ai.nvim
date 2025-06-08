@@ -13,7 +13,7 @@ local Strings = require('ai.utils.strings')
 ---@field execute_command? boolean
 ---@field complete_task? boolean
 ---@field ask? boolean
----@field summarize_chat? boolean
+---@field create_checkpoint? boolean
 
 ---@class ai.AgentPanel.Options
 ---@field adapter ai.Adapter
@@ -123,10 +123,10 @@ function AgentPanel.new(opts)
       })
     )
   end
-  if not disable_tools.summarize_chat then
+  if not disable_tools.create_checkpoint then
     table.insert(
       tools,
-      require('ai.tools.summarize_chat').create_complete_task_tool({
+      require('ai.tools.create_checkpoint').create_complete_task_tool({
         on_summarization = function(result)
           local first_message = self.chat.messages[1]
           self.chat.messages = {

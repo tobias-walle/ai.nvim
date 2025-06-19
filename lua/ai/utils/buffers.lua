@@ -20,9 +20,15 @@ function M.get_bufnr(bufnr_or_file)
     return bufnr_or_file
   end
   local file = bufnr_or_file
-  local bufnr = vim.fn.bufnr(bufnr_or_file, true)
-  local filetype = vim.filetype.match({ filename = file }) or 'text'
-  vim.api.nvim_set_option_value('filetype', filetype, { buf = bufnr })
+  local bufnr = vim.fn.bufnr(file, true)
+  -- Ensure the buffer name is set
+  if vim.api.nvim_buf_get_name(bufnr) == '' then
+    vim.api.nvim_buf_set_name(bufnr, file)
+  end
+  -- Trigger filetype detection
+  vim.api.nvim_buf_call(bufnr, function()
+    vim.cmd('filetype detect')
+  end)
   return bufnr
 end
 

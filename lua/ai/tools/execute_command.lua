@@ -12,6 +12,8 @@ function M.create_execute_command_tool()
 Run a shell command using bash.
 Use this tool to execute CLI commands for tasks for which you don't have a specialized tool for.
 
+Never use this tool in parallel with other tools!
+
 You can expect all core utils to be installed. And other modern tools like `rg`, `fd`, etc.
 ]]),
       parameters = {

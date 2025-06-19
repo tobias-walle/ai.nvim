@@ -12,6 +12,8 @@ local Strings = require('ai.utils.strings')
 ---@field execute_code? boolean
 ---@field execute_command? boolean
 ---@field complete_task? boolean
+---@field subtasks_create? boolean
+---@field subtasks_complete? boolean
 ---@field ask? boolean
 
 ---@class ai.AgentPanel.Options
@@ -34,6 +36,7 @@ local Strings = require('ai.utils.strings')
 ---@field token_info_bufnr number
 ---@field token_info_win number
 ---@field token_info_ns number
+---@field subtasks ai.Subtask[]
 ---@field user_input? ai.AgentPanel.UserInput
 local AgentPanel = {}
 AgentPanel.__index = AgentPanel
@@ -54,6 +57,15 @@ function AgentPanel.new(opts)
 
   -- Render Layout
   self:_setup_layout()
+
+  -- Setup Subtasks
+  self.subtasks = {}
+  local get_subtasks = function()
+    return self.subtasks
+  end
+  local update_subtasks = function(subtasks)
+    self.subtasks = subtasks
+  end
 
   -- Setup Tools
   self.editor = Editor:new()
@@ -102,6 +114,24 @@ function AgentPanel.new(opts)
     table.insert(
       tools,
       require('ai.tools.execute_command').create_execute_command_tool()
+    )
+  end
+  if not disable_tools.subtasks_create then
+    table.insert(
+      tools,
+      require('ai.tools.subtasks_create').create_tool({
+        get_subtasks = get_subtasks,
+        update_subtasks = update_subtasks,
+      })
+    )
+  end
+  if not disable_tools.subtasks_complete then
+    table.insert(
+      tools,
+      require('ai.tools.subtasks_complete').create_tool({
+        get_subtasks = get_subtasks,
+        update_subtasks = update_subtasks,
+      })
     )
   end
   if not disable_tools.complete_task then

@@ -88,10 +88,11 @@ M.prompt_agent = vim.trim([[
 
 M.default_instructions = vim.trim([[
 - Fullfill the task given by the user.
-- Formulate a plan first, explain your intended changes and then use the right tools for the job.
+- Formulate a plan first, explain your intended changes and then use the `subtasks_create` tool to create a list of subtasks if more than one step is required.
 - If a `selection` was provided, focus your changes on that. Think why the user decided to include it for the task.
 - Only fix the `diagnostics` if explicitly instructed.
 - Always use the `ask` tool if you need more information or feedback from the user. Provide suggestions as `choices`.
+- After every step, make sure to use `subtasks_complete` to update and view your TODO list.
 ]])
 
 M.selection_only_instructions = vim.trim([[

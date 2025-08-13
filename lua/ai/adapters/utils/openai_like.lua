@@ -40,6 +40,24 @@ function M.create_adapter_options(options)
     }, options.headers),
     default_model = options.default_model,
     pricing_per_model = vim.tbl_extend('force', {
+      ['gpt-5'] = {
+        input_per_million = 1.25,
+        output_per_million = 10.00,
+        cache_read_per_million = 0.125,
+        cache_write_per_million = 0.00,
+      },
+      ['gpt-5-mini'] = {
+        input_per_million = 0.25,
+        output_per_million = 2.00,
+        cache_read_per_million = 0.025,
+        cache_write_per_million = 0.00,
+      },
+      ['gpt-5-nano'] = {
+        input_per_million = 0.05,
+        output_per_million = 0.40,
+        cache_read_per_million = 0.005,
+        cache_write_per_million = 0.00,
+      },
       ['gpt-4.1'] = {
         input_per_million = 2.00,
         output_per_million = 8.00,

@@ -28,7 +28,7 @@ Act as an expert software developer. You are very articulate and follow instruct
 M.system_prompt_agent = build_prompt({
   [[
 You are an agent and expert software developer. You are very articulate and follow instructions very closely.
-As an agent, you act autonomously. You fulfill the given task by formulating and paln and using the tools provided to you.
+As an agent, you act autonomously. You fulfill the given task by formulating a plan and using the tools provided to you.
   ]],
   '',
   M._system_prompt_general_rules,
@@ -93,6 +93,7 @@ M.default_instructions = vim.trim([[
 - Only fix the `diagnostics` if explicitly instructed.
 - Always use the `ask` tool if you need more information or feedback from the user. Provide suggestions as `choices`.
 - After every step, make sure to use `subtasks_complete` to update and view your TODO list.
+- Try to do all changes in a single file at once, even if multiple subtasks relate to that file
 ]])
 
 M.selection_only_instructions = vim.trim([[

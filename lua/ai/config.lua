@@ -88,6 +88,12 @@ Config.default_config = {
         temperature = 1,
       },
     },
+    ['.*:gpt%-5.*'] = {
+      request = {
+        temperature = 1,
+        reasoning_effort = 'minimal',
+      },
+    },
   },
   -- You can add custom adapters if you are missing a LLM provider.
   adapters = {

@@ -17,7 +17,7 @@ prepare:
 
 # Run all test files
 test:
-    nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
+    nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "luafile scripts/test_unit.lua"
 
 # Run all test files, but update all screenshots
 test-update:
@@ -29,4 +29,8 @@ test-file FILE:
 
 # Run test a single test file, but update all screenshots
 test-file-update FILE:
-  UPDATE_SCREENSHOTS=true just test_file "{{FILE}}"
+  UPDATE_SCREENSHOTS=true just test-file "{{FILE}}"
+
+# Run integration tests against real APIs. Use --debug to enable verbose logging.
+test-api *ARGS:
+    @DEBUG={{ if ARGS =~ "--debug" { "true" } else { "" } }} nvim --headless --noplugin -u ./scripts/minimal_init.lua -l tests_api/run_all.lua

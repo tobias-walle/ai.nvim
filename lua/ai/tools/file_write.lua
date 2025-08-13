@@ -49,20 +49,7 @@ Use this tool if you need to create new files or are sure you want to override a
         bufnr = file,
         patch = content,
       })
-      editor:subscribe(bufnr, function(job)
-        if job.diffview_result then
-          if job.diffview_result.result == 'ACCEPTED' then
-            callback({
-              result = 'The change was accepted. The file now contains the suggested changes.',
-            })
-          elseif job.diffview_result.result == 'REJECTED' then
-            callback({
-              result = 'REJECTED by the user. Try again and strongly consider the reason for the rejection: '
-                .. (job.diffview_result.reason or 'Reason not defined'),
-            })
-          end
-        end
-      end)
+      require('ai.utils.tools').handle_editor_result(editor, bufnr, callback)
     end,
     render = function(tool_call)
       local file = tool_call.params and tool_call.params.file or ''

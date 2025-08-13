@@ -20,13 +20,13 @@ local Lists = require('ai.utils.lists')
 ---@field result string
 ---@field is_completed boolean
 ---@field diffview_result? ai.DiffviewResult
+---@field diffview? ai.RenderDiffView
 ---@field retry fun()
 ---@field cancel fun()
 
 ---@class ai.Editor
 ---@field job_by_bufnr table<number, ai.Editor.Job>
 ---@field event_emitters_by_bufnr table<number, ai.EventEmitter<ai.Editor.Job>>
----@field diffviews_by_bufnr table<number, ai.RenderDiffView>
 local Editor = {}
 Editor.__index = Editor
 
@@ -35,7 +35,6 @@ function Editor:new()
   local instance = setmetatable({}, self)
   instance.job_by_bufnr = {}
   instance.event_emitters_by_bufnr = {}
-  instance.diffviews_by_bufnr = {}
   return instance
 end
 
@@ -242,13 +241,12 @@ function Editor:open_diff_view(bufnr, callback)
       if callback then
         callback(result)
       end
-      self.diffviews_by_bufnr[bufnr] = nil
       self:_clear_event_emitter(bufnr)
     end,
   })
 
   -- Store the diffview references
-  self.diffviews_by_bufnr[bufnr] = diffview
+  job.diffview = diffview
   vim.api.nvim_set_option_value('foldlevel', 0, { win = diffview.win })
 
   self:subscribe(bufnr, function(update)
@@ -271,18 +269,19 @@ end
 ---@param self ai.Editor
 ---@param bufnr number
 function Editor:close_diffview(bufnr)
-  local diffview = self.diffviews_by_bufnr[bufnr]
+  local job = self.job_by_bufnr[bufnr]
+  local diffview = job and job.diffview
   if not diffview then
     return
   end
   self:_clear_event_emitter(bufnr)
   diffview.close()
-  self.diffviews_by_bufnr[bufnr] = nil
+  job.diffview = nil
 end
 
 ---@param self ai.Editor
 function Editor:close_all_diffviews()
-  for bufnr, _ in pairs(self.diffviews_by_bufnr) do
+  for bufnr, _ in pairs(self.job_by_bufnr) do
     self:close_diffview(bufnr)
   end
 end

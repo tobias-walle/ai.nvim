@@ -222,20 +222,19 @@ function AgentPanel:_setup_layout()
 end
 
 function AgentPanel:_setup_chat()
-  self.chat_bufnr = vim.api.nvim_create_buf(false, true)
+  local ai_buf = Buffers.find_buf_by_name('AI')
+  if ai_buf and vim.api.nvim_buf_is_valid(ai_buf) then
+    vim.api.nvim_buf_delete(ai_buf, { force = true })
+  end
+  vim.cmd('tabnew')
+  self.chat_win = vim.api.nvim_get_current_win()
+  self.chat_bufnr = vim.api.nvim_get_current_buf()
   vim.api.nvim_set_option_value(
     'filetype',
     'markdown',
     { buf = self.chat_bufnr }
   )
-  vim.cmd('tabnew')
-  local ai_buf = Buffers.find_buf_by_name('AI')
-  if ai_buf and vim.api.nvim_buf_is_valid(ai_buf) then
-    vim.api.nvim_buf_delete(ai_buf, { force = true })
-  end
-  vim.api.nvim_set_current_buf(self.chat_bufnr)
   vim.api.nvim_buf_set_name(self.chat_bufnr, 'AI')
-  self.chat_win = vim.api.nvim_get_current_win()
   vim.api.nvim_set_option_value('wrap', true, { win = self.chat_win })
 end
 

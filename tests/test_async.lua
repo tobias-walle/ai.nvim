@@ -104,7 +104,11 @@ T['should run cli command and output to new buffer'] = function()
 
   eq(buffer_content, 'Hello from the CLI :)\n')
   eq(child.lua_get('result'), 'DONE')
-  expect.reference_screenshot(child.get_screenshot())
+  expect.reference_screenshot(
+    child.get_screenshot(),
+    nil,
+    { force = os.getenv('UPDATE_SCREENSHOTS') == 'true' }
+  )
 end
 
 return T

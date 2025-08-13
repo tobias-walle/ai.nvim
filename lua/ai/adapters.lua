@@ -49,6 +49,7 @@ local Json = require('ai.utils.json')
 ---@field messages AdapterMessage[]
 ---@field prediction AdapterPrediction
 ---@field system_prompt? string
+---@field reasoning_effort? string
 ---@field max_tokens? integer
 ---@field temperature? number
 ---@field tools? Tool[] List of tools that can be used by the model

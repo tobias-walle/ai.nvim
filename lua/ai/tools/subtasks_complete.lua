@@ -2,6 +2,8 @@ local M = {}
 
 local Messages = require('ai.utils.messages')
 
+local render_subtasks = require('ai.tools.subtasks_create').render_subtasks
+
 ---@class ai.SubtaskCompleteTool.Result
 ---@field id string
 
@@ -53,10 +55,7 @@ function M.create_tool(opts)
       end
       opts.update_subtasks(subtasks)
       local result = 'Updated Subtasks:\n'
-        .. table.concat(
-          require('ai.tools.subtask_create').render_subtasks(subtasks),
-          '\n'
-        )
+        .. table.concat(render_subtasks(subtasks), '\n')
       if #not_found > 0 then
         result = result
           .. '\nSubtasks not found: '
@@ -66,7 +65,7 @@ function M.create_tool(opts)
     end,
     render = function()
       local subtasks = opts.get_subtasks()
-      return require('ai.tools.subtask_create').render_subtasks(subtasks)
+      return render_subtasks(subtasks)
     end,
   }
   return tool

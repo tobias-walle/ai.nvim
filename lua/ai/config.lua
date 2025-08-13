@@ -75,7 +75,7 @@ Config.default_config = {
       thinking = 'openai:o4-mini',
     },
     {
-      default = 'openai:gpt-4.1',
+      default = 'openai:gpt-5',
       mini = 'openai:gpt-4.1-mini',
       nano = 'openai:gpt-4.1-nano',
       thinking = 'openai:o4-mini',
@@ -91,7 +91,9 @@ Config.default_config = {
     ['.*:gpt%-5.*'] = {
       request = {
         temperature = 1,
-        reasoning_effort = 'minimal',
+        reasoning = {
+          effort = 'minimal',
+        },
       },
     },
   },

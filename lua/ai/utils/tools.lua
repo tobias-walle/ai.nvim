@@ -43,4 +43,26 @@ function M.find_tool_definition(tools, name)
   end)
 end
 
+---@param editor ai.Editor
+---@param bufnr number
+---@param callback fun(result: ai.ToolDefinition.ExcutionResult)
+function M.handle_editor_result(editor, bufnr, callback)
+  editor:subscribe(bufnr, function(job)
+    if job.diffview_result then
+      if job.diffview_result.result == 'ACCEPTED' then
+        local message =
+          'The change was accepted. The file now contains the suggested changes.'
+        callback({
+          result = message,
+        })
+      elseif job.diffview_result.result == 'REJECTED' then
+        callback({
+          result = 'REJECTED by the user. Try again and strongly consider the reason for the rejection: '
+            .. (job.diffview_result.reason or 'Reason not defined'),
+        })
+      end
+    end
+  end)
+end
+
 return M

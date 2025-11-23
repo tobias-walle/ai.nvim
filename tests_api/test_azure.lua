@@ -5,7 +5,7 @@ return function()
   if
     not test_utils.check_env_vars(
       'Azure API',
-      { 'AZURE_API_BASE', 'AZURE_API_VERSION', 'AZURE_API_KEY' }
+      { 'AZURE_API_BASE', 'AZURE_API_KEY' }
     )
   then
     return

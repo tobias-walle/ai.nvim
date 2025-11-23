@@ -62,6 +62,10 @@ Tests are located in `tests/` (unit) and `tests_api/` (integration).
     ```sh
     just test-api --debug
     ```
+    Use `--only` to run only some tests (e.g. for debugging):
+    ```sh
+    just test-api --only azure,anthropic
+    ```
 *   **Update screenshots (for tests involving UI):**
     ```sh
     just test-update

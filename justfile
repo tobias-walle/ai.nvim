@@ -33,4 +33,4 @@ test-file-update FILE:
 
 # Run integration tests against real APIs. Use --debug to enable verbose logging.
 test-api *ARGS:
-    @DEBUG={{ if ARGS =~ "--debug" { "true" } else { "" } }} nvim --headless --noplugin -u ./scripts/minimal_init.lua -l tests_api/run_all.lua
+    @DEBUG={{ if ARGS =~ "--debug" { "true" } else { "" } }} nvim --headless --noplugin -u ./scripts/minimal_init.lua -l tests_api/run_all.lua {{ARGS}}

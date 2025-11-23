@@ -88,11 +88,19 @@ Config.default_config = {
         temperature = 1,
       },
     },
-    ['.*:gpt%-5.*'] = {
+    ['.*:gpt%-5'] = {
       request = {
         temperature = 1,
         reasoning = {
           effort = 'minimal',
+        },
+      },
+    },
+    ['.*:gpt%-5%.1.*'] = {
+      request = {
+        temperature = 1,
+        reasoning = {
+          effort = 'none',
         },
       },
     },

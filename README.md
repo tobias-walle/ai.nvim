@@ -5,13 +5,14 @@
 > It is very likely that I will add breaking changes in the future.
 > I do not recommend using it (yet).
 
-Neovim plugin to integrate LLMs for powerful code autocompletion and command-driven code manipulation.
+Neovim plugin to integrate LLMs for powerful code autocompletion, command-driven code manipulation, and an agent-style chat panel with tools.
 
 Features:
 
 - [Autocomplete sections of your code](#autocompletion)
 - [Execute AI-powered commands on your code](#commands)
-- Configurable LLM Providers (Use OpenAI, Anthropic, Azure, Ollama, or whatever you prefer).
+- [Agent Mode chat panel](#agent-mode) with tool use (file read/write, search, task completion, ask)
+- Configurable LLM Providers (OpenAI, Anthropic, Azure, Ollama, OpenRouter)
 
 This plugin is greatly inspired by the following tools:
 
@@ -33,20 +34,19 @@ Using [lazy.nvim](https://lazy.folke.io/):
   keys = {
     { '<C-x>', function() require('ai').trigger_completion() end, mode = 'i', desc = 'Trigger AI Completion' },
     { '<Leader>ar', '<cmd>AiRewrite<cr>', mode = 'v', desc = 'Rewrite selected text' },
+    { '<Leader>aa', '<cmd>AiAgent<cr>', mode = 'n', desc = 'Open AI Agent panel' },
     { '<Leader>am', '<cmd>AiChangeModels<cr>', mode = 'n', desc = 'Change AI models' },
   }
 }
 ```
 
-Please set up the following environment variables, depending on which model or feature you want to use:
+Please set up the following environment variables, depending on which provider you want to use:
 
-- `OPENAI_API_KEY`: API key for OpenAI if you want to use their models.
-- `ANTHROPIC_API_KEY`: API key for Anthropic if you want to use their models.
-- `OPENROUTER_API_KEY`: API key for OpenRouter if you want to use their models.
-- `PERPLEXITY_API_KEY`: API key for Perplexity.
-- `AZURE_API_BASE`: Base URL for the Azure API if you want to use Azure models. (Note: The model name will be used for the deployment)
-- `AZURE_API_VERSION`: API version for the Azure API.
-- `AZURE_API_KEY`: API key for the Azure API.
+- `OPENAI_API_KEY`: API key for OpenAI.
+- `ANTHROPIC_API_KEY`: API key for Anthropic.
+- `OPENROUTER_API_KEY`: API key for OpenRouter.
+- `AZURE_API_BASE`: Base URL for the Azure API (the model name corresponds to your deployment name).
+- `AZURE_API_KEY`: API key for Azure. The adapter uses `api-version=preview`.
 
 ## Configuration
 
@@ -59,15 +59,15 @@ You can find the default configuration here [lua/ai/config.lua](./lua/ai/config.
 -- Note: This is the default config. It is not recommended to copy all these settings if you don't need to change them.
 require('ai').setup({
   -- The model that is used per default.
-  -- The "mini" model is used for tasks which might use a lot of tokens or in which speed is especially important.
-  -- You can customize which model should be used for which task in the "command" or "completion" settings.
+  -- The "mini" model is used for tasks which might use a lot of tokens or where speed is important.
+  -- You can customize which model should be used for each task in the "chat", "command" or "completion" settings.
   default_models = {
     default = 'anthropic:claude-3-7-sonnet-latest',
     mini = 'anthropic:claude-3-5-haiku-latest',
     nano = 'openai:gpt-4.1-nano',
     thinking = 'openai:o4-mini',
   },
-  -- A list of model that can be easily switched between (using :AiChangeModels)
+  -- A list of models that can be easily switched between (using :AiChangeModels)
   selectable_models = {
     {
       default = 'anthropic:claude-3-7-sonnet-latest',
@@ -76,7 +76,7 @@ require('ai').setup({
       thinking = 'openai:o4-mini',
     },
     {
-      default = 'openai:gpt-4.1',
+      default = 'openai:gpt-5',
       mini = 'openai:gpt-4.1-mini',
       nano = 'openai:gpt-4.1-nano',
       thinking = 'openai:o4-mini',
@@ -85,12 +85,16 @@ require('ai').setup({
   -- Special request options for specific models
   model_overrides = {
     ['.*:o4%-mini'] = {
-      request = {
-        temperature = 1,
-      },
+      request = { temperature = 1 },
+    },
+    ['.*:gpt%-5$'] = {
+      request = { temperature = 1, reasoning = { effort = 'minimal' } },
+    },
+    ['.*:gpt%-5%.1.*'] = {
+      request = { temperature = 1, reasoning = { effort = 'none' } },
     },
   },
-  -- You can add custom adapters if you are missing a LLM provider.
+  -- LLM provider adapters
   adapters = {
     anthropic = require('ai.adapters.anthropic'),
     azure = require('ai.adapters.azure'),
@@ -99,18 +103,12 @@ require('ai').setup({
     openrouter = require('ai.adapters.openrouter'),
   },
   -- Customize which model is used for which task
-  -- You can pass the model name directly (like "openai:gpt-4o") or refer to one of the default models.
-  command = {
-    model = 'default',
-  },
-  completion = {
-    model = 'default',
-  },
-  -- ai.nvim is looking for a rules file at the root of your project and will load it into each prompt.
-  -- You can use it to define the code style or other information that could be improving the output of the tasks.
-  -- You can now provide a list of files or folders. If a folder is given, all markdown files in it will be loaded and combined.
-  rules_file = { '.ai-rules.md', '.ai/rules', '.ai/rules/' },
-  -- The data dir is used to save cached data
+  chat = { model = 'default' },
+  completion = { model = 'default' },
+  -- ai.nvim can load project rules and include them in prompts.
+  -- You can provide a file or folder(s). If a folder is given, all markdown files in it will be loaded and combined.
+  rules_file = { '.ai/rules', '.ai-rules.md', '.roo/rules' },
+  -- The data dir is used to save cached data (like the chat history)
   data_dir = vim.fn.stdpath('data') .. '/ai',
   -- Override the keymaps used by the plugin
   mappings = {
@@ -119,9 +117,20 @@ require('ai').setup({
       next_suggestion = '<C-n>',
       next_suggestion_with_prompt = '<S-C-n>',
     },
+    chat = {
+      submit = '<CR>',
+      new_chat = '<LocalLeader>x',
+      goto_prev_chat = '<LocalLeader>p',
+      goto_next_chat = '<LocalLeader>n',
+      goto_chat_with_telescope = '<LocalLeader>s',
+      delete_previous_msg = '<LocalLeader>d',
+      copy_last_code_block = '<LocalLeader>y',
+    },
     buffers = {
       accept_suggestion = '<LocalLeader>a',
+      accept_suggestion_and_exit = '<LocalLeader>A',
       cancel = '<LocalLeader>q',
+      cancel_and_exit = '<LocalLeader>Q',
       retry = '<LocalLeader>r',
     },
   },
@@ -139,10 +148,10 @@ If not, you can get another suggestion with `<C-n>` or provide a custom prompt f
 
 ### Commands
 
-The plugin provides several commands (e.g., `:AiRewrite`, `:AiFix`) to interact with the AI. These commands can operate on a visual selection or the entire file. You can provide instructions directly as arguments to the command (e.g., `:AiRewrite <your prompt>`) or, if no arguments are given, an input prompt will appear.
+The plugin provides several commands (e.g., `:AiRewrite`, `:AiFix`, `:AiAgent`) to interact with the AI. These commands can operate on a visual selection or the entire file. You can provide instructions directly as arguments to the command (e.g., `:AiRewrite <your prompt>`) or, if no arguments are given, an input prompt will appear.
 
 The changes will be displayed in a diff.
-You can accept them with `<LocalLeader>a` or reject them with `<LocalLeader>r`
+You can accept them with `<LocalLeader>a` or `<LocalLeader>A` and reject them with `<LocalLeader>q` or `<LocalLeader>Q`.
 (I personally have mapped localleader to `,` with `vim.g.maplocalleader = ','`).
 You can change these mappings in the config.
 
@@ -153,6 +162,15 @@ Available commands:
 - `:AiSpellCheck` - Fixes grammar and spelling errors in the selection using predefined instructions.
 - `:AiTranslate` - Translates the selection to English using predefined instructions. For other languages, use `:AiRewrite` with a specific translation prompt (e.g., `:AiRewrite translate this to German`).
 - `:AiFix` - Attempts to fix bugs in the selection or file using predefined instructions and adds comments explaining the reasoning.
+- `:AiAgent` - Opens the agent panel for a guided chat with tool usage (file read/write/update, search, completion, ask). The agent can apply changes via diff views.
+- `:AiChangeModels` - Switches the current default model set (default/mini/nano/thinking) via a selection UI.
+
+### Agent Mode
+
+Open the agent panel with `:AiAgent` (see installation example for a suggested keymap).
+- Runs a chat with your configured model and uses tools to read/search files and apply changes.
+- Shows token usage and streams responses.
+- When the agent proposes changes, diff views open; accept with `<LocalLeader>a` or `<LocalLeader>A`, cancel with `<LocalLeader>q` or `<LocalLeader>Q`.
 
 ## Similar Plugins
 
@@ -170,4 +188,7 @@ To run the tests:
 
 1. Make sure you have [just](https://github.com/casey/just) installed.
 2. Download the required dependencies with `just prepare` (This includes [mini.test](https://github.com/echasnovski/mini.nvim/blob/main/TESTING.md)).
-3. Run the tests with `just test` OR run the tests of a single file with `just test_file FILE`.
+3. Run all unit tests with `just test`.
+4. Run a single test file with `just test-file FILE`.
+5. Update screenshots for UI tests with `just test-update`.
+6. Run API integration tests with `just test-api` (use `--debug` for verbose logging).

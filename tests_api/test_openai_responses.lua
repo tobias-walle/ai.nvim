@@ -1,9 +1,11 @@
-package.path = package.path .. ";./tests_api/?.lua"
+package.path = package.path .. ';./tests_api/?.lua'
 local test_utils = require('test_utils')
 local openai_like = require('ai.adapters.utils.openai_like')
 
 return function()
-  if not test_utils.check_env_vars('OpenAI Responses API', { 'OPENAI_API_KEY' }) then
+  if
+    not test_utils.check_env_vars('OpenAI Responses API', { 'OPENAI_API_KEY' })
+  then
     return
   end
 

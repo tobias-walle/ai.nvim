@@ -94,8 +94,6 @@ local function execute_ai_command(definition, opts, task)
       selection_write = not definition.only_replace_selection,
       file_write = definition.only_replace_selection,
       file_update = definition.only_replace_selection,
-      subtasks_create = definition.only_replace_selection,
-      subtasks_complete = definition.only_replace_selection,
     },
   })
   agent:send(prompt)

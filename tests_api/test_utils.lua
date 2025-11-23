@@ -277,6 +277,31 @@ function M.run_common_tests(adapter_name, adapter_options)
     expect(result.error).to_be_nil()
   end)
 
+  local structured_request = {
+    messages = {
+      {
+        role = 'user',
+        content = {
+          { type = 'text', text = 'Say hello.' },
+        },
+      },
+    },
+    system_prompt = 'You are a helpful AI assistant.',
+    temperature = 0.5,
+    max_tokens = 50,
+  }
+
+  M.run_test(
+    'Structured Content',
+    adapter_options,
+    structured_request,
+    function(result)
+      expect(result.success).eq(true)
+      expect(result.response).to_be_truthy()
+      expect(result.error).to_be_nil()
+    end
+  )
+
   local tool_request = vim.tbl_extend('force', default_request, {
     messages = { { role = 'user', content = 'Echo "Hello Tool!"' } },
     tools = { MOCK_TOOL },
@@ -299,6 +324,63 @@ function M.run_common_tests(adapter_name, adapter_options)
       error("Expected tool 'echo', got " .. tostring(tool_call.tool))
     end
   end)
+
+  local multiturn_request = vim.tbl_extend('force', default_request, {
+    messages = {
+      { role = 'user', content = 'Hello' },
+      { role = 'assistant', content = 'Hi there!' },
+      { role = 'user', content = 'Repeat your last message.' },
+    },
+  })
+
+  M.run_test(
+    'Multi-turn Chat',
+    adapter_options,
+    multiturn_request,
+    function(result)
+      expect(result.success).eq(true)
+      expect(result.response).to_be_truthy()
+      expect(result.error).to_be_nil()
+    end
+  )
+
+  local tool_response_request = vim.tbl_extend('force', default_request, {
+    messages = {
+      { role = 'user', content = 'Echo "test"' },
+      {
+        role = 'assistant',
+        content = '',
+        tool_calls = {
+          {
+            id = 'call_123',
+            tool = 'echo',
+            params = { text = 'test' },
+          },
+        },
+      },
+      {
+        role = 'tool',
+        tool_call_results = {
+          {
+            id = 'call_123',
+            result = 'Echoed: test',
+          },
+        },
+      },
+    },
+    tools = { MOCK_TOOL },
+  })
+
+  M.run_test(
+    'Tool Response',
+    adapter_options,
+    tool_response_request,
+    function(result)
+      expect(result.success).eq(true)
+      expect(result.response).to_be_truthy()
+      expect(result.error).to_be_nil()
+    end
+  )
 end
 
 function M.print_summary()

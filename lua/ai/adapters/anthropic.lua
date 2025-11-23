@@ -57,10 +57,8 @@ local options = {
   url = 'https://api.anthropic.com/v1/messages',
   headers = {
     ['x-api-key'] = os.getenv('ANTHROPIC_API_KEY'),
-    ['anthropic-version'] = '2023-06-01',
-    ['anthropic-beta'] = 'prompt-caching-2024-07-31',
   },
-  default_model = 'claude-3-7-sonnet-latest',
+  default_model = 'claude-sonnet-4-5-latest',
   handlers = {
     create_request_body = function(request)
       local messages = {}
